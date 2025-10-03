@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # EV Market - Nền tảng giao dịch xe điện & pin số 1 Việt Nam
 
 ## Giới thiệu
@@ -230,3 +231,7 @@ Nếu có vấn đề hoặc câu hỏi, vui lòng liên hệ qua email hoặc t
 ---
 
 **Developed with ❤️ for EV Market Vietnam**
+=======
+# SWP391_Topic2_Frontend_ver2
+SWP391_Topic2_Frontend_ver2
+>>>>>>> 271beeb6f371ab15d1813af9cc1c517a6209f200
