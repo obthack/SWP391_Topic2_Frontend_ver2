@@ -48,8 +48,7 @@ export const RegisterForm = () => {
         formData.email,
         formData.password,
         formData.fullName,
-        formData.phone,
-        "" // avatar mặc định rỗng
+        formData.phone
       );
       navigate("/dashboard");
     } catch (err) {

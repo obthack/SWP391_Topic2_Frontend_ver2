@@ -37,7 +37,7 @@ export const AuthProvider = ({ children }) => {
     return null;
   };
 
-  const signUp = async (email, password, fullName, phone = "", avatar = "") => {
+  const signUp = async (email, password, fullName, phone = "") => {
     const data = await apiRequest("/api/User/register", {
       method: "POST",
       body: {
@@ -45,7 +45,6 @@ export const AuthProvider = ({ children }) => {
         password,
         fullName,
         phone,
-        avatar,
       },
     });
 
