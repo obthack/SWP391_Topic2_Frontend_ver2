@@ -1,12 +1,13 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Upload, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { apiRequest } from "../lib/api";
 
-export const CreateListing = () => {
+export const EditListing = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { id } = useParams();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [images, setImages] = useState([]);
@@ -25,8 +26,38 @@ export const CreateListing = () => {
     location: "",
     contactPhone: "",
     contactEmail: user?.email || "",
-    productType: "vehicle", // Default to vehicle for electric cars
+    productType: "vehicle",
   });
+
+  useEffect(() => {
+    loadListing();
+  }, [id]);
+
+  const loadListing = async () => {
+    try {
+      const data = await apiRequest(`/api/Product/${id}`);
+      setFormData({
+        title: data.title || "",
+        description: data.description || "",
+        brand: data.brand || "",
+        model: data.model || "",
+        year: data.year || "",
+        price: data.price || "",
+        mileage: data.mileage || "",
+        color: data.color || "",
+        fuelType: data.fuelType || "",
+        transmission: data.transmission || "",
+        condition: data.condition || "excellent",
+        location: data.location || "",
+        contactPhone: data.contactPhone || "",
+        contactEmail: data.contactEmail || user?.email || "",
+        productType: data.productType || "vehicle",
+      });
+    } catch (error) {
+      console.error("Error loading listing:", error);
+      setError("Không thể tải thông tin bài đăng");
+    }
+  };
 
   const handleChange = (e) => {
     setFormData({
@@ -37,7 +68,7 @@ export const CreateListing = () => {
 
   const handleImageUpload = (e) => {
     const files = Array.from(e.target.files);
-    const newImages = files.slice(0, 5 - images.length); // Max 5 images
+    const newImages = files.slice(0, 5 - images.length);
     setImages([...images, ...newImages]);
   };
 
@@ -51,7 +82,6 @@ export const CreateListing = () => {
     setLoading(true);
 
     try {
-      // Upload images first (you'll need to implement image upload API)
       const imageUrls = []; // For now, we'll skip image upload
 
       const productData = {
@@ -69,30 +99,27 @@ export const CreateListing = () => {
         location: formData.location,
         contactPhone: formData.contactPhone,
         contactEmail: formData.contactEmail,
-        productType: formData.productType, // Required field
-        status: "pending", // Always pending for admin approval
-        sellerId: user?.id || user?.accountId || user?.userId || 1, // Fallback to 1 for testing
+        productType: formData.productType,
+        status: "pending", // Reset to pending after edit
+        sellerId: user?.id || user?.accountId || user?.userId || 1,
         images: imageUrls,
-        // Add more fields that might be required by backend
         isActive: true,
-        createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
 
-      console.log("User object:", user);
-      console.log("Sending product data:", productData);
+      console.log("Updating product data:", productData);
 
-      await apiRequest("/api/Product", {
-        method: "POST",
+      await apiRequest(`/api/Product/${id}`, {
+        method: "PUT",
         body: productData,
       });
 
-      navigate("/dashboard?success=listing_created");
+      navigate("/my-listings?success=listing_updated");
     } catch (err) {
-      console.error("Error creating product:", err);
+      console.error("Error updating product:", err);
       console.error("Error details:", err.data);
 
-      let errorMessage = "Có lỗi xảy ra khi tạo bài đăng";
+      let errorMessage = "Có lỗi xảy ra khi cập nhật bài đăng";
 
       if (err.data) {
         if (typeof err.data === "string") {
@@ -124,8 +151,8 @@ export const CreateListing = () => {
             <ArrowLeft className="h-5 w-5 mr-2" />
             Quay lại
           </button>
-          <h1 className="text-3xl font-bold text-gray-900">Đăng tin mới</h1>
-          <p className="text-gray-600 mt-2">Tạo bài đăng xe điện của bạn</p>
+          <h1 className="text-3xl font-bold text-gray-900">Chỉnh sửa tin đăng</h1>
+          <p className="text-gray-600 mt-2">Cập nhật thông tin bài đăng của bạn</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-8">
@@ -401,56 +428,6 @@ export const CreateListing = () => {
             </div>
           </div>
 
-          {/* Image Upload */}
-          <div className="bg-white rounded-xl shadow-sm p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">
-              Hình ảnh (Tối đa 5 ảnh)
-            </h2>
-            <div className="space-y-4">
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600 mb-4">
-                  Kéo thả ảnh vào đây hoặc click để chọn
-                </p>
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                  id="image-upload"
-                />
-                <label
-                  htmlFor="image-upload"
-                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 cursor-pointer"
-                >
-                  Chọn ảnh
-                </label>
-              </div>
-
-              {images.length > 0 && (
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                  {images.map((image, index) => (
-                    <div key={index} className="relative">
-                      <img
-                        src={URL.createObjectURL(image)}
-                        alt={`Preview ${index + 1}`}
-                        className="w-full h-24 object-cover rounded-lg"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeImage(index)}
-                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
           {/* Submit Button */}
           <div className="flex justify-end space-x-4">
             <button
@@ -465,7 +442,7 @@ export const CreateListing = () => {
               disabled={loading}
               className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? "Đang tạo..." : "Tạo bài đăng"}
+              {loading ? "Đang cập nhật..." : "Cập nhật bài đăng"}
             </button>
           </div>
         </form>

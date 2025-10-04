@@ -72,11 +72,15 @@ export const AuthProvider = ({ children }) => {
       body: { email, password },
     });
 
+    console.log("Backend login response:", data);
+
     const session = {
       token: data?.token || data?.accessToken || null,
-      user: data?.user || { email },
+      user: data?.user || data || { email }, // Fallback to full data if no user object
       profile: data?.profile || null,
     };
+
+    console.log("Session object:", session);
 
     localStorage.setItem("evtb_auth", JSON.stringify(session));
     setUser(session.user);

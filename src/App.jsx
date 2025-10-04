@@ -6,6 +6,7 @@ import { HomePage } from './pages/HomePage';
 import { Dashboard } from './pages/Dashboard';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { CreateListing } from './pages/CreateListing';
+import { EditListing } from './pages/EditListing';
 import { MyListings } from './pages/MyListings';
 import { LoginForm } from './components/auth/LoginForm';
 import { RegisterForm } from './components/auth/RegisterForm';
@@ -77,6 +78,15 @@ const AppContent = () => {
             element={
               <ProtectedRoute>
                 <MyListings />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/listing/:id/edit"
+            element={
+              <ProtectedRoute>
+                <EditListing />
               </ProtectedRoute>
             }
           />

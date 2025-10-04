@@ -27,7 +27,9 @@ export const Dashboard = () => {
     try {
       // Get user's listings from backend API
       const listings = await apiRequest(
-        `/api/Product/seller/${user?.accountId || user?.id}`
+        `/api/Product/seller/${
+          user?.id || user?.accountId || user?.userId || 1
+        }`
       );
 
       const total = listings?.length || 0;
