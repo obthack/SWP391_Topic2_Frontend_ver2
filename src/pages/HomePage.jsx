@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Zap, Shield, TrendingUp, CheckCircle } from 'lucide-react';
-import { supabase } from '../lib/supabase';
-import { ProductCard } from '../components/common/ProductCard';
+import { apiRequest } from '../lib/api';
+import { ProductCard } from '../components/molecules/ProductCard';
 
 export const HomePage = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -10,6 +10,7 @@ export const HomePage = () => {
   const [location, setLocation] = useState('');
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [featuredError, setFeaturedError] = useState('');
 
   useEffect(() => {
     loadFeaturedProducts();
@@ -17,17 +18,29 @@ export const HomePage = () => {
 
   const loadFeaturedProducts = async () => {
     try {
-      const { data, error } = await supabase
-        .from('listings')
-        .select('*')
-        .eq('status', 'approved')
-        .order('created_at', { ascending: false })
-        .limit(8);
-
-      if (error) throw error;
-      setFeaturedProducts(data || []);
-    } catch (error) {
-      console.error('Error loading featured products:', error);
+      try {
+        const data = await apiRequest('/api/Product?status=approved&take=8');
+        const list = Array.isArray(data) ? data : (data?.items || []);
+        setFeaturedProducts(list.filter((x)=> String(x.status||x.Status).toLowerCase()==='approved'));
+      } catch (e1) {
+        const data2 = await apiRequest('/api/Product');
+        const list2 = Array.isArray(data2) ? data2 : (data2?.items || []);
+        setFeaturedProducts(list2.filter((x)=> String(x.status||x.Status).toLowerCase()==='approved').slice(0,8));
+      }
+    } catch (err) {
+      console.error('Error loading featured products:', err);
+      setFeaturedProducts([]);
+      setFeaturedError(err.message || String(err));
+      try {
+        // Expose a helpful debug object for the developer console (non-sensitive)
+        window.__EVTB_LAST_ERROR = window.__EVTB_LAST_ERROR || {};
+        window.__EVTB_LAST_ERROR.loadFeaturedProducts = {
+          message: err.message || String(err),
+          stack: err.stack || null,
+        };
+      } catch (e) {
+        // ignore
+      }
     } finally {
       setLoading(false);
     }
@@ -194,7 +207,7 @@ export const HomePage = () => {
                 <Zap className="h-8 w-8 text-blue-600" />
               </div>
               <h3 className="text-lg font-semibold mb-2">Hỗ trợ 24/7</h3>
-              <p className="text-gray-600">Đội ngũ hỗ trợ sẵn sàng giải đáp mọi thắc mắc</p>
+              <p className="text-gray-600">Đội ngũ hỗ trợ sẵn sàng giải ��áp mọi thắc mắc</p>
             </div>
           </div>
         </div>

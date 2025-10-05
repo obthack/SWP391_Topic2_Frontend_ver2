@@ -54,39 +54,38 @@ export const CreateListing = () => {
       // Upload images first (you'll need to implement image upload API)
       const imageUrls = []; // For now, we'll skip image upload
 
-      const productData = {
+      const productDataRaw = {
         title: formData.title,
         description: formData.description,
         brand: formData.brand,
         model: formData.model,
-        year: parseInt(formData.year),
-        price: parseFloat(formData.price),
-        mileage: parseInt(formData.mileage) || 0,
-        color: formData.color,
-        fuelType: formData.fuelType,
-        transmission: formData.transmission,
-        condition: formData.condition,
-        location: formData.location,
-        contactPhone: formData.contactPhone,
-        contactEmail: formData.contactEmail,
-        productType: formData.productType, // Required field
-        status: "pending", // Always pending for admin approval
-        sellerId: user?.id || user?.accountId || user?.userId || 1, // Fallback to 1 for testing
+        year: formData.year ? parseInt(formData.year) : undefined,
+        price: formData.price ? parseFloat(formData.price) : undefined,
+        mileage: formData.mileage ? parseInt(formData.mileage) : undefined,
+        color: formData.color || undefined,
+        fuelType: formData.fuelType || undefined,
+        transmission: formData.transmission || undefined,
+        condition: formData.condition || undefined,
+        location: formData.location || undefined,
+        contactPhone: formData.contactPhone || undefined,
+        contactEmail: formData.contactEmail || undefined,
+        productType: formData.productType,
         images: imageUrls,
-        // Add more fields that might be required by backend
-        isActive: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
       };
+      // Remove undefined to avoid backend validation errors
+      const productData = Object.fromEntries(Object.entries({
+        ...productDataRaw,
+        sellerId: user?.accountId || user?.id || user?.userId,
+        accountId: user?.accountId || undefined,
+        status: 'pending',
+        createdDate: new Date().toISOString(),
+        isActive: true,
+      }).filter(([,v])=> v !== undefined));
 
       console.log("User object:", user);
       console.log("Sending product data:", productData);
 
-      await apiRequest("/api/Product", {
-        method: "POST",
-        body: productData,
-      });
-
+      await apiRequest("/api/Product", { method: "POST", body: productData });
       navigate("/dashboard?success=listing_created");
     } catch (err) {
       console.error("Error creating product:", err);

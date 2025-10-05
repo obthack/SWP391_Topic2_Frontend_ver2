@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Package, DollarSign, Eye, Heart, Settings, Plus } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { apiRequest } from "../lib/api";
-import { ProductCard } from "../components/common/ProductCard";
+import { ProductCard } from "../components/molecules/ProductCard";
 import { formatPrice } from "../utils/formatters";
 
 export const Dashboard = () => {
@@ -25,31 +25,24 @@ export const Dashboard = () => {
 
   const loadDashboardData = async () => {
     try {
-      // Get user's listings from backend API
-      const listings = await apiRequest(
+      const data = await apiRequest(
         `/api/Product/seller/${
           user?.id || user?.accountId || user?.userId || 1
         }`
       );
-
-      const total = listings?.length || 0;
-      const active =
-        listings?.filter((l) => l.status === "approved").length || 0;
-      const sold = listings?.filter((l) => l.status === "sold").length || 0;
-      const views =
-        listings?.reduce(
-          (sum, l) => sum + (l.viewsCount || l.views_count || 0),
-          0
-        ) || 0;
-
-      setStats({
-        totalListings: total,
-        activeListings: active,
-        soldListings: sold,
-        totalViews: views,
+      const items = Array.isArray(data) ? data : (data?.items || []);
+      const normalized = items.filter((l)=> {
+        const s = String(l?.status || l?.Status || '').toLowerCase();
+        return s !== 'deleted' && s !== 'inactive';
       });
 
-      setMyListings(listings || []);
+      const total = normalized.length;
+      const active = normalized.filter((l) => String(l.status||l.Status).toLowerCase()==='approved').length;
+      const sold = normalized.filter((l) => String(l.status||l.Status).toLowerCase()==='sold').length;
+      const views = normalized.reduce((sum, l) => sum + (l.viewsCount || l.views_count || 0), 0);
+
+      setStats({ totalListings: total, activeListings: active, soldListings: sold, totalViews: views });
+      setMyListings(normalized);
     } catch (error) {
       console.error("Error loading dashboard data:", error);
     } finally {
@@ -62,7 +55,7 @@ export const Dashboard = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">
-            Chào mừng, {profile?.full_name}!
+            Chào mừng, {user?.fullName || user?.name || profile?.full_name || profile?.fullName || profile?.name || user?.email || 'bạn'}!
           </h1>
           <p className="text-gray-600 mt-2">
             Quản lý tin đăng và theo dõi hoạt động của bạn

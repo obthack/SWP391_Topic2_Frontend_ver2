@@ -18,21 +18,28 @@ export async function apiRequest(path, { method = "GET", body, headers } = {}) {
   const token = getAuthToken();
   const url = path.startsWith("http") ? path : `${API_BASE_URL}${path}`;
 
+  const isFormData = (typeof FormData !== 'undefined') && body instanceof FormData;
   const res = await fetch(url, {
     method,
     headers: {
-      "Content-Type": "application/json",
+      Accept: 'application/json',
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(headers || {}),
     },
-    body: body ? JSON.stringify(body) : undefined,
+    body: body ? (isFormData ? body : JSON.stringify(body)) : undefined,
   });
 
-  const contentType = res.headers.get("content-type") || "";
-  const data = contentType.includes("application/json") ? await res.json() : await res.text();
+  const text = await res.text();
+  let data;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = text;
+  }
 
   if (!res.ok) {
-    const message = typeof data === "string" ? data : data?.message || "Request failed";
+    const message = (data && typeof data !== 'string' ? data.message : null) || (typeof data === 'string' ? data : null) || `Request failed (${res.status})`;
     const error = new Error(message);
     error.status = res.status;
     error.data = data;
@@ -43,5 +50,3 @@ export async function apiRequest(path, { method = "GET", body, headers } = {}) {
 }
 
 export { API_BASE_URL };
-
-

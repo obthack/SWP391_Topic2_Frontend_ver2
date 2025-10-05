@@ -18,6 +18,8 @@ export const MyListings = () => {
     }
   }, [user]);
 
+  const getListingId = (l) => l?.id ?? l?.productId ?? l?.Id ?? l?.listingId ?? l?.product_id ?? null;
+
   const loadListings = async () => {
     try {
       const data = await apiRequest(
@@ -26,7 +28,12 @@ export const MyListings = () => {
         }`
       );
       console.log("Loaded listings data:", data);
-      setListings(data || []);
+      const items = Array.isArray(data) ? data : (data?.items || []);
+      const filtered = items.filter((l) => {
+        const s = String(l?.status || l?.Status || '').toLowerCase();
+        return s !== 'deleted' && s !== 'inactive';
+      });
+      setListings(filtered);
     } catch (error) {
       console.error("Error loading listings:", error);
     } finally {
@@ -49,7 +56,9 @@ export const MyListings = () => {
       await apiRequest(`/api/Product/${listingId}`, {
         method: "DELETE",
       });
-      console.log("Delete successful, reloading listings...");
+      console.log("Delete successful, updating UI...");
+      setListings((prev)=> prev.filter((l)=> getListingId(l) !== listingId));
+      // Fallback refresh to stay in sync
       loadListings();
     } catch (error) {
       console.error("Error deleting listing:", error);
@@ -189,21 +198,12 @@ export const MyListings = () => {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
             {filteredListings.map((listing) => {
+              const idVal = getListingId(listing);
               console.log("Listing object:", listing);
-              console.log(
-                "Listing ID:",
-                listing.id,
-                "Type:",
-                typeof listing.id
-              );
+              console.log("Listing ID:", idVal, "Type:", typeof idVal);
               return (
                 <div
-                  key={
-                    listing.id ||
-                    listing.productId ||
-                    listing.Id ||
-                    listing.listingId
-                  }
+                  key={idVal}
                   className="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-shadow"
                 >
                   <div className="relative">
@@ -248,12 +248,7 @@ export const MyListings = () => {
 
                     <div className="flex items-center space-x-2">
                       <Link
-                        to={`/listing/${
-                          listing.id ||
-                          listing.productId ||
-                          listing.Id ||
-                          listing.listingId
-                        }/edit`}
+                        to={`/listing/${getListingId(listing)}/edit`}
                         className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
                       >
                         <Edit className="h-4 w-4 mr-2" />
@@ -264,11 +259,7 @@ export const MyListings = () => {
                         onClick={(e) => {
                           e.preventDefault();
                           // Try different ID field names
-                          const listingId =
-                            listing.id ||
-                            listing.productId ||
-                            listing.Id ||
-                            listing.listingId;
+                          const listingId = getListingId(listing);
                           console.log("Trying to delete with ID:", listingId);
                           handleDelete(listingId);
                         }}

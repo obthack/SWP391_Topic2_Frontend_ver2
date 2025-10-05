@@ -36,23 +36,24 @@ export const EditListing = () => {
   const loadListing = async () => {
     try {
       const data = await apiRequest(`/api/Product/${id}`);
-      setFormData({
-        title: data.title || "",
-        description: data.description || "",
-        brand: data.brand || "",
-        model: data.model || "",
-        year: data.year || "",
-        price: data.price || "",
-        mileage: data.mileage || "",
-        color: data.color || "",
-        fuelType: data.fuelType || "",
-        transmission: data.transmission || "",
-        condition: data.condition || "excellent",
-        location: data.location || "",
-        contactPhone: data.contactPhone || "",
-        contactEmail: data.contactEmail || user?.email || "",
-        productType: data.productType || "vehicle",
-      });
+      const mapped = {
+        title: data.title ?? data.Title ?? "",
+        description: data.description ?? data.Description ?? "",
+        brand: data.brand ?? data.Brand ?? "",
+        model: data.model ?? data.Model ?? "",
+        year: data.year ?? data.productionYear ?? data.manufactureYear ?? data.ManufactureYear ?? "",
+        price: data.price ?? data.Price ?? "",
+        mileage: data.mileage ?? data.Mileage ?? "",
+        color: data.color ?? data.Color ?? "",
+        fuelType: data.fuelType ?? data.FuelType ?? "",
+        transmission: data.transmission ?? data.Transmission ?? "",
+        condition: data.condition ?? data.Condition ?? "excellent",
+        location: data.location ?? data.city ?? data.City ?? data.address ?? "",
+        contactPhone: data.contactPhone ?? data.phone ?? data.phoneNumber ?? data.PhoneNumber ?? "",
+        contactEmail: data.contactEmail ?? data.email ?? data.Email ?? user?.email ?? "",
+        productType: data.productType ?? data.product_type ?? data.Type ?? "vehicle",
+      };
+      setFormData(mapped);
     } catch (error) {
       console.error("Error loading listing:", error);
       setError("Không thể tải thông tin bài đăng");
@@ -89,18 +90,17 @@ export const EditListing = () => {
         description: formData.description,
         brand: formData.brand,
         model: formData.model,
-        year: parseInt(formData.year),
-        price: parseFloat(formData.price),
-        mileage: parseInt(formData.mileage) || 0,
-        color: formData.color,
-        fuelType: formData.fuelType,
-        transmission: formData.transmission,
-        condition: formData.condition,
-        location: formData.location,
-        contactPhone: formData.contactPhone,
-        contactEmail: formData.contactEmail,
+        year: formData.year ? parseInt(formData.year) : undefined,
+        price: formData.price ? parseFloat(formData.price) : undefined,
+        mileage: formData.mileage ? parseInt(formData.mileage) : undefined,
+        color: formData.color || undefined,
+        fuelType: formData.fuelType || undefined,
+        transmission: formData.transmission || undefined,
+        condition: formData.condition || undefined,
+        location: formData.location || undefined,
+        contactPhone: formData.contactPhone || undefined,
+        contactEmail: formData.contactEmail || undefined,
         productType: formData.productType,
-        status: "pending", // Reset to pending after edit
         sellerId: user?.id || user?.accountId || user?.userId || 1,
         images: imageUrls,
         isActive: true,

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { apiRequest } from "../lib/api";
+import { apiRequest, API_BASE_URL } from "../lib/api";
 
 const AuthContext = createContext({});
 
@@ -18,18 +18,32 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     // Hydrate from localStorage (backend-auth flow)
-    try {
-      const raw = localStorage.getItem("evtb_auth");
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        setUser(parsed?.user || null);
-        setProfile(parsed?.profile || null);
+    (async () => {
+      try {
+        const raw = localStorage.getItem("evtb_auth");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          setUser(parsed?.user || null);
+          setProfile(parsed?.profile || null);
+        }
+        // Try load current user from backend to get freshest name/profile
+        try {
+          const me = await apiRequest("/api/User/me");
+          if (me) {
+            const mergedUser = { ...(me.user || me), ...(me.profile ? { profile: me.profile } : {}) };
+            setUser((u)=> ({ ...(u||{}), ...mergedUser }));
+            if (me.profile) setProfile(me.profile);
+            const raw2 = localStorage.getItem("evtb_auth");
+            const sess = raw2 ? JSON.parse(raw2) : {};
+            localStorage.setItem("evtb_auth", JSON.stringify({ ...sess, user: mergedUser, profile: me.profile || sess.profile }));
+          }
+        } catch {}
+      } catch {
+        // ignore
+      } finally {
+        setLoading(false);
       }
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-    }
+    })();
   }, []);
 
   const loadProfile = async (_userId) => {
@@ -97,17 +111,18 @@ export const AuthProvider = ({ children }) => {
 
   const updateProfile = async (updates) => {
     if (!user) throw new Error("No user logged in");
-
-    const { data, error } = await supabase
-      .from("profiles")
-      .update(updates)
-      .eq("id", user.id)
-      .select()
-      .single();
-
-    if (error) throw error;
-    setProfile(data);
-    return data;
+    const data = await apiRequest("/api/User/profile", {
+      method: "PUT",
+      body: updates,
+    });
+    const newProfile = data?.profile || data;
+    setProfile(newProfile);
+    const raw = localStorage.getItem("evtb_auth");
+    try {
+      const session = raw ? JSON.parse(raw) : {};
+      localStorage.setItem("evtb_auth", JSON.stringify({ ...session, profile: newProfile }));
+    } catch {}
+    return newProfile;
   };
 
   const value = {
@@ -119,6 +134,10 @@ export const AuthProvider = ({ children }) => {
     signOut,
     updateProfile,
     isAdmin: profile?.role === "admin",
+    signInWithProvider: (provider) => {
+      const prov = provider === 'google' ? 'google' : 'facebook';
+      window.location.href = `${API_BASE_URL}/api/Auth/${prov}`;
+    },
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
