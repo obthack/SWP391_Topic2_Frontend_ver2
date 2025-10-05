@@ -78,15 +78,6 @@ export const AuthProvider = ({ children }) => {
       body: { email, password },
     });
 
-<<<<<<< HEAD
-    console.log("Backend login response:", data);
-
-    const session = {
-      token: data?.token || data?.accessToken || null,
-      user: data?.user || data || { email }, // Fallback to full data if no user object
-      profile: data?.profile || null,
-    };
-=======
     // Normalize possible backend shapes
     const normalizedToken =
       data?.token || data?.accessToken || data?.jwt || data?.tokenString ||
@@ -99,7 +90,6 @@ export const AuthProvider = ({ children }) => {
     }
 
     const session = { token: normalizedToken, user: normalizedUser, profile: normalizedProfile };
->>>>>>> 8da7c4b (xóa 2 file tsx)
 
     console.log("Session object:", session);
 
