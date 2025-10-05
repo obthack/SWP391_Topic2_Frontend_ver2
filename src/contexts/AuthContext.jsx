@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { apiRequest } from "../lib/api";
+import { supabase } from "../lib/supabase";
 
 const AuthContext = createContext({});
 
@@ -48,16 +49,21 @@ export const AuthProvider = ({ children }) => {
       },
     });
 
-    const session = {
-      token: data?.token || data?.accessToken || null,
-      user: data?.user || { email, fullName, phone },
-      profile: data?.profile || null,
-    };
+    // Normalize possible backend shapes
+    const normalizedToken =
+      data?.token || data?.accessToken || data?.jwt || data?.tokenString ||
+      data?.data?.token || data?.result?.token || null;
+    const normalizedUser =
+      data?.user || data?.data?.user || data?.result?.user || { email, fullName, phone };
+    const normalizedProfile = data?.profile || data?.data?.profile || data?.result?.profile || null;
 
-    if (session.token) {
-      localStorage.setItem("evtb_auth", JSON.stringify(session));
+    if (!normalizedToken) {
+      throw new Error("Đăng ký thất bại: phản hồi không chứa token.");
     }
 
+    const session = { token: normalizedToken, user: normalizedUser, profile: normalizedProfile };
+
+    localStorage.setItem("evtb_auth", JSON.stringify(session));
     setUser(session.user);
     setProfile(session.profile || null);
 
@@ -72,6 +78,7 @@ export const AuthProvider = ({ children }) => {
       body: { email, password },
     });
 
+<<<<<<< HEAD
     console.log("Backend login response:", data);
 
     const session = {
@@ -79,6 +86,20 @@ export const AuthProvider = ({ children }) => {
       user: data?.user || data || { email }, // Fallback to full data if no user object
       profile: data?.profile || null,
     };
+=======
+    // Normalize possible backend shapes
+    const normalizedToken =
+      data?.token || data?.accessToken || data?.jwt || data?.tokenString ||
+      data?.data?.token || data?.result?.token || null;
+    const normalizedUser = data?.user || data?.data?.user || data?.result?.user || { email };
+    const normalizedProfile = data?.profile || data?.data?.profile || data?.result?.profile || null;
+
+    if (!normalizedToken) {
+      throw new Error("Đăng nhập thất bại: phản hồi không chứa token.");
+    }
+
+    const session = { token: normalizedToken, user: normalizedUser, profile: normalizedProfile };
+>>>>>>> 8da7c4b (xóa 2 file tsx)
 
     console.log("Session object:", session);
 
