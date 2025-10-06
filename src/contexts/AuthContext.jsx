@@ -31,7 +31,7 @@ export const AuthProvider = ({ children }) => {
           const me = await apiRequest("/api/User/me");
           if (me) {
             const mergedUser = { ...(me.user || me), ...(me.profile ? { profile: me.profile } : {}) };
-            setUser((u)=> ({ ...(u||{}), ...mergedUser }));
+            setUser((u) => ({ ...(u || {}), ...mergedUser }));
             if (me.profile) setProfile(me.profile);
             const raw2 = localStorage.getItem("evtb_auth");
             const sess = raw2 ? JSON.parse(raw2) : {};
@@ -62,16 +62,21 @@ export const AuthProvider = ({ children }) => {
       },
     });
 
-    const session = {
-      token: data?.token || data?.accessToken || null,
-      user: data?.user || { email, fullName, phone },
-      profile: data?.profile || null,
-    };
+    // Normalize possible backend shapes
+    const normalizedToken =
+      data?.token || data?.accessToken || data?.jwt || data?.tokenString ||
+      data?.data?.token || data?.result?.token || null;
+    const normalizedUser =
+      data?.user || data?.data?.user || data?.result?.user || { email, fullName, phone };
+    const normalizedProfile = data?.profile || data?.data?.profile || data?.result?.profile || null;
 
-    if (session.token) {
-      localStorage.setItem("evtb_auth", JSON.stringify(session));
+    if (!normalizedToken) {
+      throw new Error("Đăng ký thất bại: phản hồi không chứa token.");
     }
 
+    const session = { token: normalizedToken, user: normalizedUser, profile: normalizedProfile };
+
+    localStorage.setItem("evtb_auth", JSON.stringify(session));
     setUser(session.user);
     setProfile(session.profile || null);
 
@@ -86,15 +91,18 @@ export const AuthProvider = ({ children }) => {
       body: { email, password },
     });
 
-    console.log("Backend login response:", data);
+    // Normalize possible backend shapes
+    const normalizedToken =
+      data?.token || data?.accessToken || data?.jwt || data?.tokenString ||
+      data?.data?.token || data?.result?.token || null;
+    const normalizedUser = data?.user || data?.data?.user || data?.result?.user || { email };
+    const normalizedProfile = data?.profile || data?.data?.profile || data?.result?.profile || null;
 
-    const session = {
-      token: data?.token || data?.accessToken || null,
-      user: data?.user || data || { email }, // Fallback to full data if no user object
-      profile: data?.profile || null,
-    };
+    if (!normalizedToken) {
+      throw new Error("Đăng nhập thất bại: phản hồi không chứa token.");
+    }
 
-    console.log("Session object:", session);
+    const session = { token: normalizedToken, user: normalizedUser, profile: normalizedProfile };
 
     localStorage.setItem("evtb_auth", JSON.stringify(session));
     setUser(session.user);

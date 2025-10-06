@@ -12,6 +12,26 @@ export const LoginForm = () => {
   const { signIn } = useAuth();
   const navigate = useNavigate();
 
+  const getErrorMessage = (err) => {
+    if (!err) return "Đã xảy ra lỗi không xác định.";
+    // Network error (no response)
+    if (err.status === 0 || err.message === "Failed to fetch") {
+      return "Không thể kết nối máy chủ. Vui lòng kiểm tra mạng hoặc API.";
+    }
+    // Backend provided message
+    const backendMsg = err?.data?.message || err?.message;
+    if (err.status === 401) {
+      return backendMsg || "Email hoặc mật khẩu không đúng.";
+    }
+    if (err.status === 400) {
+      return backendMsg || "Thông tin đăng nhập không hợp lệ.";
+    }
+    if (err.status >= 500) {
+      return backendMsg || "Máy chủ gặp sự cố. Vui lòng thử lại sau.";
+    }
+    return backendMsg || "Đăng nhập thất bại. Vui lòng thử lại.";
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -21,7 +41,7 @@ export const LoginForm = () => {
       await signIn(email, password);
       navigate("/dashboard");
     } catch (err) {
-      setError("Email hoặc mật khẩu không đúng. Vui lòng thử lại.");
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
