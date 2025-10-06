@@ -39,10 +39,69 @@ export const HomePage = () => {
 
   return (
     <div className="min-h-screen">
-      <section className="bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 text-white py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section 
+        className="text-white py-20 relative overflow-hidden"
+        style={{
+          background: `
+            linear-gradient(135deg, 
+              rgba(15, 23, 42, 0.7) 0%, 
+              rgba(30, 58, 138, 0.6) 25%, 
+              rgba(30, 64, 175, 0.5) 50%, 
+              rgba(15, 23, 42, 0.7) 100%
+            ),
+            url('/ev-charging-hero.jpg')
+          `,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundAttachment: "fixed"
+        }}
+      >
+        {/* Electric charging effects */}
+        <div className="absolute inset-0 overflow-hidden">
+          {/* Charging energy effects */}
+          <div className="absolute top-1/3 left-1/4 w-16 h-16 bg-blue-400 bg-opacity-30 rounded-full animate-pulse"></div>
+          <div className="absolute top-1/2 right-1/3 w-12 h-12 bg-cyan-400 bg-opacity-25 rounded-full animate-bounce" style={{ animationDelay: "1s" }}></div>
+          <div className="absolute bottom-1/3 left-1/3 w-14 h-14 bg-blue-300 bg-opacity-20 rounded-full animate-pulse" style={{ animationDelay: "2s" }}></div>
+          <div className="absolute bottom-1/4 right-1/4 w-10 h-10 bg-white bg-opacity-30 rounded-full animate-bounce" style={{ animationDelay: "0.5s" }}></div>
+          
+          {/* Electric spark effects */}
+          <div className="absolute inset-0">
+            <div className="absolute top-1/4 left-1/5 w-2 h-8 bg-yellow-400 rounded-full animate-pulse opacity-80"></div>
+            <div className="absolute top-1/3 right-1/4 w-2 h-6 bg-yellow-300 rounded-full animate-pulse opacity-70" style={{ animationDelay: "0.3s" }}></div>
+            <div className="absolute top-1/2 left-1/6 w-2 h-10 bg-yellow-400 rounded-full animate-pulse opacity-60" style={{ animationDelay: "0.6s" }}></div>
+            <div className="absolute bottom-1/3 right-1/5 w-2 h-7 bg-yellow-300 rounded-full animate-pulse opacity-75" style={{ animationDelay: "0.9s" }}></div>
+          </div>
+          
+          {/* Charging cable glow effect */}
+          <div className="absolute top-1/2 right-1/4 w-1 h-32 bg-blue-400 bg-opacity-40 rounded-full animate-pulse transform rotate-12"></div>
+        </div>
+        
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center mb-12">
-            <h1 className="text-4xl md:text-5xl font-bold mb-4">
+            {/* Electric car charging icon */}
+            <div className="mb-8 flex justify-center">
+              <div className="relative">
+                <div className="w-28 h-28 bg-white bg-opacity-15 rounded-full flex items-center justify-center backdrop-blur-sm border border-white border-opacity-30 shadow-2xl">
+                  <svg className="w-16 h-16 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    {/* Electric car body */}
+                    <path d="M19 7h-3V6a4 4 0 0 0-8 0v1H5a1 1 0 0 0-1 1v11a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V8a1 1 0 0 0-1-1zM10 6a2 2 0 0 1 4 0v1h-4V6zm8 13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V9h2v1a1 1 0 0 0 2 0V9h4v1a1 1 0 0 0 2 0V9h2v10z"/>
+                    {/* Charging port */}
+                    <rect x="16" y="8" width="3" height="4" rx="1" fill="#3b82f6"/>
+                  </svg>
+                </div>
+                {/* Charging cable effect */}
+                <div className="absolute -top-1 -right-1 w-10 h-10 bg-blue-400 rounded-full flex items-center justify-center animate-pulse shadow-lg">
+                  <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                  </svg>
+                </div>
+                {/* Energy sparks */}
+                <div className="absolute -top-3 -left-3 w-4 h-4 bg-yellow-400 rounded-full animate-bounce opacity-80" style={{ animationDelay: "0.2s" }}></div>
+                <div className="absolute -bottom-2 -right-3 w-3 h-3 bg-yellow-300 rounded-full animate-bounce opacity-70" style={{ animationDelay: "0.5s" }}></div>
+              </div>
+            </div>
+            
+            <h1 className="text-4xl md:text-5xl font-bold mb-8 bg-gradient-to-r from-white via-blue-100 to-cyan-100 bg-clip-text text-transparent">
               Nền tảng giao dịch xe điện & pin số 1 Việt Nam
             </h1>
             <p className="text-xl text-blue-100 max-w-3xl mx-auto">
