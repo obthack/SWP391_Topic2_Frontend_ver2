@@ -84,32 +84,30 @@ export const RegisterForm = () => {
                   <path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2Z" />
                 </svg>
               </div>
-              <h1 className="text-4xl font-bold mb-4">Tham gia cộng đồng EV!</h1>
+              <h1 className="text-4xl font-bold mb-4">Tham gia EV Market!</h1>
               <p className="text-xl text-blue-100 mb-8">
                 Bắt đầu hành trình xe điện của bạn ngay hôm nay
               </p>
             </div>
 
             <div className="bg-white bg-opacity-10 backdrop-blur-sm rounded-2xl p-6 border border-white border-opacity-20">
-              <h3 className="text-lg font-semibold mb-4">
-                Trở thành thành viên của EV Market
-              </h3>
+              <h3 className="text-lg font-semibold mb-4">Lợi ích khi tham gia</h3>
               <div className="space-y-3 text-sm text-blue-100">
                 <div className="flex items-center space-x-2">
+                  <span>🚗</span>
+                  <span>Tiếp cận hàng nghìn xe điện</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span>💰</span>
+                  <span>Giá cả cạnh tranh nhất</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span>🔒</span>
+                  <span>Giao dịch an toàn tuyệt đối</span>
+                </div>
+                <div className="flex items-center space-x-2">
                   <span>⚡</span>
-                  <span>Đăng tin nhanh chóng, dễ dàng</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span>🔋</span>
-                  <span>Tiếp cận hàng ngàn người mua xe điện</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span>💎</span>
-                  <span>Giá cả minh bạch, cạnh tranh</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span>🤝</span>
-                  <span>Giao dịch an toàn, bảo mật tuyệt đối</span>
+                  <span>Hỗ trợ 24/7</span>
                 </div>
               </div>
             </div>
@@ -129,11 +127,28 @@ export const RegisterForm = () => {
               rgba(236, 72, 153, 0.1) 75%, 
               rgba(251, 146, 60, 0.1) 100%
             ),
-            url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000"><defs><linearGradient id="lg1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:%23ecfdf5;stop-opacity:0.9" /><stop offset="100%" style="stop-color:%23f0f9ff;stop-opacity:0.8" /></linearGradient></defs><rect width="100%" height="100%" fill="url(%23lg1)"/><g fill="%2310b981" opacity="0.12"><polygon points="100,50 150,100 100,150 50,100" /><polygon points="900,150 950,200 900,250 850,200" /><polygon points="200,850 250,900 200,950 150,900" /><polygon points="800,750 850,800 800,850 750,800" /></g><g fill="%233b82f6" opacity="0.1"><circle cx="300" cy="200" r="35" /><circle cx="700" cy="400" r="25" /><circle cx="500" cy="700" r="40" /><circle cx="150" cy="600" r="30" /></g></svg>')`,
+            url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000"><defs><linearGradient id="lg1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:%23ecfdf5;stop-opacity:0.9" /><stop offset="100%" style="stop-color:%23f0f9ff;stop-opacity:0.8" /></linearGradient></defs><rect width="100%" height="100%" fill="url(%23lg1)"/><g fill="%2310b981" opacity="0.12"><polygon points="100,50 150,100 100,150 50,100" /><polygon points="900,150 950,200 900,250 850,200" /><polygon points="200,850 250,900 200,950 150,900" /><polygon points="800,750 850,800 800,850 750,800" /></g><g fill="%233b82f6" opacity="0.1"><circle cx="300" cy="200" r="35" /><circle cx="700" cy="400" r="25" /><circle cx="500" cy="700" r="40" /><circle cx="150" cy="600" r="30" /></g></svg>')
+          `,
           backgroundSize: "cover",
           backgroundPosition: "center",
         }}
       >
+        {/* Animated floating elements */}
+        <div className="absolute inset-0">
+          <div className="absolute top-16 right-24 w-18 h-18 bg-emerald-400 bg-opacity-25 rounded-lg animate-pulse transform rotate-45"></div>
+          <div
+            className="absolute top-32 left-28 w-14 h-14 bg-blue-400 bg-opacity-25 rounded-full animate-bounce"
+            style={{ animationDelay: "0.8s" }}
+          ></div>
+          <div
+            className="absolute bottom-28 right-16 w-16 h-16 bg-violet-400 bg-opacity-25 rounded-lg animate-pulse transform rotate-12"
+            style={{ animationDelay: "1.5s" }}
+          ></div>
+          <div
+            className="absolute bottom-16 left-24 w-12 h-12 bg-orange-400 bg-opacity-25 rounded-full animate-bounce"
+            style={{ animationDelay: "0.3s" }}
+          ></div>
+        </div>
         <div className="max-w-md w-full relative z-10">
           <div
             className="bg-white bg-opacity-95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white border-opacity-70 p-8 transform hover:scale-105 transition-all duration-300 hover:shadow-3xl"
@@ -144,7 +159,7 @@ export const RegisterForm = () => {
           >
             <div className="text-center mb-8">
               <h2 className="text-3xl font-bold text-gray-900">Đăng ký</h2>
-              <p className="mt-2 text-gray-600">Tạo tài khoản mới ngay hôm nay</p>
+              <p className="mt-2 text-gray-600">Tạo tài khoản mới của bạn</p>
             </div>
 
             {error && (
@@ -154,35 +169,138 @@ export const RegisterForm = () => {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-5">
-              {[
-                { id: "fullName", label: "Họ và tên", icon: <User />, type: "text", placeholder: "Nguyễn Văn A" },
-                { id: "email", label: "Email", icon: <Mail />, type: "email", placeholder: "you@email.com" },
-                { id: "phone", label: "Số điện thoại", icon: <Phone />, type: "text", placeholder: "0123456789" },
-                { id: "password", label: "Mật khẩu", icon: <Lock />, type: "password", placeholder: "••••••••" },
-                { id: "confirmPassword", label: "Xác nhận mật khẩu", icon: <Lock />, type: "password", placeholder: "••••••••" },
-              ].map(({ id, label, icon, type, placeholder }) => (
-                <div key={id}>
-                  <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-2">
-                    {label}
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-                      {icon}
-                    </span>
-                    <input
-                      id={id}
-                      name={id}
-                      type={type}
-                      value={formData[id]}
-                      onChange={handleChange}
-                      className="pl-10 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:border-blue-400 focus:scale-105"
-                      placeholder={placeholder}
-                      required
-                    />
-                  </div>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <label
+                  htmlFor="fullName"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
+                  Họ và tên
+                </label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <input
+                    id="fullName"
+                    name="fullName"
+                    type="text"
+                    value={formData.fullName}
+                    onChange={handleChange}
+                    className="pl-10 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:border-blue-400 focus:scale-105"
+                    placeholder="Nguyễn Văn A"
+                    required
+                  />
                 </div>
-              ))}
+              </div>
+
+              <div>
+                <label
+                  htmlFor="email"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
+                  Email
+                </label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    className="pl-10 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:border-blue-400 focus:scale-105"
+                    placeholder="your@email.com"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="phone"
+                  className="block text_sm font-medium text-gray-700 mb-2"
+                >
+                  Số điện thoại
+                </label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <input
+                    id="phone"
+                    name="phone"
+                    type="text"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    className="pl-10 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:border-blue-400 focus:scale-105"
+                    placeholder="0123456789"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="password"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
+                  Mật khẩu
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <input
+                    id="password"
+                    name="password"
+                    type="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    className="pl-10 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:border-blue-400 focus:scale-105"
+                    placeholder="••••••••"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="confirmPassword"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
+                  Xác nhận mật khẩu
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <input
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    type="password"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    className="pl-10 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:border-blue-400 focus:scale-105"
+                    placeholder="••••••••"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center">
+                <input
+                  id="terms"
+                  type="checkbox"
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  required
+                />
+                <label
+                  htmlFor="terms"
+                  className="ml-2 block text-sm text-gray-700"
+                >
+                  Tôi đồng ý với{" "}
+                  <Link to="/terms" className="text-blue-600 hover:text-blue-700">
+                    Điều khoản sử dụng
+                  </Link>{" "}
+                  và{" "}
+                  <Link to="/privacy" className="text-blue-600 hover:text-blue-700">
+                    Chính sách bảo mật
+                  </Link>
+                </label>
+              </div>
 
               <button
                 type="submit"
@@ -200,7 +318,7 @@ export const RegisterForm = () => {
                   to="/login"
                   className="text-blue-600 hover:text-blue-700 font-medium"
                 >
-                  Đăng nhập
+                  Đăng nhập ngay
                 </Link>
               </p>
             </div>
