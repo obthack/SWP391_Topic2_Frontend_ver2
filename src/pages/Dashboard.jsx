@@ -30,15 +30,24 @@ export const Dashboard = () => {
           user?.id || user?.accountId || user?.userId || 1
         }`
       );
+      const norm = (v)=> String(v||'').toLowerCase();
+      const mapStatus = (l)=>{
+        const raw = norm(l?.status || l?.Status);
+        if (raw.includes('pending') || raw.includes('chờ')) return 'pending';
+        if (raw.includes('approve') || raw.includes('duyệt')) return 'approved';
+        if (raw.includes('reject') || raw.includes('từ chối')) return 'rejected';
+        if (raw.includes('sold') || raw.includes('đã bán')) return 'sold';
+        return raw || 'pending';
+      };
       const items = Array.isArray(data) ? data : (data?.items || []);
       const normalized = items.filter((l)=> {
-        const s = String(l?.status || l?.Status || '').toLowerCase();
+        const s = norm(l?.status || l?.Status || '');
         return s !== 'deleted' && s !== 'inactive';
-      });
+      }).map((l)=> ({ ...l, status: mapStatus(l) }));
 
       const total = normalized.length;
-      const active = normalized.filter((l) => String(l.status||l.Status).toLowerCase()==='approved').length;
-      const sold = normalized.filter((l) => String(l.status||l.Status).toLowerCase()==='sold').length;
+      const active = normalized.filter((l) => l.status==='approved').length;
+      const sold = normalized.filter((l) => l.status==='sold').length;
       const views = normalized.reduce((sum, l) => sum + (l.viewsCount || l.views_count || 0), 0);
 
       setStats({ totalListings: total, activeListings: active, soldListings: sold, totalViews: views });

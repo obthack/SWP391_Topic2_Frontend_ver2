@@ -79,22 +79,25 @@ export const AuthProvider = ({ children }) => {
   };
 
   const signIn = async (email, password) => {
-    // Call your backend login API
-    // Expecting response like: { token: string, user: { ... } }
     const data = await apiRequest("/api/User/login", {
       method: "POST",
       body: { email, password },
     });
 
-    console.log("Backend login response:", data);
-
     const session = {
       token: data?.token || data?.accessToken || null,
-      user: data?.user || data || { email }, // Fallback to full data if no user object
+      user: data?.user || data || { email },
       profile: data?.profile || null,
     };
 
-    console.log("Session object:", session);
+    try {
+      const me = await apiRequest("/api/User/me");
+      if (me) {
+        const mergedUser = { ...(session.user || {}), ...(me.user || me) };
+        session.user = mergedUser;
+        if (me.profile) session.profile = me.profile;
+      }
+    } catch {}
 
     localStorage.setItem("evtb_auth", JSON.stringify(session));
     setUser(session.user);

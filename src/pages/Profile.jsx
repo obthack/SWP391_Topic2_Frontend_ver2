@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { apiRequest } from '../lib/api';
+import { useToast } from '../contexts/ToastContext';
 
 export const Profile = () => {
   const { user, profile, updateProfile } = useAuth();
+  const { show } = useToast();
   const [form, setForm] = useState({ fullName: '', email: '', phone: '' });
   const [avatarUrl, setAvatarUrl] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -32,6 +34,7 @@ export const Profile = () => {
       const url = res?.url || res?.avatarUrl || res;
       setAvatarUrl(url);
       setMessage('Tải ảnh đại diện thành công');
+      show({ title: 'Tải ảnh thành công', description: 'Ảnh đại diện đã được cập nhật', type: 'success' });
     } catch (e) {
       setError(e.message || 'Không thể tải ảnh');
     } finally {
@@ -48,6 +51,7 @@ export const Profile = () => {
       const payload = { fullName: form.fullName, email: form.email, phone: form.phone, avatarUrl };
       const updated = await updateProfile(payload);
       setMessage('Cập nhật thành công');
+      show({ title: 'Cập nhật hồ sơ', description: 'Thông tin đã được lưu', type: 'success' });
     } catch (e) {
       setError(e.message || 'Không thể cập nhật');
     } finally {

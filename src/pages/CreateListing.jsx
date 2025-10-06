@@ -3,9 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Upload, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { apiRequest } from "../lib/api";
+import { useToast } from "../contexts/ToastContext";
 
 export const CreateListing = () => {
   const { user } = useAuth();
+  const { show } = useToast();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -86,7 +88,8 @@ export const CreateListing = () => {
       console.log("Sending product data:", productData);
 
       await apiRequest("/api/Product", { method: "POST", body: productData });
-      navigate("/dashboard?success=listing_created");
+      show({ title: 'Tạo bài đăng thành công', description: 'Bài đăng của bạn đang chờ duyệt', type: 'success' });
+      navigate("/dashboard");
     } catch (err) {
       console.error("Error creating product:", err);
       console.error("Error details:", err.data);
