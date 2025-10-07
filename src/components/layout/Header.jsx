@@ -27,11 +27,8 @@ export const Header = () => {
           </Link>
 
           <nav className="hidden md:flex items-center space-x-8">
-            <Link to="/vehicles" className="text-gray-700 hover:text-blue-600 transition-colors">
-              Xe điện
-            </Link>
-            <Link to="/batteries" className="text-gray-700 hover:text-blue-600 transition-colors">
-              Pin
+            <Link to="/" className="text-gray-700 hover:text-blue-600 transition-colors">
+              Trang chủ
             </Link>
             <Link to="/search" className="text-gray-700 hover:text-blue-600 transition-colors">
               Đăng tin bán

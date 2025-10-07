@@ -114,7 +114,7 @@ export const HomePage = () => {
               </div>
             </div>
             
-            <h1 className="text-4xl md:text-5xl font-bold mb-8 bg-gradient-to-r from-white via-blue-100 to-cyan-100 bg-clip-text text-transparent">
+            <h1 className="text-4xl md:text-5xl font-bold mb-8 bg-gradient-to-r from-white via-blue-100 to-cyan-100 bg-clip-text text-transparent leading-relaxed">
               Nền tảng giao dịch xe điện & pin số 1 Việt Nam
             </h1>
             <p className="text-xl text-blue-100 max-w-3xl mx-auto">
@@ -266,7 +266,7 @@ export const HomePage = () => {
                 <Zap className="h-8 w-8 text-blue-600" />
               </div>
               <h3 className="text-lg font-semibold mb-2">Hỗ trợ 24/7</h3>
-              <p className="text-gray-600">Đội ngũ hỗ trợ sẵn sàng giải ��áp mọi thắc mắc</p>
+              <p className="text-gray-600">Đội ngũ hỗ trợ sẵn sàng giải đáp mọi thắc mắc</p>
             </div>
           </div>
         </div>
