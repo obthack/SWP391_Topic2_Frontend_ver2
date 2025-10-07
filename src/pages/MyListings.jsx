@@ -64,11 +64,13 @@ export const MyListings = () => {
         return;
       }
 
-      await apiRequest(`/api/Product/${listingId}`, {
-        method: "DELETE",
-      });
+      try {
+        await apiRequest(`/api/Product/${listingId}`, { method: 'PUT', body: { status: 'deleted' } });
+      } catch {
+        await apiRequest(`/api/Product/${listingId}`, { method: 'DELETE' });
+      }
       setListings((prev)=> prev.filter((l)=> getListingId(l) !== listingId));
-      show({ title: 'Đã xóa bài đăng', description: 'Bài đăng đã được xóa thành công', type: 'success' });
+      show({ title: 'Đã chuyển vào thùng rác', description: 'Bạn có thể khôi phục trong Thùng rác', type: 'success' });
       loadListings();
     } catch (error) {
       console.error("Error deleting listing:", error);
@@ -129,13 +131,21 @@ export const MyListings = () => {
                 Quản lý và theo dõi các bài đăng của bạn
               </p>
             </div>
-            <Link
-              to="/create-listing"
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center"
-            >
-              <Plus className="h-5 w-5 mr-2" />
-              Đăng tin mới
-            </Link>
+            <div className="flex items-center gap-3">
+              <Link
+                to="/trash"
+                className="px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                Thùng rác
+              </Link>
+              <Link
+                to="/create-listing"
+                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+              >
+                <Plus className="h-5 w-5 mr-2" />
+                Đăng tin mới
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -225,7 +235,7 @@ export const MyListings = () => {
                       {listing.title}
                     </h3>
                     <p className="text-sm text-gray-600 mb-2">
-                      {listing.brand} {listing.model} - {listing.year}
+                      {listing.licensePlate || listing.license_plate || ''}
                     </p>
                     <p className="text-lg font-bold text-blue-600 mb-4">
                       {formatPrice(listing.price)}

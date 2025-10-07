@@ -8,6 +8,7 @@ import { formatPrice } from "../utils/formatters";
 
 export const Dashboard = () => {
   const { user, profile } = useAuth();
+  const getListingId = (l) => l?.id ?? l?.productId ?? l?.Id ?? l?.listingId ?? l?.product_id ?? l?.listingId ?? null;
   const [stats, setStats] = useState({
     totalListings: 0,
     activeListings: 0,
@@ -177,9 +178,9 @@ export const Dashboard = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {myListings.slice(0, 5).map((listing) => (
+                  {myListings.slice(0, 5).map((listing, idx) => (
                     <div
-                      key={listing.id}
+                      key={getListingId(listing) ?? `${listing.title || 'listing'}_${idx}`}
                       className="flex items-center space-x-4 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
                     >
                       <img
@@ -195,7 +196,7 @@ export const Dashboard = () => {
                           {listing.title}
                         </h3>
                         <p className="text-sm text-gray-600">
-                          {listing.brand} {listing.model}
+                          {listing.licensePlate || listing.license_plate || ''}
                         </p>
                         <div className="flex items-center space-x-4 mt-2">
                           <span className="text-sm font-medium text-blue-600">
@@ -224,7 +225,7 @@ export const Dashboard = () => {
                         </div>
                       </div>
                       <Link
-                        to={`/listing/${listing.id}/edit`}
+                        to={`/listing/${getListingId(listing) || ''}/edit`}
                         className="text-blue-600 hover:text-blue-700"
                       >
                         <Settings className="h-5 w-5" />
@@ -245,25 +246,20 @@ export const Dashboard = () => {
                 <div>
                   <label className="text-sm text-gray-600">Họ và tên</label>
                   <p className="font-medium text-gray-900">
-                    {profile?.full_name}
+                    {profile?.full_name || profile?.fullName || user?.fullName || user?.name || 'Chưa cập nhật'}
                   </p>
                 </div>
                 <div>
                   <label className="text-sm text-gray-600">Email</label>
-                  <p className="font-medium text-gray-900">{user?.email}</p>
+                  <p className="font-medium text-gray-900">{user?.email || profile?.email || 'Chưa cập nhật'}</p>
                 </div>
                 <div>
                   <label className="text-sm text-gray-600">Số điện thoại</label>
                   <p className="font-medium text-gray-900">
-                    {profile?.phone || "Chưa cập nhật"}
+                    {profile?.phone || user?.phone || "Chưa cập nhật"}
                   </p>
                 </div>
-                <Link
-                  to="/settings"
-                  className="block w-full text-center bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors"
-                >
-                  Cập nhật thông tin
-                </Link>
+               
               </div>
             </div>
 

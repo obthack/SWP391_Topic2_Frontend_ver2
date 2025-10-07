@@ -9,6 +9,7 @@ import { AdminDashboard } from './pages/AdminDashboard';
 import { CreateListing } from './pages/CreateListing';
 import { EditListing } from './pages/EditListing';
 import { MyListings } from './pages/MyListings';
+import { Trash } from './pages/Trash';
 import { LoginForm } from './components/organisms/auth/LoginForm';
 import { RegisterForm } from './components/organisms/auth/RegisterForm';
 import { ForgotPassword } from './pages/ForgotPassword';
@@ -93,6 +94,14 @@ const AppContent = () => {
             element={
               <ProtectedRoute>
                 <MyListings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/trash"
+            element={
+              <ProtectedRoute>
+                <Trash />
               </ProtectedRoute>
             }
           />

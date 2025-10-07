@@ -14,6 +14,7 @@ export const CreateListing = () => {
   const [images, setImages] = useState([]);
   const [formData, setFormData] = useState({
     title: "",
+    licensePlate: "",
     description: "",
     brand: "",
     model: "",
@@ -27,7 +28,7 @@ export const CreateListing = () => {
     location: "",
     contactPhone: "",
     contactEmail: user?.email || "",
-    productType: "vehicle", // Default to vehicle for electric cars
+    productType: "vehicle",
   });
 
   const handleChange = (e) => {
@@ -47,20 +48,25 @@ export const CreateListing = () => {
     setImages(images.filter((_, i) => i !== index));
   };
 
+  const fileToBase64 = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
     try {
-      // Upload images first (you'll need to implement image upload API)
-      const imageUrls = []; // For now, we'll skip image upload
-
       const productDataRaw = {
         title: formData.title,
         description: formData.description,
         brand: formData.brand,
         model: formData.model,
+        licensePlate: formData.licensePlate || undefined,
         year: formData.year ? parseInt(formData.year) : undefined,
         price: formData.price ? parseFloat(formData.price) : undefined,
         mileage: formData.mileage ? parseInt(formData.mileage) : undefined,
@@ -72,7 +78,6 @@ export const CreateListing = () => {
         contactPhone: formData.contactPhone || undefined,
         contactEmail: formData.contactEmail || undefined,
         productType: formData.productType,
-        images: imageUrls,
       };
       // Remove undefined to avoid backend validation errors
       const productData = Object.fromEntries(Object.entries({
@@ -87,7 +92,25 @@ export const CreateListing = () => {
       console.log("User object:", user);
       console.log("Sending product data:", productData);
 
-      await apiRequest("/api/Product", { method: "POST", body: productData });
+      const created = await apiRequest("/api/Product", { method: "POST", body: productData });
+      const pid = created?.id || created?.productId || created?.Id;
+
+      if (pid && images.length > 0) {
+        for (let i = 0; i < images.length; i++) {
+          const img = images[i];
+          const dataUrl = await fileToBase64(img);
+          try {
+            await apiRequest(`/api/ProductImage`, {
+              method: 'POST',
+              body: { productId: pid, imageData: dataUrl, isPrimary: i === 0 },
+            });
+          } catch (e) {
+            // ignore individual image upload errors to not block listing creation
+            console.warn('Image upload failed', e);
+          }
+        }
+      }
+
       show({ title: 'Tạo bài đăng thành công', description: 'Bài đăng của bạn đang chờ duyệt', type: 'success' });
       navigate("/dashboard");
     } catch (err) {
@@ -171,7 +194,22 @@ export const CreateListing = () => {
                     value={formData.title}
                     onChange={handleChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Ví dụ: Xe điện VinFast VF8 mới 100%"
+                    placeholder="Tên xe (VD: VinFast VF8)"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Biển số xe *
+                  </label>
+                  <input
+                    type="text"
+                    name="licensePlate"
+                    value={formData.licensePlate}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="VD: 30A-123.45"
                     required
                   />
                 </div>

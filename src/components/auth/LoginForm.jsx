@@ -38,8 +38,12 @@ export const LoginForm = () => {
     setLoading(true);
 
     try {
-      await signIn(email, password);
-      navigate("/dashboard");
+      const session = await signIn(email, password);
+      const rawId = session?.user?.roleId ?? session?.profile?.roleId ?? session?.user?.role;
+      const rid = typeof rawId === 'string' ? Number(rawId) : rawId;
+      const roleName = (session?.user?.roleName || session?.profile?.role || '').toString().toLowerCase();
+      const isAdmin = rid === 1 || roleName === 'admin';
+      navigate(isAdmin ? "/admin" : "/dashboard");
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {

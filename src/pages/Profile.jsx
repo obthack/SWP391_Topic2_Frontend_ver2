@@ -19,22 +19,25 @@ export const Profile = () => {
       email: user?.email || profile?.email || '',
       phone: user?.phone || profile?.phone || '',
     });
-    setAvatarUrl(user?.avatarUrl || profile?.avatarUrl || '');
+    setAvatarUrl(user?.avatar || user?.avatarUrl || profile?.avatar || profile?.avatarUrl || '');
   }, [user, profile]);
 
   const onChange = (e)=> setForm({ ...form, [e.target.name]: e.target.value });
 
+  const fileToBase64 = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
   const uploadAvatar = async (file) => {
-    const fd = new FormData();
-    fd.append('file', file);
     setUploading(true);
     setError('');
     try {
-      const res = await apiRequest('/api/User/avatar', { method: 'POST', body: fd });
-      const url = res?.url || res?.avatarUrl || res;
-      setAvatarUrl(url);
-      setMessage('Tải ảnh đại diện thành công');
-      show({ title: 'Tải ảnh thành công', description: 'Ảnh đại diện đã được cập nhật', type: 'success' });
+      const dataUrl = await fileToBase64(file);
+      setAvatarUrl(dataUrl);
+      show({ title: 'Tải ảnh thành công', description: 'Ảnh sẽ được lưu khi bạn bấm Lưu thay đổi', type: 'success' });
     } catch (e) {
       setError(e.message || 'Không thể tải ảnh');
     } finally {
@@ -48,8 +51,8 @@ export const Profile = () => {
     setMessage('');
     setError('');
     try {
-      const payload = { fullName: form.fullName, email: form.email, phone: form.phone, avatarUrl };
-      const updated = await updateProfile(payload);
+      const payload = { fullName: form.fullName, email: form.email, phone: form.phone, avatar: avatarUrl };
+      await updateProfile(payload);
       setMessage('Cập nhật thành công');
       show({ title: 'Cập nhật hồ sơ', description: 'Thông tin đã được lưu', type: 'success' });
     } catch (e) {
