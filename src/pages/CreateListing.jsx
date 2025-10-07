@@ -48,12 +48,13 @@ export const CreateListing = () => {
     setImages(images.filter((_, i) => i !== index));
   };
 
-  const fileToBase64 = (file) => new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
+  const fileToBase64 = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -80,38 +81,81 @@ export const CreateListing = () => {
         productType: formData.productType,
       };
       // Remove undefined to avoid backend validation errors
-      const productData = Object.fromEntries(Object.entries({
-        ...productDataRaw,
-        sellerId: user?.accountId || user?.id || user?.userId,
-        accountId: user?.accountId || undefined,
-        status: 'pending',
-        createdDate: new Date().toISOString(),
-        isActive: true,
-      }).filter(([,v])=> v !== undefined));
+      const productData = Object.fromEntries(
+        Object.entries({
+          ...productDataRaw,
+          sellerId: user?.accountId || user?.id || user?.userId,
+          accountId: user?.accountId || undefined,
+          status: "pending",
+          createdDate: new Date().toISOString(),
+          isActive: true,
+        }).filter(([, v]) => v !== undefined)
+      );
 
       console.log("User object:", user);
       console.log("Sending product data:", productData);
 
-      const created = await apiRequest("/api/Product", { method: "POST", body: productData });
+      const created = await apiRequest("/api/Product", {
+        method: "POST",
+        body: productData,
+      });
       const pid = created?.id || created?.productId || created?.Id;
 
       if (pid && images.length > 0) {
-        for (let i = 0; i < images.length; i++) {
-          const img = images[i];
-          const dataUrl = await fileToBase64(img);
-          try {
-            await apiRequest(`/api/ProductImage`, {
-              method: 'POST',
-              body: { productId: pid, imageData: dataUrl, isPrimary: i === 0 },
+        // Try multiple upload endpoint first
+        try {
+          const imageDataArray = [];
+          for (let i = 0; i < images.length; i++) {
+            const img = images[i];
+            const dataUrl = await fileToBase64(img);
+            imageDataArray.push({
+              productId: pid,
+              imageData: dataUrl,
+              isPrimary: i === 0,
             });
-          } catch (e) {
-            // ignore individual image upload errors to not block listing creation
-            console.warn('Image upload failed', e);
+          }
+
+          console.log(
+            "Uploading images with multiple endpoint:",
+            imageDataArray
+          );
+          await apiRequest(`/api/ProductImage/multiple`, {
+            method: "POST",
+            body: imageDataArray,
+          });
+          console.log("Multiple images uploaded successfully");
+        } catch (e) {
+          console.warn("Multiple upload failed, trying individual uploads:", e);
+
+          // Fallback to individual uploads
+          for (let i = 0; i < images.length; i++) {
+            const img = images[i];
+            const dataUrl = await fileToBase64(img);
+            try {
+              console.log(
+                `Uploading image ${i + 1}/${images.length} for product ${pid}`
+              );
+              await apiRequest(`/api/ProductImage`, {
+                method: "POST",
+                body: {
+                  productId: pid,
+                  imageData: dataUrl,
+                  isPrimary: i === 0,
+                },
+              });
+              console.log(`Image ${i + 1} uploaded successfully`);
+            } catch (e) {
+              console.warn(`Image ${i + 1} upload failed:`, e);
+            }
           }
         }
       }
 
-      show({ title: 'Tạo bài đăng thành công', description: 'Bài đăng của bạn đang chờ duyệt', type: 'success' });
+      show({
+        title: "Tạo bài đăng thành công",
+        description: "Bài đăng của bạn đang chờ duyệt",
+        type: "success",
+      });
       navigate("/dashboard");
     } catch (err) {
       console.error("Error creating product:", err);

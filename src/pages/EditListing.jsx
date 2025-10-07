@@ -15,6 +15,7 @@ export const EditListing = () => {
   const [images, setImages] = useState([]);
   const [formData, setFormData] = useState({
     title: "",
+    licensePlate: "",
     description: "",
     brand: "",
     model: "",
@@ -40,10 +41,17 @@ export const EditListing = () => {
       const data = await apiRequest(`/api/Product/${id}`);
       const mapped = {
         title: data.title ?? data.Title ?? "",
+        licensePlate:
+          data.licensePlate ?? data.license_plate ?? data.LicensePlate ?? "",
         description: data.description ?? data.Description ?? "",
         brand: data.brand ?? data.Brand ?? "",
         model: data.model ?? data.Model ?? "",
-        year: data.year ?? data.productionYear ?? data.manufactureYear ?? data.ManufactureYear ?? "",
+        year:
+          data.year ??
+          data.productionYear ??
+          data.manufactureYear ??
+          data.ManufactureYear ??
+          "",
         price: data.price ?? data.Price ?? "",
         mileage: data.mileage ?? data.Mileage ?? "",
         color: data.color ?? data.Color ?? "",
@@ -51,9 +59,16 @@ export const EditListing = () => {
         transmission: data.transmission ?? data.Transmission ?? "",
         condition: data.condition ?? data.Condition ?? "excellent",
         location: data.location ?? data.city ?? data.City ?? data.address ?? "",
-        contactPhone: data.contactPhone ?? data.phone ?? data.phoneNumber ?? data.PhoneNumber ?? "",
-        contactEmail: data.contactEmail ?? data.email ?? data.Email ?? user?.email ?? "",
-        productType: data.productType ?? data.product_type ?? data.Type ?? "vehicle",
+        contactPhone:
+          data.contactPhone ??
+          data.phone ??
+          data.phoneNumber ??
+          data.PhoneNumber ??
+          "",
+        contactEmail:
+          data.contactEmail ?? data.email ?? data.Email ?? user?.email ?? "",
+        productType:
+          data.productType ?? data.product_type ?? data.Type ?? "vehicle",
       };
       setFormData(mapped);
     } catch (error) {
@@ -85,10 +100,9 @@ export const EditListing = () => {
     setLoading(true);
 
     try {
-      const imageUrls = []; // For now, we'll skip image upload
-
       const productData = {
         title: formData.title,
+        licensePlate: formData.licensePlate || undefined,
         description: formData.description,
         brand: formData.brand,
         model: formData.model,
@@ -104,19 +118,73 @@ export const EditListing = () => {
         contactEmail: formData.contactEmail || undefined,
         productType: formData.productType,
         sellerId: user?.id || user?.accountId || user?.userId || 1,
-        images: imageUrls,
         isActive: true,
         updatedAt: new Date().toISOString(),
       };
 
       console.log("Updating product data:", productData);
 
-      await apiRequest(`/api/Product/${id}`, {
+      const updated = await apiRequest(`/api/Product/${id}`, {
         method: "PUT",
         body: productData,
       });
+      const pid = updated?.id || updated?.productId || updated?.Id || id;
 
-      show({ title: 'Cập nhật thành công', description: 'Bài đăng đã được cập nhật', type: 'success' });
+      // Upload new images if any
+      if (images.length > 0) {
+        try {
+          const imageDataArray = [];
+          for (let i = 0; i < images.length; i++) {
+            const img = images[i];
+            const dataUrl = await fileToBase64(img);
+            imageDataArray.push({
+              productId: pid,
+              imageData: dataUrl,
+              isPrimary: i === 0,
+            });
+          }
+
+          console.log(
+            "Uploading images with multiple endpoint:",
+            imageDataArray
+          );
+          await apiRequest(`/api/ProductImage/multiple`, {
+            method: "POST",
+            body: imageDataArray,
+          });
+          console.log("Multiple images uploaded successfully");
+        } catch (e) {
+          console.warn("Multiple upload failed, trying individual uploads:", e);
+
+          // Fallback to individual uploads
+          for (let i = 0; i < images.length; i++) {
+            const img = images[i];
+            const dataUrl = await fileToBase64(img);
+            try {
+              console.log(
+                `Uploading image ${i + 1}/${images.length} for product ${pid}`
+              );
+              await apiRequest(`/api/ProductImage`, {
+                method: "POST",
+                body: {
+                  productId: pid,
+                  imageData: dataUrl,
+                  isPrimary: i === 0,
+                },
+              });
+              console.log(`Image ${i + 1} uploaded successfully`);
+            } catch (e) {
+              console.warn(`Image ${i + 1} upload failed:`, e);
+            }
+          }
+        }
+      }
+
+      show({
+        title: "Cập nhật thành công",
+        description: "Bài đăng đã được cập nhật",
+        type: "success",
+      });
       navigate("/my-listings");
     } catch (err) {
       console.error("Error updating product:", err);
@@ -154,8 +222,12 @@ export const EditListing = () => {
             <ArrowLeft className="h-5 w-5 mr-2" />
             Quay lại
           </button>
-          <h1 className="text-3xl font-bold text-gray-900">Chỉnh sửa tin đăng</h1>
-          <p className="text-gray-600 mt-2">Cập nhật thông tin bài đăng của bạn</p>
+          <h1 className="text-3xl font-bold text-gray-900">
+            Chỉnh sửa tin đăng
+          </h1>
+          <p className="text-gray-600 mt-2">
+            Cập nhật thông tin bài đăng của bạn
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-8">
@@ -200,6 +272,21 @@ export const EditListing = () => {
                     onChange={handleChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Ví dụ: Xe điện VinFast VF8 mới 100%"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Biển số xe *
+                  </label>
+                  <input
+                    type="text"
+                    name="licensePlate"
+                    value={formData.licensePlate}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="VD: 30A-123.45"
                     required
                   />
                 </div>
@@ -428,6 +515,56 @@ export const EditListing = () => {
                   placeholder="your@email.com"
                 />
               </div>
+            </div>
+          </div>
+
+          {/* Image Upload */}
+          <div className="bg-white rounded-xl shadow-sm p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">
+              Hình ảnh mới (Tối đa 5 ảnh)
+            </h2>
+            <div className="space-y-4">
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600 mb-4">
+                  Kéo thả ảnh vào đây hoặc click để chọn
+                </p>
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                  id="image-upload-edit"
+                />
+                <label
+                  htmlFor="image-upload-edit"
+                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 cursor-pointer"
+                >
+                  Chọn ảnh
+                </label>
+              </div>
+
+              {images.length > 0 && (
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                  {images.map((image, index) => (
+                    <div key={index} className="relative">
+                      <img
+                        src={URL.createObjectURL(image)}
+                        alt={`Preview ${index + 1}`}
+                        className="w-full h-24 object-cover rounded-lg"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeImage(index)}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
