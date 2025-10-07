@@ -3,9 +3,11 @@ import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Upload, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { apiRequest } from "../lib/api";
+import { useToast } from "../contexts/ToastContext";
 
 export const EditListing = () => {
   const { user } = useAuth();
+  const { show } = useToast();
   const navigate = useNavigate();
   const { id } = useParams();
   const [loading, setLoading] = useState(false);
@@ -114,7 +116,8 @@ export const EditListing = () => {
         body: productData,
       });
 
-      navigate("/my-listings?success=listing_updated");
+      show({ title: 'Cập nhật thành công', description: 'Bài đăng đã được cập nhật', type: 'success' });
+      navigate("/my-listings");
     } catch (err) {
       console.error("Error updating product:", err);
       console.error("Error details:", err.data);

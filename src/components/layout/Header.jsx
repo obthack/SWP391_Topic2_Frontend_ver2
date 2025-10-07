@@ -74,11 +74,18 @@ export const Header = () => {
                       </Link>
                     )}
                     <Link
-                      to="/profile"
+                      to="/dashboard"
                       className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     >
                       <User className="h-4 w-4 mr-2" />
                       Trang cá nhân
+                    </Link>
+                    <Link
+                      to="/profile"
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      <User className="h-4 w-4 mr-2" />
+                      Hồ sơ cá nhân
                     </Link>
                     <button
                       onClick={handleSignOut}

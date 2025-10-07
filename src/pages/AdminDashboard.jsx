@@ -20,6 +20,7 @@ export const AdminDashboard = () => {
     totalRevenue: 0,
   });
   const [pendingListings, setPendingListings] = useState([]);
+  const getId = (x)=> x?.id || x?.productId || x?.Id || x?.listingId;
   const [recentTransactions, setRecentTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -35,7 +36,7 @@ export const AdminDashboard = () => {
         apiRequest("/api/Order"),
       ]);
 
-      const pending = listings?.filter((l) => l.status === "pending") || [];
+      const pending = (listings || []).filter((l) => (String(l.status||'').toLowerCase()==='pending')) || [];
       const revenue =
         transactions
           ?.filter((t) => t.status === "completed")
@@ -190,7 +191,7 @@ export const AdminDashboard = () => {
               <div className="space-y-4">
                 {pendingListings.map((listing) => (
                   <div
-                    key={listing.id}
+                    key={getId(listing)}
                     className="border border-gray-200 rounded-lg p-4"
                   >
                     <div className="flex items-start space-x-4">
@@ -219,14 +220,14 @@ export const AdminDashboard = () => {
                     </div>
                     <div className="flex items-center space-x-2 mt-4">
                       <button
-                        onClick={() => handleApprove(listing.id)}
+                        onClick={() => handleApprove(getId(listing))}
                         className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center"
                       >
                         <CheckCircle className="h-4 w-4 mr-2" />
                         Duyệt
                       </button>
                       <button
-                        onClick={() => handleReject(listing.id)}
+                        onClick={() => handleReject(getId(listing))}
                         className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center"
                       >
                         <XCircle className="h-4 w-4 mr-2" />

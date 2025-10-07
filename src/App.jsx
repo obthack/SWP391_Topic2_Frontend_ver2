@@ -9,11 +9,13 @@ import { AdminDashboard } from './pages/AdminDashboard';
 import { CreateListing } from './pages/CreateListing';
 import { EditListing } from './pages/EditListing';
 import { MyListings } from './pages/MyListings';
+import { Trash } from './pages/Trash';
 import { LoginForm } from './components/organisms/auth/LoginForm';
 import { RegisterForm } from './components/organisms/auth/RegisterForm';
 import { ForgotPassword } from './pages/ForgotPassword';
 import { ResetPassword } from './pages/ResetPassword';
 import { AuthCallback } from './pages/AuthCallback';
+import { ToastProvider } from './contexts/ToastContext';
 
 const ProtectedRoute = ({ children, adminOnly = false }) => {
   const { user, profile, loading } = useAuth();
@@ -95,6 +97,14 @@ const AppContent = () => {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/trash"
+            element={
+              <ProtectedRoute>
+                <Trash />
+              </ProtectedRoute>
+            }
+          />
 
           <Route
             path="/listing/:id/edit"
@@ -126,7 +136,9 @@ function App() {
   return (
     <Router>
       <AuthProvider>
-        <AppContent />
+        <ToastProvider>
+          <AppContent />
+        </ToastProvider>
       </AuthProvider>
     </Router>
   );

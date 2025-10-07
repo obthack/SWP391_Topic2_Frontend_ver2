@@ -17,7 +17,6 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Hydrate from localStorage (backend-auth flow)
     (async () => {
       try {
         const raw = localStorage.getItem("evtb_auth");
@@ -25,19 +24,20 @@ export const AuthProvider = ({ children }) => {
           const parsed = JSON.parse(raw);
           setUser(parsed?.user || null);
           setProfile(parsed?.profile || null);
-        }
-        // Try load current user from backend to get freshest name/profile
-        try {
-          const me = await apiRequest("/api/User/me");
-          if (me) {
-            const mergedUser = { ...(me.user || me), ...(me.profile ? { profile: me.profile } : {}) };
-            setUser((u) => ({ ...(u || {}), ...mergedUser }));
-            if (me.profile) setProfile(me.profile);
-            const raw2 = localStorage.getItem("evtb_auth");
-            const sess = raw2 ? JSON.parse(raw2) : {};
-            localStorage.setItem("evtb_auth", JSON.stringify({ ...sess, user: mergedUser, profile: me.profile || sess.profile }));
+          const uid = parsed?.user?.id || parsed?.user?.accountId || parsed?.user?.userId || parsed?.accountId;
+          if (uid) {
+            try {
+              const me = await apiRequest(`/api/User/${uid}`);
+              if (me) {
+                const mergedUser = { ...(parsed.user || {}), ...(me.user || me) };
+                const prof = parsed.profile || mapProfileFromAny(me);
+                setUser(mergedUser);
+                setProfile(prof);
+                localStorage.setItem("evtb_auth", JSON.stringify({ ...parsed, user: mergedUser, profile: prof }));
+              }
+            } catch {}
           }
-        } catch {}
+        }
       } catch {
         // ignore
       } finally {
@@ -47,64 +47,84 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const loadProfile = async (_userId) => {
-    // Optional: fetch profile from your backend if available
     return null;
   };
 
+  const isAdminFrom = (src)=>{
+    const rawRoleId = src?.roleId ?? src?.role?.roleId ?? src?.userRoleId ?? src?.userRoles ?? src?.RoleId ?? src?.role;
+    const rid = typeof rawRoleId === 'string' ? Number(rawRoleId) : rawRoleId;
+    const roleName = (src?.roleName || src?.role?.roleName || src?.role || '').toString().toLowerCase();
+    return (rid === 1) || roleName === 'admin' || src?.isAdmin === true;
+  };
+
+  const mapProfileFromAny = (src) => {
+    const rawRoleId = src?.roleId ?? src?.role?.roleId ?? src?.userRoleId ?? src?.userRoles ?? src?.RoleId ?? src?.role;
+    const rid = typeof rawRoleId === 'string' ? Number(rawRoleId) : rawRoleId;
+    const isAdmin = isAdminFrom(src);
+    const fullName = src?.fullName || src?.FullName || src?.user?.fullName || src?.profile?.fullName || '';
+    const phone = src?.phone || src?.Phone || src?.user?.phone || src?.profile?.phone || '';
+    return {
+      role: isAdmin ? 'admin' : 'member',
+      roleId: rid ?? (isAdmin ? 1 : 2),
+      full_name: fullName || '',
+      fullName: fullName || '',
+      phone: phone || '',
+    };
+  };
+
+  const buildSession = (data, fallbackEmail) => {
+    const token = data?.token || data?.accessToken || data?.jwt || data?.tokenString || null;
+    const userObj = data?.user || data || (fallbackEmail ? { email: fallbackEmail } : {});
+    const profileObj = data?.profile || mapProfileFromAny(data) || mapProfileFromAny(userObj);
+    return { token, user: userObj, profile: profileObj };
+  };
+
   const signUp = async (email, password, fullName, phone = "") => {
+    const form = new FormData();
+    form.append('Email', email);
+    form.append('Password', password);
+    form.append('FullName', fullName || '');
+    form.append('Phone', phone || '');
+
     const data = await apiRequest("/api/User/register", {
       method: "POST",
-      body: {
-        email,
-        password,
-        fullName,
-        phone,
-      },
+      body: form,
     });
 
-    // Normalize possible backend shapes
-    const normalizedToken =
-      data?.token || data?.accessToken || data?.jwt || data?.tokenString ||
-      data?.data?.token || data?.result?.token || null;
-    const normalizedUser =
-      data?.user || data?.data?.user || data?.result?.user || { email, fullName, phone };
-    const normalizedProfile = data?.profile || data?.data?.profile || data?.result?.profile || null;
-
-    if (!normalizedToken) {
-      throw new Error("Đăng ký thất bại: phản hồi không chứa token.");
+    // Many backends don't return token on register; try auto-login to obtain token
+    try {
+      const session = await signIn(email, password);
+      return session;
+    } catch {
+      const session = buildSession(data, email);
+      try { localStorage.setItem("evtb_auth", JSON.stringify(session)); } catch {}
+      setUser(session.user);
+      setProfile(session.profile || null);
+      return session;
     }
-
-    const session = { token: normalizedToken, user: normalizedUser, profile: normalizedProfile };
-
-    localStorage.setItem("evtb_auth", JSON.stringify(session));
-    setUser(session.user);
-    setProfile(session.profile || null);
-
-    return session;
   };
 
   const signIn = async (email, password) => {
-    // Call your backend login API
-    // Expecting response like: { token: string, user: { ... } }
     const data = await apiRequest("/api/User/login", {
       method: "POST",
       body: { email, password },
     });
 
-    // Normalize possible backend shapes
-    const normalizedToken =
-      data?.token || data?.accessToken || data?.jwt || data?.tokenString ||
-      data?.data?.token || data?.result?.token || null;
-    const normalizedUser = data?.user || data?.data?.user || data?.result?.user || { email };
-    const normalizedProfile = data?.profile || data?.data?.profile || data?.result?.profile || null;
+    const session = buildSession(data, email);
 
-    if (!normalizedToken) {
-      throw new Error("Đăng nhập thất bại: phản hồi không chứa token.");
-    }
+    try {
+      const uid = data?.accountId || data?.userId || session?.user?.id || session?.user?.accountId || session?.user?.userId;
+      if (uid) {
+        const me = await apiRequest(`/api/User/${uid}`);
+        if (me) {
+          const mergedUser = { ...(session.user || {}), ...(me.user || me) };
+          session.user = mergedUser;
+          session.profile = session.profile || mapProfileFromAny(me);
+        }
+      }
+    } catch {}
 
-    const session = { token: normalizedToken, user: normalizedUser, profile: normalizedProfile };
-
-    localStorage.setItem("evtb_auth", JSON.stringify(session));
+    try { localStorage.setItem("evtb_auth", JSON.stringify(session)); } catch {}
     setUser(session.user);
     setProfile(session.profile || null);
 
@@ -119,16 +139,18 @@ export const AuthProvider = ({ children }) => {
 
   const updateProfile = async (updates) => {
     if (!user) throw new Error("No user logged in");
-    const data = await apiRequest("/api/User/profile", {
+    const uid = user?.id || user?.accountId || user?.userId;
+    if (!uid) throw new Error("Thiếu ID người dùng để cập nhật");
+    const data = await apiRequest(`/api/User/${uid}`, {
       method: "PUT",
       body: updates,
     });
-    const newProfile = data?.profile || data;
+    const newProfile = data?.profile || mapProfileFromAny(data) || updates;
     setProfile(newProfile);
-    const raw = localStorage.getItem("evtb_auth");
     try {
+      const raw = localStorage.getItem("evtb_auth");
       const session = raw ? JSON.parse(raw) : {};
-      localStorage.setItem("evtb_auth", JSON.stringify({ ...session, profile: newProfile }));
+      localStorage.setItem("evtb_auth", JSON.stringify({ ...session, profile: newProfile, user: { ...(session.user||{}), ...(data.user||data) } }));
     } catch {}
     return newProfile;
   };
@@ -141,7 +163,7 @@ export const AuthProvider = ({ children }) => {
     signIn,
     signOut,
     updateProfile,
-    isAdmin: profile?.role === "admin",
+    isAdmin: isAdminFrom({ ...(profile||{}), ...(user||{}) }),
     signInWithProvider: (provider) => {
       const prov = provider === 'google' ? 'google' : 'facebook';
       window.location.href = `${API_BASE_URL}/api/Auth/${prov}`;

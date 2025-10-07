@@ -43,13 +43,17 @@ export const RegisterForm = () => {
     setLoading(true);
 
     try {
-      await signUp(
+      const session = await signUp(
         formData.email,
         formData.password,
         formData.fullName,
         formData.phone
       );
-      navigate("/dashboard");
+      const rawId = session?.user?.roleId ?? session?.profile?.roleId ?? session?.user?.role;
+      const rid = typeof rawId === 'string' ? Number(rawId) : rawId;
+      const roleName = (session?.user?.roleName || session?.profile?.role || '').toString().toLowerCase();
+      const isAdmin = rid === 1 || roleName === 'admin';
+      navigate(isAdmin ? "/admin" : "/dashboard");
     } catch (err) {
       setError(err.message || "Đã có lỗi xảy ra. Vui lòng thử lại.");
     } finally {
