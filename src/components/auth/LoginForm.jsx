@@ -39,10 +39,30 @@ export const LoginForm = () => {
 
     try {
       const session = await signIn(email, password);
-      const rawId = session?.user?.roleId ?? session?.profile?.roleId ?? session?.user?.role;
-      const rid = typeof rawId === 'string' ? Number(rawId) : rawId;
-      const roleName = (session?.user?.roleName || session?.profile?.role || '').toString().toLowerCase();
-      const isAdmin = rid === 1 || roleName === 'admin';
+
+      // Debug logging
+      console.log("=== LOGIN DEBUG ===");
+      console.log("Full session data:", session);
+      console.log("User object:", session?.user);
+      console.log("Profile object:", session?.profile);
+
+      const rawId =
+        session?.user?.roleId ??
+        session?.profile?.roleId ??
+        session?.user?.role;
+      const rid = typeof rawId === "string" ? Number(rawId) : rawId;
+      const roleName = (session?.user?.roleName || session?.profile?.role || "")
+        .toString()
+        .toLowerCase();
+      const isAdmin = rid === 1 || roleName === "admin";
+
+      console.log("Raw roleId:", rawId);
+      console.log("Processed roleId:", rid);
+      console.log("Role name:", roleName);
+      console.log("Is admin:", isAdmin);
+      console.log("Will navigate to:", isAdmin ? "/admin" : "/dashboard");
+      console.log("==================");
+
       navigate(isAdmin ? "/admin" : "/dashboard");
     } catch (err) {
       setError(getErrorMessage(err));
@@ -241,11 +261,42 @@ export const LoginForm = () => {
 
             <div className="mt-6">
               <div className="flex flex-col space-y-3">
-                <button onClick={()=> window.location.href = `${API_BASE_URL}/api/Auth/google`} className="w-full border border-gray-300 text-gray-700 py-3 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="h-5 w-5"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 31.6 29.3 35 24 35c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 6 1.2 8.1 3.2l5.7-5.7C34.6 5.1 29.6 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21 21-9.4 21-21c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.4 16 18.8 13 24 13c3.1 0 6 1.2 8.1 3.2l5.7-5.7C34.6 5.1 29.6 3 24 3 16.1 3 9.2 7.4 6.3 14.7z"/><path fill="#4CAF50" d="M24 45c5.2 0 10-2 13.6-5.2l-6.3-5.2C29.3 35 26.8 36 24 36c-5.2 0-9.6-3-11.4-7.2l-6.5 5C9.1 41.6 16 45 24 45z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-1.1 3.2-3.6 5.6-7.3 6.6l6.3 5.2C38.2 36.9 42 31 42 24c0-1.2-.1-2.3-.4-3.5z"/></svg>
+                <button
+                  onClick={() =>
+                    (window.location.href = `${API_BASE_URL}/api/Auth/google`)
+                  }
+                  className="w-full border border-gray-300 text-gray-700 py-3 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 48 48"
+                    className="h-5 w-5"
+                  >
+                    <path
+                      fill="#FFC107"
+                      d="M43.6 20.5H42V20H24v8h11.3C33.7 31.6 29.3 35 24 35c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 6 1.2 8.1 3.2l5.7-5.7C34.6 5.1 29.6 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21 21-9.4 21-21c0-1.2-.1-2.3-.4-3.5z"
+                    />
+                    <path
+                      fill="#FF3D00"
+                      d="M6.3 14.7l6.6 4.8C14.4 16 18.8 13 24 13c3.1 0 6 1.2 8.1 3.2l5.7-5.7C34.6 5.1 29.6 3 24 3 16.1 3 9.2 7.4 6.3 14.7z"
+                    />
+                    <path
+                      fill="#4CAF50"
+                      d="M24 45c5.2 0 10-2 13.6-5.2l-6.3-5.2C29.3 35 26.8 36 24 36c-5.2 0-9.6-3-11.4-7.2l-6.5 5C9.1 41.6 16 45 24 45z"
+                    />
+                    <path
+                      fill="#1976D2"
+                      d="M43.6 20.5H42V20H24v8h11.3c-1.1 3.2-3.6 5.6-7.3 6.6l6.3 5.2C38.2 36.9 42 31 42 24c0-1.2-.1-2.3-.4-3.5z"
+                    />
+                  </svg>
                   Đăng nhập với Google
                 </button>
-                <button onClick={()=> window.location.href = `${API_BASE_URL}/api/Auth/facebook`} className="w-full border border-gray-300 text-gray-700 py-3 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2">
+                <button
+                  onClick={() =>
+                    (window.location.href = `${API_BASE_URL}/api/Auth/facebook`)
+                  }
+                  className="w-full border border-gray-300 text-gray-700 py-3 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2"
+                >
                   <Facebook className="h-5 w-5" />
                   Đăng nhập với Facebook
                 </button>
@@ -254,7 +305,12 @@ export const LoginForm = () => {
               <div className="mt-4 text-center">
                 <p className="text-gray-600">
                   Chưa có tài khoản? {""}
-                  <Link to="/register" className="text-blue-600 hover:text-blue-700 font-medium">Đăng ký ngay</Link>
+                  <Link
+                    to="/register"
+                    className="text-blue-600 hover:text-blue-700 font-medium"
+                  >
+                    Đăng ký ngay
+                  </Link>
                 </p>
               </div>
             </div>
