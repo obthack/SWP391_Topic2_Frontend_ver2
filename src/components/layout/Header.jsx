@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { Zap, Search, Heart, User, LogOut, LayoutDashboard } from 'lucide-react';
+import { Zap, Search, Heart, User, LogOut, LayoutDashboard, FileText } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 export const Header = () => {
@@ -76,6 +76,13 @@ export const Header = () => {
                     >
                       <User className="h-4 w-4 mr-2" />
                       Trang cá nhân
+                    </Link>
+                    <Link
+                      to="/dashboard"
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      Hồ sơ cá nhân
                     </Link>
                     <button
                       onClick={handleSignOut}

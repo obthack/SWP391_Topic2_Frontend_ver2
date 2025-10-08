@@ -54,6 +54,53 @@ export const CreateListing = () => {
       // Upload images first (you'll need to implement image upload API)
       const imageUrls = []; // For now, we'll skip image upload
 
+      // Get user's profile ID for seller_id reference
+      // First try to get profile from current user data
+      let sellerId = user?.profile?.id;
+      
+      // If no profile found, try to create one or get existing one
+      if (!sellerId) {
+        try {
+          // Try to get or create profile
+          const profileResponse = await apiRequest("/api/Profile/me");
+          if (profileResponse?.id) {
+            sellerId = profileResponse.id;
+          } else {
+            // Create profile if it doesn't exist
+            const createProfileResponse = await apiRequest("/api/Profile", {
+              method: "POST",
+              body: {
+                full_name: user?.fullName || user?.full_name || user?.name || "User",
+                phone: user?.phone || formData.contactPhone || "",
+                user_id: user?.id || user?.userId || user?.accountId
+              }
+            });
+            sellerId = createProfileResponse?.id;
+          }
+        } catch (profileErr) {
+          console.warn("Could not get/create profile:", profileErr);
+          // Fallback to user ID if profile creation fails
+          sellerId = user?.id || user?.userId || user?.accountId;
+        }
+      }
+      
+      // Get category ID based on brand
+      let categoryId = null;
+      if (formData.brand) {
+        try {
+          const categories = await apiRequest("/api/Category");
+          const category = categories?.find(cat => 
+            cat.name?.toLowerCase().includes(formData.brand.toLowerCase()) ||
+            formData.brand.toLowerCase().includes(cat.name?.toLowerCase())
+          );
+          categoryId = category?.id;
+        } catch (err) {
+          console.warn("Could not fetch categories:", err);
+          // Use a default category ID if available
+          categoryId = "550e8400-e29b-41d4-a716-446655440001"; // Tesla category from migration
+        }
+      }
+
       const productDataRaw = {
         title: formData.title,
         description: formData.description,
@@ -72,18 +119,31 @@ export const CreateListing = () => {
         productType: formData.productType,
         images: imageUrls,
       };
-      // Remove undefined to avoid backend validation errors
+      
+      // Map to correct database field names
       const productData = Object.fromEntries(Object.entries({
         ...productDataRaw,
-        sellerId: user?.accountId || user?.id || user?.userId,
-        accountId: user?.accountId || undefined,
+        seller_id: sellerId,
+        category_id: categoryId,
         status: 'pending',
-        createdDate: new Date().toISOString(),
-        isActive: true,
-      }).filter(([,v])=> v !== undefined));
+      }).filter(([,v]) => v !== undefined && v !== null));
 
       console.log("User object:", user);
+      console.log("Seller ID resolved:", sellerId);
+      console.log("Category ID resolved:", categoryId);
       console.log("Sending product data:", productData);
+
+      // Validate required fields
+      if (!sellerId) {
+        throw new Error("Không thể xác định thông tin người bán. Vui lòng đăng nhập lại.");
+      }
+      
+      if (!categoryId) {
+        console.warn("No category found, using default");
+        categoryId = "550e8400-e29b-41d4-a716-446655440001";
+        // Update productData with the default category
+        productData.category_id = categoryId;
+      }
 
       await apiRequest("/api/Product", { method: "POST", body: productData });
       navigate("/dashboard?success=listing_created");

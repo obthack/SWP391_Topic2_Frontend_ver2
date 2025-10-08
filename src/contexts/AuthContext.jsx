@@ -30,7 +30,17 @@ export const AuthProvider = ({ children }) => {
         try {
           const me = await apiRequest("/api/User/me");
           if (me) {
-            const mergedUser = { ...(me.user || me), ...(me.profile ? { profile: me.profile } : {}) };
+            // Normalize user data to ensure consistent field names
+            const userData = me.user || me;
+            const normalizedUser = {
+              ...userData,
+              fullName: userData.fullName || userData.full_name || userData.name,
+              email: userData.email,
+              phone: userData.phone,
+              id: userData.id || userData.userId || userData.accountId
+            };
+            
+            const mergedUser = { ...normalizedUser, ...(me.profile ? { profile: me.profile } : {}) };
             setUser((u) => ({ ...(u || {}), ...mergedUser }));
             if (me.profile) setProfile(me.profile);
             const raw2 = localStorage.getItem("evtb_auth");
@@ -52,35 +62,93 @@ export const AuthProvider = ({ children }) => {
   };
 
   const signUp = async (email, password, fullName, phone = "") => {
-    const data = await apiRequest("/api/User/register", {
-      method: "POST",
-      body: {
-        email,
-        password,
-        fullName,
-        phone,
-      },
+    console.log("Register data being sent:", { 
+      email, 
+      password, 
+      fullName, 
+      phone,
+      full_name: fullName 
     });
+    
+    // Try different data formats to find what backend expects
+    const formats = [
+      {
+        name: "Format 1: fullName + full_name",
+        data: { email, password, fullName, full_name: fullName, phone }
+      },
+      {
+        name: "Format 2: fullName only",
+        data: { email, password, fullName, phone }
+      },
+      {
+        name: "Format 3: full_name only",
+        data: { email, password, full_name: fullName, phone }
+      },
+      {
+        name: "Format 4: name field",
+        data: { email, password, name: fullName, phone }
+      },
+      {
+        name: "Format 5: minimal",
+        data: { email, password, phone }
+      }
+    ];
+    
+    for (const format of formats) {
+      try {
+        console.log(`Trying ${format.name}:`, format.data);
+        
+        const data = await apiRequest("/api/User/register", {
+          method: "POST",
+          body: format.data,
+        });
+        
+        console.log("Register response:", data);
 
-    // Normalize possible backend shapes
-    const normalizedToken =
-      data?.token || data?.accessToken || data?.jwt || data?.tokenString ||
-      data?.data?.token || data?.result?.token || null;
-    const normalizedUser =
-      data?.user || data?.data?.user || data?.result?.user || { email, fullName, phone };
-    const normalizedProfile = data?.profile || data?.data?.profile || data?.result?.profile || null;
+        // Normalize possible backend shapes
+        const normalizedToken =
+          data?.token || data?.accessToken || data?.jwt || data?.tokenString ||
+          data?.data?.token || data?.result?.token || null;
+        
+        const userData = data?.user || data?.data?.user || data?.result?.user || { email, fullName, phone };
+        const normalizedUser = {
+          ...userData,
+          fullName: userData.fullName || userData.full_name || userData.name || fullName,
+          email: userData.email || email,
+          phone: userData.phone || phone,
+          id: userData.id || userData.userId || userData.accountId
+        };
+        
+        const normalizedProfile = data?.profile || data?.data?.profile || data?.result?.profile || null;
 
-    if (!normalizedToken) {
-      throw new Error("Đăng ký thất bại: phản hồi không chứa token.");
+        if (!normalizedToken) {
+          throw new Error("Đăng ký thất bại: phản hồi không chứa token.");
+        }
+
+        const session = { token: normalizedToken, user: normalizedUser, profile: normalizedProfile };
+
+        localStorage.setItem("evtb_auth", JSON.stringify(session));
+        setUser(session.user);
+        setProfile(session.profile || null);
+
+        return session;
+        
+      } catch (error) {
+        console.error(`${format.name} failed:`, {
+          status: error.status,
+          message: error.message,
+          data: error.data
+        });
+        
+        // If this is the last format, throw the error
+        if (format === formats[formats.length - 1]) {
+          console.error("All register formats failed");
+          throw error;
+        }
+        // Otherwise, continue to next format
+        continue;
+      }
     }
-
-    const session = { token: normalizedToken, user: normalizedUser, profile: normalizedProfile };
-
-    localStorage.setItem("evtb_auth", JSON.stringify(session));
-    setUser(session.user);
-    setProfile(session.profile || null);
-
-    return session;
   };
 
   const signIn = async (email, password) => {
@@ -95,7 +163,16 @@ export const AuthProvider = ({ children }) => {
     const normalizedToken =
       data?.token || data?.accessToken || data?.jwt || data?.tokenString ||
       data?.data?.token || data?.result?.token || null;
-    const normalizedUser = data?.user || data?.data?.user || data?.result?.user || { email };
+    
+    const userData = data?.user || data?.data?.user || data?.result?.user || { email };
+    const normalizedUser = {
+      ...userData,
+      fullName: userData.fullName || userData.full_name || userData.name,
+      email: userData.email || email,
+      phone: userData.phone,
+      id: userData.id || userData.userId || userData.accountId
+    };
+    
     const normalizedProfile = data?.profile || data?.data?.profile || data?.result?.profile || null;
 
     if (!normalizedToken) {
