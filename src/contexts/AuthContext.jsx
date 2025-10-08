@@ -37,7 +37,8 @@ export const AuthProvider = ({ children }) => {
               fullName: userData.fullName || userData.full_name || userData.name,
               email: userData.email,
               phone: userData.phone,
-              id: userData.id || userData.userId || userData.accountId
+              id: userData.userId || userData.id || userData.accountId,
+              userId: userData.userId || userData.id || userData.accountId
             };
             
             const mergedUser = { ...normalizedUser, ...(me.profile ? { profile: me.profile } : {}) };
@@ -116,7 +117,8 @@ export const AuthProvider = ({ children }) => {
           fullName: userData.fullName || userData.full_name || userData.name || fullName,
           email: userData.email || email,
           phone: userData.phone || phone,
-          id: userData.id || userData.userId || userData.accountId
+          id: userData.userId || userData.id || userData.accountId,
+          userId: userData.userId || userData.id || userData.accountId
         };
         
         const normalizedProfile = data?.profile || data?.data?.profile || data?.result?.profile || null;
@@ -170,7 +172,8 @@ export const AuthProvider = ({ children }) => {
       fullName: userData.fullName || userData.full_name || userData.name,
       email: userData.email || email,
       phone: userData.phone,
-      id: userData.id || userData.userId || userData.accountId
+      id: userData.userId || userData.id || userData.accountId,
+      userId: userData.userId || userData.id || userData.accountId
     };
     
     const normalizedProfile = data?.profile || data?.data?.profile || data?.result?.profile || null;
