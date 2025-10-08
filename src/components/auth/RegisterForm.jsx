@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Mail, Lock, User, Phone, AlertCircle, Eye, EyeOff, Car, Zap, Shield, Star, CheckCircle } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
+import "../../styles/auth.css";
 
 export const RegisterForm = () => {
   const [formData, setFormData] = useState({
@@ -82,11 +83,11 @@ export const RegisterForm = () => {
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
+    <div className="min-h-screen relative overflow-hidden auth-bg">
       {/* Animated Background Elements */}
       <div className="absolute inset-0">
         {/* Electric car silhouettes - more variety */}
-        <div className="absolute top-16 right-16 w-40 h-20 opacity-15">
+        <div className="absolute top-16 right-16 w-40 h-20 opacity-15 car-silhouette-1">
           <svg viewBox="0 0 200 100" className="w-full h-full text-cyan-400">
             <path d="M15 65 L40 45 L170 45 L190 65 L190 85 L170 85 L150 65 L110 65 L90 85 L70 85 L50 65 L15 65 Z" fill="currentColor" opacity="0.3"/>
             <circle cx="30" cy="85" r="8" fill="currentColor" opacity="0.4"/>
@@ -96,7 +97,7 @@ export const RegisterForm = () => {
           </svg>
         </div>
         
-        <div className="absolute top-32 left-12 w-36 h-18 opacity-20">
+        <div className="absolute top-32 left-12 w-36 h-18 opacity-20 car-silhouette-2">
           <svg viewBox="0 0 200 100" className="w-full h-full text-emerald-400">
             <path d="M25 62 L50 42 L180 42 L200 62 L200 82 L180 82 L160 62 L120 62 L100 82 L80 82 L60 62 L25 62 Z" fill="currentColor" opacity="0.3"/>
             <circle cx="40" cy="82" r="8" fill="currentColor" opacity="0.4"/>
@@ -106,7 +107,7 @@ export const RegisterForm = () => {
           </svg>
         </div>
 
-        <div className="absolute bottom-40 left-20 w-44 h-22 opacity-10">
+        <div className="absolute bottom-40 left-20 w-44 h-22 opacity-10 car-silhouette-3">
           <svg viewBox="0 0 200 100" className="w-full h-full text-blue-400">
             <path d="M20 60 L55 40 L185 40 L205 60 L205 80 L185 80 L165 60 L125 60 L105 80 L85 80 L65 60 L20 60 Z" fill="currentColor" opacity="0.3"/>
             <circle cx="45" cy="80" r="8" fill="currentColor" opacity="0.4"/>
@@ -117,10 +118,10 @@ export const RegisterForm = () => {
         </div>
 
         {/* Tech elements */}
-        <div className="absolute top-1/4 left-1/4 w-6 h-6 border-2 border-cyan-400 border-dashed opacity-30 animate-spin" style={{animationDuration: '15s'}}></div>
-        <div className="absolute bottom-1/3 right-1/4 w-4 h-4 border border-emerald-400 opacity-40 animate-pulse"></div>
-        <div className="absolute top-1/2 left-1/3 w-3 h-3 bg-blue-400 opacity-20 rounded-full animate-ping"></div>
-        <div className="absolute bottom-1/4 left-1/2 w-5 h-5 border border-indigo-400 opacity-25 animate-bounce" style={{animationDelay: '1s'}}></div>
+        <div className="absolute top-1/4 left-1/4 w-6 h-6 border-2 border-cyan-400 border-dashed opacity-30 tech-element-1"></div>
+        <div className="absolute bottom-1/3 right-1/4 w-4 h-4 border border-emerald-400 opacity-40 tech-element-2"></div>
+        <div className="absolute top-1/2 left-1/3 w-3 h-3 bg-blue-400 opacity-20 rounded-full tech-element-3"></div>
+        <div className="absolute bottom-1/4 left-1/2 w-5 h-5 border border-indigo-400 opacity-25 tech-element-4"></div>
         
         {/* Circuit patterns */}
         <div className="absolute inset-0 opacity-5">
@@ -136,51 +137,51 @@ export const RegisterForm = () => {
         </div>
 
         {/* Floating particles */}
-        <div className="absolute top-24 right-1/4 w-2 h-2 bg-cyan-400 rounded-full opacity-60 animate-pulse"></div>
-        <div className="absolute top-1/2 left-1/5 w-1 h-1 bg-emerald-400 rounded-full opacity-80 animate-ping" style={{animationDelay: '1.5s'}}></div>
-        <div className="absolute bottom-1/4 right-1/5 w-3 h-3 bg-blue-400 rounded-full opacity-40 animate-bounce" style={{animationDelay: '2.5s'}}></div>
-        <div className="absolute bottom-24 left-1/4 w-1.5 h-1.5 bg-indigo-400 rounded-full opacity-70 animate-pulse" style={{animationDelay: '0.8s'}}></div>
-        <div className="absolute top-1/3 right-1/5 w-2 h-2 bg-purple-400 rounded-full opacity-50 animate-ping" style={{animationDelay: '3s'}}></div>
+        <div className="absolute top-24 right-1/4 w-2 h-2 bg-cyan-400 rounded-full opacity-60 particle-1"></div>
+        <div className="absolute top-1/2 left-1/5 w-1 h-1 bg-emerald-400 rounded-full opacity-80 particle-2"></div>
+        <div className="absolute bottom-1/4 right-1/5 w-3 h-3 bg-blue-400 rounded-full opacity-40 particle-3"></div>
+        <div className="absolute bottom-24 left-1/4 w-1.5 h-1.5 bg-indigo-400 rounded-full opacity-70 particle-4"></div>
+        <div className="absolute top-1/3 right-1/5 w-2 h-2 bg-purple-400 rounded-full opacity-50 particle-5"></div>
       </div>
 
       {/* Main Content */}
       <div className="relative z-10 flex items-center justify-center min-h-screen px-4 sm:px-6 lg:px-8 py-12">
         <div className="w-full max-w-md">
           {/* Glassmorphism Register Card */}
-          <div className="bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-8 transform hover:scale-105 transition-all duration-300">
+          <div className="auth-card p-8">
             {/* Header */}
             <div className="text-center mb-8">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-2xl mb-4 shadow-lg">
-                <Car className="w-8 h-8 text-white" />
+              <div className="auth-header-icon">
+                <Car />
               </div>
-              <h2 className="text-3xl font-bold text-white mb-2">EV Market</h2>
-              <p className="text-blue-100">Tạo tài khoản mới</p>
+              <h2 className="auth-title">EV Market</h2>
+              <p className="auth-subtitle">Tạo tài khoản mới</p>
             </div>
 
             {/* Error Message */}
             {error && (
-              <div className="mb-6 p-4 bg-red-500/20 backdrop-blur-sm border border-red-400/30 rounded-xl flex items-center text-red-200">
-                <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0" />
-                <span className="text-sm">{error}</span>
+              <div className="error-message">
+                <AlertCircle className="error-icon" />
+                <span className="error-text">{error}</span>
               </div>
             )}
 
             {/* Register Form */}
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="auth-form">
               {/* Full Name Field */}
-              <div>
-                <label htmlFor="fullName" className="block text-sm font-medium text-blue-100 mb-2">
+              <div className="auth-field">
+                <label htmlFor="fullName" className="auth-label">
                   Họ và tên
                 </label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-blue-300" />
+                <div className="auth-input-container">
+                  <User className="auth-input-icon" />
                   <input
                     id="fullName"
                     name="fullName"
                     type="text"
                     value={formData.fullName}
                     onChange={handleChange}
-                    className="w-full pl-10 pr-4 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-blue-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200"
+                    className="auth-input"
                     placeholder="Nguyễn Văn A"
                     required
                   />
@@ -188,19 +189,19 @@ export const RegisterForm = () => {
               </div>
 
               {/* Email Field */}
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-blue-100 mb-2">
+              <div className="auth-field">
+                <label htmlFor="email" className="auth-label">
                   Email
                 </label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-blue-300" />
+                <div className="auth-input-container">
+                  <Mail className="auth-input-icon" />
                   <input
                     id="email"
                     name="email"
                     type="email"
                     value={formData.email}
                     onChange={handleChange}
-                    className="w-full pl-10 pr-4 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-blue-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200"
+                    className="auth-input"
                     placeholder="your@email.com"
                     required
                   />
@@ -208,19 +209,19 @@ export const RegisterForm = () => {
               </div>
 
               {/* Phone Field */}
-              <div>
-                <label htmlFor="phone" className="block text-sm font-medium text-blue-100 mb-2">
+              <div className="auth-field">
+                <label htmlFor="phone" className="auth-label">
                   Số điện thoại
                 </label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-blue-300" />
+                <div className="auth-input-container">
+                  <Phone className="auth-input-icon" />
                   <input
                     id="phone"
                     name="phone"
                     type="tel"
                     value={formData.phone}
                     onChange={handleChange}
-                    className="w-full pl-10 pr-4 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-blue-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200"
+                    className="auth-input"
                     placeholder="0123456789"
                     required
                   />
@@ -228,26 +229,26 @@ export const RegisterForm = () => {
               </div>
 
               {/* Password Field */}
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-blue-100 mb-2">
+              <div className="auth-field">
+                <label htmlFor="password" className="auth-label">
                   Mật khẩu
                 </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-blue-300" />
+                <div className="auth-input-container">
+                  <Lock className="auth-input-icon" />
                   <input
                     id="password"
                     name="password"
                     type={showPassword ? "text" : "password"}
                     value={formData.password}
                     onChange={handleChange}
-                    className="w-full pl-10 pr-12 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-blue-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200"
+                    className="auth-input"
                     placeholder="••••••••"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-blue-300 hover:text-white transition-colors"
+                    className="auth-password-toggle"
                   >
                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
@@ -255,26 +256,26 @@ export const RegisterForm = () => {
               </div>
 
               {/* Confirm Password Field */}
-              <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-blue-100 mb-2">
+              <div className="auth-field">
+                <label htmlFor="confirmPassword" className="auth-label">
                   Xác nhận mật khẩu
                 </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-blue-300" />
+                <div className="auth-input-container">
+                  <Lock className="auth-input-icon" />
                   <input
                     id="confirmPassword"
                     name="confirmPassword"
                     type={showConfirmPassword ? "text" : "password"}
                     value={formData.confirmPassword}
                     onChange={handleChange}
-                    className="w-full pl-10 pr-12 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-blue-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200"
+                    className="auth-input"
                     placeholder="••••••••"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-blue-300 hover:text-white transition-colors"
+                    className="auth-password-toggle"
                   >
                     {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
@@ -286,10 +287,10 @@ export const RegisterForm = () => {
                 <input
                   id="terms"
                   type="checkbox"
-                  className="mt-1 h-4 w-4 text-emerald-500 bg-white/10 border-white/20 rounded focus:ring-emerald-500 focus:ring-offset-0"
+                  className="auth-checkbox"
                   required
                 />
-                <label htmlFor="terms" className="text-sm text-blue-100">
+                <label htmlFor="terms" className="auth-checkbox-label">
                   Tôi đồng ý với{" "}
                   <Link to="/terms" className="text-emerald-300 hover:text-white transition-colors">
                     Điều khoản sử dụng
@@ -305,20 +306,17 @@ export const RegisterForm = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-gradient-to-r from-emerald-600 to-cyan-600 text-white py-3 px-4 rounded-xl font-medium hover:from-emerald-700 hover:to-cyan-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-105 hover:shadow-lg"
+                className="w-full py-3 px-4 register-button"
               >
                 {loading ? "Đang đăng ký..." : "Đăng ký"}
               </button>
             </form>
 
             {/* Login Link */}
-            <div className="mt-6 text-center">
-              <p className="text-blue-200">
+            <div className="auth-link-container">
+              <p className="auth-link-text">
                 Đã có tài khoản?{" "}
-                <Link
-                  to="/login"
-                  className="font-medium text-white hover:text-emerald-300 transition-colors"
-                >
+                <Link to="/login" className="auth-link">
                   Đăng nhập ngay
                 </Link>
               </p>
@@ -326,22 +324,22 @@ export const RegisterForm = () => {
           </div>
 
           {/* Benefits Cards */}
-          <div className="mt-8 grid grid-cols-2 gap-4">
-            <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4 text-center border border-white/10">
-              <Car className="w-6 h-6 text-emerald-400 mx-auto mb-2" />
-              <p className="text-xs text-blue-200">Hàng nghìn xe điện</p>
+          <div className="register-features">
+            <div className="auth-feature-card">
+              <Car className="auth-feature-icon text-emerald-400" />
+              <p className="auth-feature-text">Hàng nghìn xe điện</p>
             </div>
-            <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4 text-center border border-white/10">
-              <Zap className="w-6 h-6 text-yellow-400 mx-auto mb-2" />
-              <p className="text-xs text-blue-200">Giá cạnh tranh</p>
+            <div className="auth-feature-card">
+              <Zap className="auth-feature-icon text-yellow-400" />
+              <p className="auth-feature-text">Giá cạnh tranh</p>
             </div>
-            <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4 text-center border border-white/10">
-              <Shield className="w-6 h-6 text-blue-400 mx-auto mb-2" />
-              <p className="text-xs text-blue-200">Giao dịch an toàn</p>
+            <div className="auth-feature-card">
+              <Shield className="auth-feature-icon text-blue-400" />
+              <p className="auth-feature-text">Giao dịch an toàn</p>
             </div>
-            <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4 text-center border border-white/10">
-              <Star className="w-6 h-6 text-purple-400 mx-auto mb-2" />
-              <p className="text-xs text-blue-200">Hỗ trợ 24/7</p>
+            <div className="auth-feature-card">
+              <Star className="auth-feature-icon text-purple-400" />
+              <p className="auth-feature-text">Hỗ trợ 24/7</p>
             </div>
           </div>
         </div>

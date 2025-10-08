@@ -5,6 +5,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { apiRequest } from "../lib/api";
 import { ProductCard } from "../components/molecules/ProductCard";
 import { formatPrice } from "../utils/formatters";
+import "../styles/dashboard.css";
 
 export const Dashboard = () => {
   const { user, profile } = useAuth();
@@ -100,10 +101,10 @@ export const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="dashboard-container">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">
+        <div className="dashboard-header">
+          <h1 className="dashboard-title">
             Chào mừng,{" "}
             {user?.fullName ||
               user?.name ||
@@ -114,124 +115,124 @@ export const Dashboard = () => {
               "bạn"}
             !
           </h1>
-          <p className="text-gray-600 mt-2">
+          <p className="dashboard-subtitle">
             Quản lý tin đăng và theo dõi hoạt động của bạn
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-sm p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm">Tổng tin đăng</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">
+        <div className="stats-grid">
+          <div className="stat-card">
+            <div className="stat-content">
+              <div className="stat-info">
+                <p className="stat-label">Tổng tin đăng</p>
+                <p className="stat-value">
                   {stats.totalListings}
                 </p>
               </div>
-              <div className="bg-blue-50 p-3 rounded-lg">
-                <Package className="h-8 w-8 text-blue-600" />
+              <div className="stat-icon-container">
+                <Package className="stat-icon" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm">Đang hoạt động</p>
-                <p className="text-3xl font-bold text-green-600 mt-2">
+          <div className="stat-card">
+            <div className="stat-content">
+              <div className="stat-info">
+                <p className="stat-label">Đang hoạt động</p>
+                <p className="stat-value stat-value-green">
                   {stats.activeListings}
                 </p>
               </div>
-              <div className="bg-green-50 p-3 rounded-lg">
-                <Eye className="h-8 w-8 text-green-600" />
+              <div className="stat-icon-container stat-icon-container-green">
+                <Eye className="stat-icon stat-icon-green" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm">Đã bán</p>
-                <p className="text-3xl font-bold text-orange-600 mt-2">
+          <div className="stat-card">
+            <div className="stat-content">
+              <div className="stat-info">
+                <p className="stat-label">Đã bán</p>
+                <p className="stat-value stat-value-orange">
                   {stats.soldListings}
                 </p>
               </div>
-              <div className="bg-orange-50 p-3 rounded-lg">
-                <DollarSign className="h-8 w-8 text-orange-600" />
+              <div className="stat-icon-container stat-icon-container-orange">
+                <DollarSign className="stat-icon stat-icon-orange" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm">Lượt xem</p>
-                <p className="text-3xl font-bold text-purple-600 mt-2">
+          <div className="stat-card">
+            <div className="stat-content">
+              <div className="stat-info">
+                <p className="stat-label">Lượt xem</p>
+                <p className="stat-value stat-value-purple">
                   {stats.totalViews}
                 </p>
               </div>
-              <div className="bg-purple-50 p-3 rounded-lg">
-                <Eye className="h-8 w-8 text-purple-600" />
+              <div className="stat-icon-container stat-icon-container-purple">
+                <Eye className="stat-icon stat-icon-purple" />
               </div>
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-gray-900">
+        <div className="main-content">
+          <div className="listings-section">
+            <div className="listings-card">
+              <div className="listings-header">
+                <h2 className="listings-title">
                   Tin đăng của bạn
                 </h2>
-                <div className="flex space-x-3">
+                <div className="listings-actions">
                   <Link
                     to="/my-listings"
-                    className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors flex items-center"
+                    className="action-button action-button-gray"
                   >
-                    <Eye className="h-5 w-5 mr-2" />
+                    <Eye className="action-button-icon" />
                     Xem tất cả
                   </Link>
                   <Link
                     to="/create-listing"
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+                    className="action-button action-button-blue"
                   >
-                    <Plus className="h-5 w-5 mr-2" />
+                    <Plus className="action-button-icon" />
                     Đăng tin mới
                   </Link>
                 </div>
               </div>
 
               {loading ? (
-                <div className="space-y-4">
+                <div className="loading-skeleton">
                   {[...Array(3)].map((_, i) => (
                     <div
                       key={i}
-                      className="h-32 bg-gray-100 rounded-lg animate-pulse"
+                      className="skeleton-item"
                     ></div>
                   ))}
                 </div>
               ) : myListings.length === 0 ? (
-                <div className="text-center py-12">
-                  <Package className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-600 mb-4">Bạn chưa có tin đăng nào</p>
+                <div className="empty-state">
+                  <Package className="empty-icon" />
+                  <p className="empty-text">Bạn chưa có tin đăng nào</p>
                   <Link
                     to="/create-listing"
-                    className="inline-flex items-center bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+                    className="empty-button"
                   >
-                    <Plus className="h-5 w-5 mr-2" />
+                    <Plus className="empty-button-icon" />
                     Đăng tin đầu tiên
                   </Link>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="listings-list">
                   {myListings.slice(0, 5).map((listing, idx) => (
                     <div
                       key={
                         getListingId(listing) ??
                         `${listing.title || "listing"}_${idx}`
                       }
-                      className="flex items-center space-x-4 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                      className="listing-item"
                     >
                       <img
                         src={
@@ -240,32 +241,32 @@ export const Dashboard = () => {
                             : "https://images.pexels.com/photos/110844/pexels-photo-110844.jpeg?auto=compress&cs=tinysrgb&w=200"
                         }
                         alt={listing.title}
-                        className="w-20 h-20 object-cover rounded-lg"
+                        className="listing-image"
                         onError={(e) => {
                           e.target.src =
                             "https://images.pexels.com/photos/110844/pexels-photo-110844.jpeg?auto=compress&cs=tinysrgb&w=200";
                         }}
                       />
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900">
+                      <div className="listing-content">
+                        <h3 className="listing-title">
                           {listing.title}
                         </h3>
-                        <p className="text-sm text-gray-600">
+                        <p className="listing-subtitle">
                           {listing.licensePlate || listing.license_plate || ""}
                         </p>
-                        <div className="flex items-center space-x-4 mt-2">
-                          <span className="text-sm font-medium text-blue-600">
+                        <div className="listing-details">
+                          <span className="listing-price">
                             {formatPrice(listing.price)}
                           </span>
                           <span
-                            className={`text-xs px-2 py-1 rounded-full ${
+                            className={`status-badge ${
                               listing.status === "approved"
-                                ? "bg-green-100 text-green-700"
+                                ? "status-approved"
                                 : listing.status === "pending"
-                                ? "bg-yellow-100 text-yellow-700"
+                                ? "status-pending"
                                 : listing.status === "sold"
-                                ? "bg-gray-100 text-gray-700"
-                                : "bg-red-100 text-red-700"
+                                ? "status-sold"
+                                : "status-rejected"
                             }`}
                           >
                             {listing.status === "approved" && "Đã duyệt"}
@@ -273,17 +274,17 @@ export const Dashboard = () => {
                             {listing.status === "sold" && "Đã bán"}
                             {listing.status === "rejected" && "Từ chối"}
                           </span>
-                          <span className="text-sm text-gray-500 flex items-center">
-                            <Eye className="h-4 w-4 mr-1" />
+                          <span className="listing-views">
+                            <Eye className="listing-views-icon" />
                             {listing.views_count || 0}
                           </span>
                         </div>
                       </div>
                       <Link
                         to={`/listing/${getListingId(listing) || ""}/edit`}
-                        className="text-blue-600 hover:text-blue-700"
+                        className="listing-edit"
                       >
-                        <Settings className="h-5 w-5" />
+                        <Settings className="listing-edit-icon" />
                       </Link>
                     </div>
                   ))}
@@ -292,15 +293,15 @@ export const Dashboard = () => {
             </div>
           </div>
 
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">
+          <div className="sidebar">
+            <div className="account-card">
+              <h2 className="account-title">
                 Thông tin tài khoản
               </h2>
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm text-gray-600">Họ và tên</label>
-                  <p className="font-medium text-gray-900">
+              <div className="account-info">
+                <div className="account-field">
+                  <label className="account-label">Họ và tên</label>
+                  <p className="account-value">
                     {profile?.full_name ||
                       profile?.fullName ||
                       user?.fullName ||
@@ -308,27 +309,27 @@ export const Dashboard = () => {
                       "Chưa cập nhật"}
                   </p>
                 </div>
-                <div>
-                  <label className="text-sm text-gray-600">Email</label>
-                  <p className="font-medium text-gray-900">
+                <div className="account-field">
+                  <label className="account-label">Email</label>
+                  <p className="account-value">
                     {user?.email || profile?.email || "Chưa cập nhật"}
                   </p>
                 </div>
-                <div>
-                  <label className="text-sm text-gray-600">Số điện thoại</label>
-                  <p className="font-medium text-gray-900">
+                <div className="account-field">
+                  <label className="account-label">Số điện thoại</label>
+                  <p className="account-value">
                     {profile?.phone || user?.phone || "Chưa cập nhật"}
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl shadow-sm p-6 text-white">
-              <h3 className="text-lg font-semibold mb-2">Nâng cấp tài khoản</h3>
-              <p className="text-sm text-blue-100 mb-4">
+            <div className="upgrade-card">
+              <h3 className="upgrade-title">Nâng cấp tài khoản</h3>
+              <p className="upgrade-description">
                 Đăng tin không giới hạn và được ưu tiên hiển thị
               </p>
-              <button className="w-full bg-white text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors font-medium">
+              <button className="upgrade-button">
                 Tìm hiểu thêm
               </button>
             </div>

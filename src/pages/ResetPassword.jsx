@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { apiRequest } from '../lib/api';
+import '../styles/resetpassword.css';
 
 export const ResetPassword = () => {
   const [params] = useSearchParams();
@@ -35,26 +36,49 @@ export const ResetPassword = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Đặt lại mật khẩu</h1>
-        <p className="text-gray-600 mb-6">Nhập mật khẩu mới của bạn.</p>
-        {message && <div className="mb-4 p-3 rounded bg-green-50 text-green-700">{message}</div>}
-        {error && <div className="mb-4 p-3 rounded bg-red-50 text-red-700">{error}</div>}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Token</label>
-            <input value={token} onChange={(e)=>setToken(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-lg" placeholder="Token từ email" />
+    <div className="resetpassword-container">
+      <div className="resetpassword-card">
+        <h1 className="resetpassword-title">Đặt lại mật khẩu</h1>
+        <p className="resetpassword-description">Nhập mật khẩu mới của bạn.</p>
+        {message && <div className="resetpassword-message">{message}</div>}
+        {error && <div className="resetpassword-error">{error}</div>}
+        <form onSubmit={handleSubmit} className="resetpassword-form">
+          <div className="resetpassword-field">
+            <label className="resetpassword-label">Token</label>
+            <input 
+              value={token} 
+              onChange={(e)=>setToken(e.target.value)} 
+              className="resetpassword-input" 
+              placeholder="Token từ email" 
+            />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu mới</label>
-            <input type="password" value={password} onChange={(e)=>setPassword(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-lg" required />
+          <div className="resetpassword-field">
+            <label className="resetpassword-label">Mật khẩu mới</label>
+            <input 
+              type="password" 
+              value={password} 
+              onChange={(e)=>setPassword(e.target.value)} 
+              className="resetpassword-input" 
+              required 
+            />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Xác nhận mật khẩu</label>
-            <input type="password" value={confirm} onChange={(e)=>setConfirm(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-lg" required />
+          <div className="resetpassword-field">
+            <label className="resetpassword-label">Xác nhận mật khẩu</label>
+            <input 
+              type="password" 
+              value={confirm} 
+              onChange={(e)=>setConfirm(e.target.value)} 
+              className="resetpassword-input" 
+              required 
+            />
           </div>
-          <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50">{loading ? 'Đang xử lý...' : 'Đổi mật khẩu'}</button>
+          <button 
+            type="submit" 
+            disabled={loading} 
+            className="resetpassword-button"
+          >
+            {loading ? 'Đang xử lý...' : 'Đổi mật khẩu'}
+          </button>
         </form>
       </div>
     </div>
