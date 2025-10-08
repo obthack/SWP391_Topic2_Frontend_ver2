@@ -19,6 +19,17 @@ export async function apiRequest(path, { method = "GET", body, headers } = {}) {
   const url = path.startsWith("http") ? path : `${API_BASE_URL}${path}`;
 
   const isFormData = (typeof FormData !== 'undefined') && body instanceof FormData;
+  
+  // Debug logging for approve/reject requests
+  if (path.includes('/Product/') && (method === 'PUT' || method === 'PATCH' || method === 'POST')) {
+    console.log('=== API REQUEST DEBUG ===');
+    console.log('URL:', url);
+    console.log('Method:', method);
+    console.log('Body:', body);
+    console.log('Is FormData:', isFormData);
+    console.log('Token:', token ? 'Present' : 'Missing');
+  }
+  
   const res = await fetch(url, {
     method,
     headers: {

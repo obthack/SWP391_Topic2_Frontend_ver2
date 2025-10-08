@@ -86,7 +86,7 @@ export const CreateListing = () => {
           ...productDataRaw,
           sellerId: user?.accountId || user?.id || user?.userId,
           accountId: user?.accountId || undefined,
-          status: "pending",
+          status: "Draft",
           createdDate: new Date().toISOString(),
           isActive: true,
         }).filter(([, v]) => v !== undefined)
@@ -99,6 +99,8 @@ export const CreateListing = () => {
         method: "POST",
         body: productData,
       });
+
+      console.log("Product created successfully:", created);
       const pid = created?.id || created?.productId || created?.Id;
 
       if (pid && images.length > 0) {
