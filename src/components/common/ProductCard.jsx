@@ -48,7 +48,9 @@ export const ProductCard = ({ product, onToggleFavorite, isFavorite }) => {
                 {product.title}
               </h3>
             </Link>
-            <p className="text-sm text-gray-600">{product.brand} {product.model}</p>
+            <p className="text-sm text-gray-600">
+              {product.licensePlate || product.license_plate || product.license || 'Biển số: N/A'}
+            </p>
           </div>
         </div>
 

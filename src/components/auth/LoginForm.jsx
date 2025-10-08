@@ -39,8 +39,32 @@ export const LoginForm = () => {
     setLoading(true);
 
     try {
-      await signIn(email, password);
-      navigate("/dashboard");
+      const session = await signIn(email, password);
+
+      // Debug logging
+      console.log("=== LOGIN DEBUG ===");
+      console.log("Full session data:", session);
+      console.log("User object:", session?.user);
+      console.log("Profile object:", session?.profile);
+
+      const rawId =
+        session?.user?.roleId ??
+        session?.profile?.roleId ??
+        session?.user?.role;
+      const rid = typeof rawId === "string" ? Number(rawId) : rawId;
+      const roleName = (session?.user?.roleName || session?.profile?.role || "")
+        .toString()
+        .toLowerCase();
+      const isAdmin = rid === 1 || roleName === "admin";
+
+      console.log("Raw roleId:", rawId);
+      console.log("Processed roleId:", rid);
+      console.log("Role name:", roleName);
+      console.log("Is admin:", isAdmin);
+      console.log("Will navigate to:", isAdmin ? "/admin" : "/dashboard");
+      console.log("==================");
+
+      navigate(isAdmin ? "/admin" : "/dashboard");
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {

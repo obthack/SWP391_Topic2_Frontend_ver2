@@ -3,15 +3,18 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Upload, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { apiRequest } from "../lib/api";
+import { useToast } from "../contexts/ToastContext";
 
 export const CreateListing = () => {
   const { user, profile } = useAuth();
+  const { show } = useToast();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [images, setImages] = useState([]);
   const [formData, setFormData] = useState({
     title: "",
+    licensePlate: "",
     description: "",
     brand: "",
     model: "",
@@ -25,7 +28,7 @@ export const CreateListing = () => {
     location: "",
     contactPhone: "",
     contactEmail: user?.email || "",
-    productType: "vehicle", // Default to vehicle for electric cars
+    productType: "vehicle",
   });
 
   const handleChange = (e) => {
@@ -44,6 +47,14 @@ export const CreateListing = () => {
   const removeImage = (index) => {
     setImages(images.filter((_, i) => i !== index));
   };
+
+  const fileToBase64 = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -118,6 +129,7 @@ export const CreateListing = () => {
         product_type: formData.productType, // ✅ Required field
         brand: formData.brand,
         model: formData.model,
+        licensePlate: formData.licensePlate || undefined,
         year: formData.year ? parseInt(formData.year) : undefined,
         price: formData.price ? parseFloat(formData.price) : undefined, // ✅ Required field
         mileage: formData.mileage ? parseInt(formData.mileage) : undefined,
@@ -130,6 +142,7 @@ export const CreateListing = () => {
         location: formData.location || undefined,
         contactPhone: formData.contactPhone || undefined,
         contactEmail: formData.contactEmail || undefined,
+        productType: formData.productType,
       };
       
       // Map to correct database field names
@@ -138,6 +151,8 @@ export const CreateListing = () => {
         seller_id: sellerId,
         category_id: categoryId,
         status: 'pending',
+        createdDate: new Date().toISOString(),
+        isActive: true,
       }).filter(([,v]) => v !== undefined && v !== null));
 
       console.log("User object:", user);
@@ -190,8 +205,68 @@ export const CreateListing = () => {
       productData.seller_id = sellerId;
       productData.category_id = categoryId;
 
-      await apiRequest("/api/Product", { method: "POST", body: productData });
-      navigate("/dashboard?success=listing_created");
+      const created = await apiRequest("/api/Product", {
+        method: "POST",
+        body: productData,
+      });
+      const pid = created?.id || created?.productId || created?.Id;
+
+      if (pid && images.length > 0) {
+        // Try multiple upload endpoint first
+        try {
+          const imageDataArray = [];
+          for (let i = 0; i < images.length; i++) {
+            const img = images[i];
+            const dataUrl = await fileToBase64(img);
+            imageDataArray.push({
+              productId: pid,
+              imageData: dataUrl,
+              isPrimary: i === 0,
+            });
+          }
+
+          console.log(
+            "Uploading images with multiple endpoint:",
+            imageDataArray
+          );
+          await apiRequest(`/api/ProductImage/multiple`, {
+            method: "POST",
+            body: imageDataArray,
+          });
+          console.log("Multiple images uploaded successfully");
+        } catch (e) {
+          console.warn("Multiple upload failed, trying individual uploads:", e);
+
+          // Fallback to individual uploads
+          for (let i = 0; i < images.length; i++) {
+            const img = images[i];
+            const dataUrl = await fileToBase64(img);
+            try {
+              console.log(
+                `Uploading image ${i + 1}/${images.length} for product ${pid}`
+              );
+              await apiRequest(`/api/ProductImage`, {
+                method: "POST",
+                body: {
+                  productId: pid,
+                  imageData: dataUrl,
+                  isPrimary: i === 0,
+                },
+              });
+              console.log(`Image ${i + 1} uploaded successfully`);
+            } catch (e) {
+              console.warn(`Image ${i + 1} upload failed:`, e);
+            }
+          }
+        }
+      }
+
+      show({
+        title: "Tạo bài đăng thành công",
+        description: "Bài đăng của bạn đang chờ duyệt",
+        type: "success",
+      });
+      navigate("/dashboard");
     } catch (err) {
       console.error("Error creating product:", err);
       console.error("Error details:", err.data);
@@ -273,7 +348,22 @@ export const CreateListing = () => {
                     value={formData.title}
                     onChange={handleChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Ví dụ: Xe điện VinFast VF8 mới 100%"
+                    placeholder="Tên xe (VD: VinFast VF8)"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Biển số xe *
+                  </label>
+                  <input
+                    type="text"
+                    name="licensePlate"
+                    value={formData.licensePlate}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="VD: 30A-123.45"
                     required
                   />
                 </div>

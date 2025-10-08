@@ -14,7 +14,10 @@ export const AuthCallback = () => {
 
     const saveAndRedirect = (session) => {
       try { localStorage.setItem('evtb_auth', JSON.stringify(session)); } catch {}
-      navigate('/dashboard', { replace: true });
+      const roleId = session?.user?.roleId || session?.profile?.roleId;
+      const roleName = (session?.user?.roleName || session?.profile?.role || '').toString().toLowerCase();
+      const isAdmin = roleId === 1 || roleName === 'admin';
+      navigate(isAdmin ? '/admin' : '/dashboard', { replace: true });
     };
 
     (async () => {

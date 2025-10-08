@@ -8,6 +8,14 @@ import { formatPrice } from "../utils/formatters";
 
 export const Dashboard = () => {
   const { user, profile } = useAuth();
+  const getListingId = (l) =>
+    l?.id ??
+    l?.productId ??
+    l?.Id ??
+    l?.listingId ??
+    l?.product_id ??
+    l?.listingId ??
+    null;
   const [stats, setStats] = useState({
     totalListings: 0,
     activeListings: 0,
@@ -21,7 +29,7 @@ export const Dashboard = () => {
     if (user) {
       loadDashboardData();
     }
-  }, [user]);
+  }, [user, profile]);
 
   const loadDashboardData = async () => {
     try {
@@ -30,18 +38,59 @@ export const Dashboard = () => {
           user?.id || user?.accountId || user?.userId || 1
         }`
       );
-      const items = Array.isArray(data) ? data : (data?.items || []);
-      const normalized = items.filter((l)=> {
-        const s = String(l?.status || l?.Status || '').toLowerCase();
-        return s !== 'deleted' && s !== 'inactive';
+      const norm = (v) => String(v || "").toLowerCase();
+      const mapStatus = (l) => {
+        const raw = norm(l?.status || l?.Status);
+        if (raw.includes("pending") || raw.includes("chờ")) return "pending";
+        if (raw.includes("approve") || raw.includes("duyệt")) return "approved";
+        if (raw.includes("reject") || raw.includes("từ chối"))
+          return "rejected";
+        if (raw.includes("sold") || raw.includes("đã bán")) return "sold";
+        return raw || "pending";
+      };
+      const items = Array.isArray(data) ? data : data?.items || [];
+      const filtered = items.filter((l) => {
+        const s = norm(l?.status || l?.Status || "");
+        return s !== "deleted" && s !== "inactive";
       });
 
-      const total = normalized.length;
-      const active = normalized.filter((l) => String(l.status||l.Status).toLowerCase()==='approved').length;
-      const sold = normalized.filter((l) => String(l.status||l.Status).toLowerCase()==='sold').length;
-      const views = normalized.reduce((sum, l) => sum + (l.viewsCount || l.views_count || 0), 0);
+      // Load images for each listing
+      const normalized = await Promise.all(
+        filtered.map(async (l) => {
+          try {
+            const imagesData = await apiRequest(
+              `/api/ProductImage/product/${l.id || l.productId || l.Id}`
+            );
+            const images = Array.isArray(imagesData)
+              ? imagesData
+              : imagesData?.items || [];
+            return {
+              ...l,
+              status: mapStatus(l),
+              images: images.map(
+                (img) => img.imageData || img.imageUrl || img.url
+              ),
+            };
+          } catch {
+            return { ...l, status: mapStatus(l), images: [] };
+          }
+        })
+      );
 
-      setStats({ totalListings: total, activeListings: active, soldListings: sold, totalViews: views });
+      const total = normalized.length;
+      const active = normalized.filter((l) => l.status === "approved").length;
+      const sold = normalized.filter((l) => l.status === "sold").length;
+      const views = normalized.reduce(
+        (sum, l) => sum + (l.viewsCount || l.views_count || 0),
+        0
+      );
+
+      setStats({
+        totalListings: total,
+        activeListings: active,
+        soldListings: sold,
+        totalViews: views,
+      });
       setMyListings(normalized);
     } catch (error) {
       console.error("Error loading dashboard data:", error);
@@ -55,7 +104,15 @@ export const Dashboard = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">
-            Chào mừng, {user?.fullName || user?.name || profile?.full_name || profile?.fullName || profile?.name || user?.email || 'bạn'}!
+            Chào mừng,{" "}
+            {user?.fullName ||
+              user?.name ||
+              profile?.full_name ||
+              profile?.fullName ||
+              profile?.name ||
+              user?.email ||
+              "bạn"}
+            !
           </h1>
           <p className="text-gray-600 mt-2">
             Quản lý tin đăng và theo dõi hoạt động của bạn
@@ -168,25 +225,33 @@ export const Dashboard = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {myListings.slice(0, 5).map((listing) => (
+                  {myListings.slice(0, 5).map((listing, idx) => (
                     <div
-                      key={listing.id}
+                      key={
+                        getListingId(listing) ??
+                        `${listing.title || "listing"}_${idx}`
+                      }
                       className="flex items-center space-x-4 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
                     >
                       <img
                         src={
-                          listing.images?.[0] ||
-                          "https://images.pexels.com/photos/110844/pexels-photo-110844.jpeg?auto=compress&cs=tinysrgb&w=200"
+                          listing.images && listing.images.length > 0
+                            ? listing.images[0]
+                            : "https://images.pexels.com/photos/110844/pexels-photo-110844.jpeg?auto=compress&cs=tinysrgb&w=200"
                         }
                         alt={listing.title}
                         className="w-20 h-20 object-cover rounded-lg"
+                        onError={(e) => {
+                          e.target.src =
+                            "https://images.pexels.com/photos/110844/pexels-photo-110844.jpeg?auto=compress&cs=tinysrgb&w=200";
+                        }}
                       />
                       <div className="flex-1">
                         <h3 className="font-semibold text-gray-900">
                           {listing.title}
                         </h3>
                         <p className="text-sm text-gray-600">
-                          {listing.brand} {listing.model}
+                          {listing.licensePlate || listing.license_plate || ""}
                         </p>
                         <div className="flex items-center space-x-4 mt-2">
                           <span className="text-sm font-medium text-blue-600">
@@ -215,7 +280,7 @@ export const Dashboard = () => {
                         </div>
                       </div>
                       <Link
-                        to={`/listing/${listing.id}/edit`}
+                        to={`/listing/${getListingId(listing) || ""}/edit`}
                         className="text-blue-600 hover:text-blue-700"
                       >
                         <Settings className="h-5 w-5" />
@@ -236,25 +301,25 @@ export const Dashboard = () => {
                 <div>
                   <label className="text-sm text-gray-600">Họ và tên</label>
                   <p className="font-medium text-gray-900">
-                    {profile?.full_name}
+                    {profile?.full_name ||
+                      profile?.fullName ||
+                      user?.fullName ||
+                      user?.name ||
+                      "Chưa cập nhật"}
                   </p>
                 </div>
                 <div>
                   <label className="text-sm text-gray-600">Email</label>
-                  <p className="font-medium text-gray-900">{user?.email}</p>
+                  <p className="font-medium text-gray-900">
+                    {user?.email || profile?.email || "Chưa cập nhật"}
+                  </p>
                 </div>
                 <div>
                   <label className="text-sm text-gray-600">Số điện thoại</label>
                   <p className="font-medium text-gray-900">
-                    {profile?.phone || "Chưa cập nhật"}
+                    {profile?.phone || user?.phone || "Chưa cập nhật"}
                   </p>
                 </div>
-                <Link
-                  to="/settings"
-                  className="block w-full text-center bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors"
-                >
-                  Cập nhật thông tin
-                </Link>
               </div>
             </div>
 

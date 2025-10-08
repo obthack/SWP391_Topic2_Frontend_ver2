@@ -4,9 +4,11 @@ import { Edit, Trash2, Eye, Plus, Search, Filter } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { apiRequest } from "../lib/api";
 import { formatPrice, formatDate } from "../utils/formatters";
+import { useToast } from "../contexts/ToastContext";
 
 export const MyListings = () => {
   const { user } = useAuth();
+  const { show } = useToast();
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -18,7 +20,17 @@ export const MyListings = () => {
     }
   }, [user]);
 
-  const getListingId = (l) => l?.id ?? l?.productId ?? l?.Id ?? l?.listingId ?? l?.product_id ?? null;
+  const getListingId = (l) =>
+    l?.id ?? l?.productId ?? l?.Id ?? l?.listingId ?? l?.product_id ?? null;
+  const norm = (val) => String(val || "").toLowerCase();
+  const getStatus = (l) => {
+    const raw = norm(l?.status ?? l?.Status ?? l?.state);
+    if (raw.includes("pending") || raw.includes("chờ")) return "pending";
+    if (raw.includes("approve") || raw.includes("duyệt")) return "approved";
+    if (raw.includes("reject") || raw.includes("từ chối")) return "rejected";
+    if (raw.includes("sold") || raw.includes("đã bán")) return "sold";
+    return raw || "pending";
+  };
 
   const loadListings = async () => {
     try {
@@ -28,12 +40,113 @@ export const MyListings = () => {
         }`
       );
       console.log("Loaded listings data:", data);
-      const items = Array.isArray(data) ? data : (data?.items || []);
-      const filtered = items.filter((l) => {
-        const s = String(l?.status || l?.Status || '').toLowerCase();
-        return s !== 'deleted' && s !== 'inactive';
-      });
-      setListings(filtered);
+      const items = Array.isArray(data) ? data : data?.items || [];
+
+      // Debug: log the first item to see its structure
+      if (items.length > 0) {
+        console.log("First listing item structure:", items[0]);
+        console.log("Available keys in first item:", Object.keys(items[0]));
+      }
+      const filtered = items
+        .filter((l) => {
+          const s = norm(l?.status || l?.Status || "");
+          return s !== "deleted" && s !== "inactive";
+        })
+        .map(async (l) => {
+          // Skip the problematic endpoint for now and check product object directly
+          let images = [];
+
+          console.log(
+            `Checking images for product: ${l.id || l.productId || l.Id}`
+          );
+
+          // Check if images are stored directly in the product object first
+          if (l.images && Array.isArray(l.images)) {
+            images = l.images;
+            console.log(
+              `Using images from product object for ${l.id}:`,
+              images
+            );
+          } else {
+            // Check other possible image fields
+            const possibleImageFields = [
+              "image",
+              "photo",
+              "thumbnail",
+              "picture",
+              "img",
+              "Image",
+              "Photo",
+              "Thumbnail",
+              "Picture",
+              "Img",
+              "primaryImage",
+              "mainImage",
+              "coverImage",
+            ];
+
+            for (const field of possibleImageFields) {
+              if (l[field]) {
+                if (Array.isArray(l[field])) {
+                  images = l[field];
+                } else if (typeof l[field] === "string") {
+                  images = [l[field]];
+                }
+                console.log(
+                  `Found images in field '${field}' for product ${l.id}:`,
+                  images
+                );
+                break;
+              }
+            }
+          }
+
+          // Only try the API endpoint if no images found in product object
+          if (images.length === 0) {
+            try {
+              console.log(
+                `Trying API endpoint for product: ${
+                  l.id || l.productId || l.Id
+                }`
+              );
+              const imagesData = await apiRequest(
+                `/api/ProductImage/product/${l.id || l.productId || l.Id}`
+              );
+              console.log(`Images data for product ${l.id}:`, imagesData);
+
+              const imagesArray = Array.isArray(imagesData)
+                ? imagesData
+                : imagesData?.items || [];
+
+              images = imagesArray.map(
+                (img) =>
+                  img.imageData ||
+                  img.imageUrl ||
+                  img.url ||
+                  img.ImageData ||
+                  img.ImageUrl ||
+                  img.Url
+              );
+
+              console.log(`Processed images for product ${l.id}:`, images);
+            } catch (error) {
+              console.log(
+                `Error loading images from ProductImage endpoint for product ${l.id}:`,
+                error
+              );
+            }
+          }
+
+          return {
+            ...l,
+            status: getStatus(l),
+            images: images,
+          };
+        });
+
+      // Wait for all image loading to complete
+      const listingsWithImages = await Promise.all(filtered);
+      setListings(listingsWithImages);
     } catch (error) {
       console.error("Error loading listings:", error);
     } finally {
@@ -53,12 +166,20 @@ export const MyListings = () => {
         return;
       }
 
-      await apiRequest(`/api/Product/${listingId}`, {
-        method: "DELETE",
+      try {
+        await apiRequest(`/api/Product/${listingId}`, {
+          method: "PUT",
+          body: { status: "deleted" },
+        });
+      } catch {
+        await apiRequest(`/api/Product/${listingId}`, { method: "DELETE" });
+      }
+      setListings((prev) => prev.filter((l) => getListingId(l) !== listingId));
+      show({
+        title: "Đã chuyển vào thùng rác",
+        description: "Bạn có thể khôi phục trong Thùng rác",
+        type: "success",
       });
-      console.log("Delete successful, updating UI...");
-      setListings((prev)=> prev.filter((l)=> getListingId(l) !== listingId));
-      // Fallback refresh to stay in sync
       loadListings();
     } catch (error) {
       console.error("Error deleting listing:", error);
@@ -70,6 +191,7 @@ export const MyListings = () => {
   };
 
   const getStatusBadge = (status) => {
+    const s = status ? status : "pending";
     const statusConfig = {
       pending: {
         bg: "bg-yellow-100",
@@ -84,8 +206,7 @@ export const MyListings = () => {
       rejected: { bg: "bg-red-100", text: "text-red-700", label: "Từ chối" },
       sold: { bg: "bg-gray-100", text: "text-gray-700", label: "Đã bán" },
     };
-
-    const config = statusConfig[status] || statusConfig.pending;
+    const config = statusConfig[s] || statusConfig.pending;
     return (
       <span
         className={`px-2 py-1 rounded-full text-xs font-medium ${config.bg} ${config.text}`}
@@ -97,11 +218,11 @@ export const MyListings = () => {
 
   const filteredListings = listings.filter((listing) => {
     const matchesSearch =
-      listing.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      listing.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      listing.model?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus =
-      statusFilter === "all" || listing.status === statusFilter;
+      (listing.title || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (listing.brand || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (listing.model || "").toLowerCase().includes(searchTerm.toLowerCase());
+    const s = getStatus(listing);
+    const matchesStatus = statusFilter === "all" || s === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
@@ -129,13 +250,21 @@ export const MyListings = () => {
                 Quản lý và theo dõi các bài đăng của bạn
               </p>
             </div>
-            <Link
-              to="/create-listing"
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center"
-            >
-              <Plus className="h-5 w-5 mr-2" />
-              Đăng tin mới
-            </Link>
+            <div className="flex items-center gap-3">
+              <Link
+                to="/trash"
+                className="px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                Thùng rác
+              </Link>
+              <Link
+                to="/create-listing"
+                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+              >
+                <Plus className="h-5 w-5 mr-2" />
+                Đăng tin mới
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -209,14 +338,33 @@ export const MyListings = () => {
                   <div className="relative">
                     <img
                       src={
-                        listing.images?.[0] ||
-                        "https://images.pexels.com/photos/110844/pexels-photo-110844.jpeg?auto=compress&cs=tinysrgb&w=400"
+                        listing.images && listing.images.length > 0
+                          ? listing.images[0]
+                          : "https://images.pexels.com/photos/110844/pexels-photo-110844.jpeg?auto=compress&cs=tinysrgb&w=400"
                       }
                       alt={listing.title}
                       className="w-full h-48 object-cover"
+                      onError={(e) => {
+                        console.log(
+                          `Image failed to load for listing ${
+                            listing.id || listing.title
+                          }:`,
+                          e.target.src
+                        );
+                        e.target.src =
+                          "https://images.pexels.com/photos/110844/pexels-photo-110844.jpeg?auto=compress&cs=tinysrgb&w=400";
+                      }}
+                      onLoad={(e) => {
+                        console.log(
+                          `Image loaded successfully for listing ${
+                            listing.id || listing.title
+                          }:`,
+                          e.target.src
+                        );
+                      }}
                     />
                     <div className="absolute top-4 right-4">
-                      {getStatusBadge(listing.status)}
+                      {getStatusBadge(getStatus(listing))}
                     </div>
                   </div>
 
@@ -225,7 +373,7 @@ export const MyListings = () => {
                       {listing.title}
                     </h3>
                     <p className="text-sm text-gray-600 mb-2">
-                      {listing.brand} {listing.model} - {listing.year}
+                      {listing.licensePlate || listing.license_plate || ""}
                     </p>
                     <p className="text-lg font-bold text-blue-600 mb-4">
                       {formatPrice(listing.price)}
@@ -290,19 +438,19 @@ export const MyListings = () => {
               </div>
               <div className="text-center">
                 <p className="text-2xl font-bold text-green-600">
-                  {listings.filter((l) => l.status === "approved").length}
+                  {listings.filter((l) => getStatus(l) === "approved").length}
                 </p>
                 <p className="text-sm text-gray-600">Đã duyệt</p>
               </div>
               <div className="text-center">
                 <p className="text-2xl font-bold text-yellow-600">
-                  {listings.filter((l) => l.status === "pending").length}
+                  {listings.filter((l) => getStatus(l) === "pending").length}
                 </p>
                 <p className="text-sm text-gray-600">Chờ duyệt</p>
               </div>
               <div className="text-center">
                 <p className="text-2xl font-bold text-gray-600">
-                  {listings.filter((l) => l.status === "sold").length}
+                  {listings.filter((l) => getStatus(l) === "sold").length}
                 </p>
                 <p className="text-sm text-gray-600">Đã bán</p>
               </div>

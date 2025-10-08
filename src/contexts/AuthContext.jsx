@@ -17,7 +17,6 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Hydrate from localStorage (backend-auth flow)
     (async () => {
       try {
         const raw = localStorage.getItem("evtb_auth");
@@ -50,16 +49,90 @@ export const AuthProvider = ({ children }) => {
           }
         } catch {}
       } catch {
-        // ignore
+        // Ignore
       } finally {
         setLoading(false);
       }
     })();
   }, []);
 
-  const loadProfile = async (_userId) => {
-    // Optional: fetch profile from your backend if available
-    return null;
+  const signOut = () => {
+    localStorage.removeItem("evtb_auth");
+    setUser(null);
+    setProfile(null);
+  };
+
+  const updateProfile = async (updates) => {
+    if (!user) return;
+
+    try {
+      const updatedUser = { ...user, ...updates };
+      setUser(updatedUser);
+      
+      const authData = localStorage.getItem("evtb_auth");
+      if (authData) {
+        const parsed = JSON.parse(authData);
+        localStorage.setItem("evtb_auth", JSON.stringify({
+          ...parsed,
+          user: updatedUser
+        }));
+      }
+    } catch (error) {
+      console.error("Error updating profile:", error);
+    }
+  };
+
+  const buildSession = (data, email) => {
+    // Normalize possible backend shapes
+    const normalizedToken =
+      data?.token || data?.accessToken || data?.jwt || data?.tokenString ||
+      data?.data?.token || data?.data?.accessToken || data?.data?.jwt || 
+      data?.result?.token || data?.result?.accessToken || data?.result?.jwt ||
+      data?.data?.data?.token || data?.data?.data?.accessToken || data?.data?.data?.jwt;
+
+    const normalizedUser = data?.user || data?.data?.user || data?.result?.user || 
+                          data?.data?.data?.user || data?.data?.data?.data?.user || null;
+    
+    const normalizedProfile = data?.profile || data?.data?.profile || data?.result?.profile || 
+                             data?.data?.data?.profile || data?.data?.data?.data?.profile || null;
+
+    // If we have user data, normalize it
+    if (normalizedUser) {
+      const userData = normalizedUser;
+      const normalizedUserData = {
+        ...userData,
+        fullName: userData.fullName || userData.full_name || userData.name,
+        email: userData.email || email,
+        phone: userData.phone,
+        id: userData.userId || userData.id || userData.accountId,
+        userId: userData.userId || userData.id || userData.accountId
+      };
+      
+      return {
+        token: normalizedToken,
+        user: normalizedUserData,
+        profile: normalizedProfile
+      };
+    }
+
+    // If no user data but we have email, create minimal user object
+    if (email) {
+      return {
+        token: normalizedToken,
+        user: {
+          email: email,
+          id: data?.userId || data?.id || data?.accountId,
+          userId: data?.userId || data?.id || data?.accountId
+        },
+        profile: normalizedProfile
+      };
+    }
+
+    return {
+      token: normalizedToken,
+      user: null,
+      profile: normalizedProfile
+    };
   };
 
   const signUp = async (email, password, fullName, phone = "") => {
@@ -70,48 +143,54 @@ export const AuthProvider = ({ children }) => {
       phone,
       full_name: fullName 
     });
+
+    const form = new FormData();
+    form.append("Email", email);
+    form.append("Password", password);
+    form.append("FullName", fullName);
+    form.append("Phone", phone);
+
+    const data = await apiRequest("/api/User/register", {
+      method: "POST",
+      body: form,
+    });
     
     // Try different data formats to find what backend expects
-    const formats = [
-      {
-        name: "Format 1: fullName + full_name",
-        data: { email, password, fullName, full_name: fullName, phone }
-      },
-      {
-        name: "Format 2: fullName only",
-        data: { email, password, fullName, phone }
-      },
-      {
-        name: "Format 3: full_name only",
-        data: { email, password, full_name: fullName, phone }
-      },
-      {
-        name: "Format 4: name field",
-        data: { email, password, name: fullName, phone }
-      },
-      {
-        name: "Format 5: minimal",
-        data: { email, password, phone }
-      }
+    const possibleFormats = [
+      // Format 1: Direct response
+      data,
+      // Format 2: Nested in data
+      data?.data,
+      // Format 3: Nested in result
+      data?.result,
+      // Format 4: Double nested
+      data?.data?.data,
+      data?.data?.result,
+      data?.result?.data,
+      // Format 5: Triple nested
+      data?.data?.data?.data,
+      data?.data?.data?.result,
+      data?.result?.result,
+      data?.result?.data?.data,
     ];
-    
-    for (const format of formats) {
-      try {
-        console.log(`Trying ${format.name}:`, format.data);
-        
-        const data = await apiRequest("/api/User/register", {
-          method: "POST",
-          body: format.data,
-        });
-        
-        console.log("Register response:", data);
 
+    for (const format of possibleFormats) {
+      if (!format) continue;
+      
+      console.log("Trying format:", format);
+      
+      // Check if this format has the expected structure
+      const hasToken = format?.token || format?.accessToken || format?.jwt || format?.tokenString;
+      const hasUser = format?.user || format?.userId || format?.id || format?.accountId;
+      
+      if (hasToken || hasUser) {
+        console.log("Found valid format:", format);
+        
         // Normalize possible backend shapes
         const normalizedToken =
-          data?.token || data?.accessToken || data?.jwt || data?.tokenString ||
-          data?.data?.token || data?.result?.token || null;
-        
-        const userData = data?.user || data?.data?.user || data?.result?.user || { email, fullName, phone };
+          format?.token || format?.accessToken || format?.jwt || format?.tokenString;
+
+        const userData = format?.user || format;
         const normalizedUser = {
           ...userData,
           fullName: userData.fullName || userData.full_name || userData.name || fullName,
@@ -121,41 +200,38 @@ export const AuthProvider = ({ children }) => {
           userId: userData.userId || userData.id || userData.accountId
         };
         
-        const normalizedProfile = data?.profile || data?.data?.profile || data?.result?.profile || null;
-
-        if (!normalizedToken) {
-          throw new Error("Đăng ký thất bại: phản hồi không chứa token.");
-        }
-
-        const session = { token: normalizedToken, user: normalizedUser, profile: normalizedProfile };
-
+        const session = {
+          token: normalizedToken,
+          user: normalizedUser,
+          profile: format?.profile || null
+        };
+        
+        console.log("Register response:", data);
+        
         localStorage.setItem("evtb_auth", JSON.stringify(session));
         setUser(session.user);
         setProfile(session.profile || null);
-
         return session;
-        
-      } catch (error) {
-        console.error(`${format.name} failed:`, {
-          status: error.status,
-          message: error.message,
-          data: error.data
-        });
-        
-        // If this is the last format, throw the error
-        if (format === formats[formats.length - 1]) {
-          console.error("All register formats failed");
-          throw error;
-        }
-        // Otherwise, continue to next format
-        continue;
       }
+      
+      // Otherwise, continue to next format
+      continue;
+    }
+
+    // Many backends don't return token on register; try auto-login to obtain token
+    try {
+      const session = await signIn(email, password);
+      localStorage.setItem("evtb_auth", JSON.stringify(session));
+      setUser(session.user);
+      setProfile(session.profile || null);
+      return session;
+    } catch (loginError) {
+      console.error("Auto-login after register failed:", loginError);
+      throw new Error("Registration completed but auto-login failed. Please try logging in manually.");
     }
   };
 
   const signIn = async (email, password) => {
-    // Call your backend login API
-    // Expecting response like: { token: string, user: { ... } }
     const data = await apiRequest("/api/User/login", {
       method: "POST",
       body: { email, password },
@@ -164,68 +240,65 @@ export const AuthProvider = ({ children }) => {
     // Normalize possible backend shapes
     const normalizedToken =
       data?.token || data?.accessToken || data?.jwt || data?.tokenString ||
-      data?.data?.token || data?.result?.token || null;
-    
-    const userData = data?.user || data?.data?.user || data?.result?.user || { email };
-    const normalizedUser = {
-      ...userData,
-      fullName: userData.fullName || userData.full_name || userData.name,
-      email: userData.email || email,
-      phone: userData.phone,
-      id: userData.userId || userData.id || userData.accountId,
-      userId: userData.userId || userData.id || userData.accountId
-    };
+      data?.data?.token || data?.data?.accessToken || data?.data?.jwt || 
+      data?.result?.token || data?.result?.accessToken || data?.result?.jwt ||
+      data?.data?.data?.token || data?.data?.data?.accessToken || data?.data?.data?.jwt;
+
+    const normalizedUser = data?.user || data?.data?.user || data?.result?.user || 
+                          data?.data?.data?.user || data?.data?.data?.data?.user || null;
     
     const normalizedProfile = data?.profile || data?.data?.profile || data?.result?.profile || null;
+    
+    console.log("=== SIGNIN DEBUG ===");
+    console.log("Login API response:", data);
 
-    if (!normalizedToken) {
-      throw new Error("Đăng nhập thất bại: phản hồi không chứa token.");
+    const session = buildSession(data, email);
+    console.log("Initial session:", session);
+
+    // If we have user data, normalize it
+    if (normalizedUser) {
+      const userData = normalizedUser;
+      const normalizedUserData = {
+        ...userData,
+        fullName: userData.fullName || userData.full_name || userData.name,
+        email: userData.email || email,
+        phone: userData.phone,
+        id: userData.userId || userData.id || userData.accountId,
+        userId: userData.userId || userData.id || userData.accountId
+      };
+      
+      session.user = normalizedUserData;
     }
 
-    const session = { token: normalizedToken, user: normalizedUser, profile: normalizedProfile };
+    // If no user data but we have email, create minimal user object
+    if (!session.user && email) {
+      session.user = {
+        email: email,
+        id: data?.userId || data?.id || data?.accountId,
+        userId: data?.userId || data?.id || data?.accountId
+      };
+    }
+
+    console.log("Final session:", session);
 
     localStorage.setItem("evtb_auth", JSON.stringify(session));
     setUser(session.user);
     setProfile(session.profile || null);
 
+    console.log("Final session to return:", session);
+    console.log("==================");
+
     return session;
-  };
-
-  const signOut = async () => {
-    localStorage.removeItem("evtb_auth");
-    setUser(null);
-    setProfile(null);
-  };
-
-  const updateProfile = async (updates) => {
-    if (!user) throw new Error("No user logged in");
-    const data = await apiRequest("/api/User/profile", {
-      method: "PUT",
-      body: updates,
-    });
-    const newProfile = data?.profile || data;
-    setProfile(newProfile);
-    const raw = localStorage.getItem("evtb_auth");
-    try {
-      const session = raw ? JSON.parse(raw) : {};
-      localStorage.setItem("evtb_auth", JSON.stringify({ ...session, profile: newProfile }));
-    } catch {}
-    return newProfile;
   };
 
   const value = {
     user,
     profile,
     loading,
-    signUp,
     signIn,
+    signUp,
     signOut,
     updateProfile,
-    isAdmin: profile?.role === "admin",
-    signInWithProvider: (provider) => {
-      const prov = provider === 'google' ? 'google' : 'facebook';
-      window.location.href = `${API_BASE_URL}/api/Auth/${prov}`;
-    },
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

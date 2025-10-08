@@ -1,19 +1,26 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { Header } from './components/organisms/Header';
-import { Footer } from './components/organisms/Footer';
-import { HomePage } from './pages/HomePage';
-import { Dashboard } from './pages/Dashboard';
-import { Profile } from './pages/Profile';
-import { AdminDashboard } from './pages/AdminDashboard';
-import { CreateListing } from './pages/CreateListing';
-import { EditListing } from './pages/EditListing';
-import { MyListings } from './pages/MyListings';
-import { LoginForm } from './components/organisms/auth/LoginForm';
-import { RegisterForm } from './components/organisms/auth/RegisterForm';
-import { ForgotPassword } from './pages/ForgotPassword';
-import { ResetPassword } from './pages/ResetPassword';
-import { AuthCallback } from './pages/AuthCallback';
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { Header } from "./components/organisms/Header";
+import { Footer } from "./components/organisms/Footer";
+import { HomePage } from "./pages/HomePage";
+import { Dashboard } from "./pages/Dashboard";
+import { Profile } from "./pages/Profile";
+import { AdminDashboard } from "./pages/AdminDashboard";
+import { CreateListing } from "./pages/CreateListing";
+import { EditListing } from "./pages/EditListing";
+import { MyListings } from "./pages/MyListings";
+import { Trash } from "./pages/Trash";
+import { LoginForm } from "./components/organisms/auth/LoginForm";
+import { RegisterForm } from "./components/organisms/auth/RegisterForm";
+import { ForgotPassword } from "./pages/ForgotPassword";
+import { ResetPassword } from "./pages/ResetPassword";
+import { AuthCallback } from "./pages/AuthCallback";
+import { ToastProvider } from "./contexts/ToastContext";
 
 const ProtectedRoute = ({ children, adminOnly = false }) => {
   const { user, profile, loading } = useAuth();
@@ -30,8 +37,24 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
     return <Navigate to="/login" />;
   }
 
-  if (adminOnly && profile?.role !== 'admin') {
-    return <Navigate to="/dashboard" />;
+  if (adminOnly) {
+    // Check admin status using roleId or role
+    const roleId =
+      user?.roleId || profile?.roleId || user?.role || profile?.role;
+    const roleName = (
+      user?.roleName ||
+      profile?.roleName ||
+      user?.role ||
+      profile?.role ||
+      ""
+    )
+      .toString()
+      .toLowerCase();
+    const isAdmin = roleId === 1 || roleId === "1" || roleName === "admin";
+
+    if (!isAdmin) {
+      return <Navigate to="/dashboard" />;
+    }
   }
 
   return children;
@@ -95,6 +118,14 @@ const AppContent = () => {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/trash"
+            element={
+              <ProtectedRoute>
+                <Trash />
+              </ProtectedRoute>
+            }
+          />
 
           <Route
             path="/listing/:id/edit"
@@ -126,7 +157,9 @@ function App() {
   return (
     <Router>
       <AuthProvider>
-        <AppContent />
+        <ToastProvider>
+          <AppContent />
+        </ToastProvider>
       </AuthProvider>
     </Router>
   );
