@@ -337,10 +337,6 @@ export const RegisterForm = () => {
               <Shield className="auth-feature-icon text-blue-400" />
               <p className="auth-feature-text">Giao dịch an toàn</p>
             </div>
-            <div className="auth-feature-card">
-              <Star className="auth-feature-icon text-purple-400" />
-              <p className="auth-feature-text">Hỗ trợ 24/7</p>
-            </div>
           </div>
         </div>
       </div>
