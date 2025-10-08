@@ -63,12 +63,25 @@ export const AdminDashboard = () => {
       const norm = (v) => String(v || "").toLowerCase();
       const mapStatus = (l) => {
         const raw = norm(l?.status || l?.Status);
-        if (raw.includes("pending") || raw.includes("chờ")) return "pending";
-        if (raw.includes("approve") || raw.includes("duyệt")) return "approved";
+        console.log(`Mapping status for listing ${l.id}: raw="${raw}"`);
+        if (
+          raw.includes("draft") ||
+          raw.includes("pending") ||
+          raw.includes("chờ")
+        )
+          return "pending";
+        if (
+          raw.includes("active") ||
+          raw.includes("approve") ||
+          raw.includes("duyệt")
+        )
+          return "approved";
         if (raw.includes("reject") || raw.includes("từ chối"))
           return "rejected";
         if (raw.includes("sold") || raw.includes("đã bán")) return "sold";
-        return raw || "pending";
+        const result = raw || "pending";
+        console.log(`Mapped status: "${result}"`);
+        return result;
       };
 
       // Process all listings with images
@@ -171,33 +184,49 @@ export const AdminDashboard = () => {
 
   const handleApprove = async (listingId) => {
     try {
-      await apiRequest(`/api/Product/${listingId}`, {
+      console.log("Approving listing with ID:", listingId);
+
+      // Use the correct API endpoint: PUT /api/Product/approve/{id}
+      await apiRequest(`/api/Product/approve/${listingId}`, {
         method: "PUT",
-        body: { status: "approved" },
       });
+
+      console.log("Product approved successfully!");
+      alert("✅ Duyệt bài đăng thành công!");
       setShowModal(false);
       loadAdminData();
     } catch (error) {
       console.error("Error approving listing:", error);
-      alert("Lỗi khi duyệt bài đăng: " + (error.message || "Unknown error"));
+      alert("❌ Lỗi khi duyệt bài đăng: " + (error.message || "Unknown error"));
     }
   };
 
   const handleReject = async (listingId) => {
     try {
+      console.log("Rejecting listing with ID:", listingId);
+
+      // Use PUT method to update status to rejected
       await apiRequest(`/api/Product/${listingId}`, {
         method: "PUT",
         body: { status: "rejected" },
       });
+
+      console.log("Product rejected successfully!");
+      alert("✅ Từ chối bài đăng thành công!");
       setShowModal(false);
       loadAdminData();
     } catch (error) {
       console.error("Error rejecting listing:", error);
-      alert("Lỗi khi từ chối bài đăng: " + (error.message || "Unknown error"));
+      alert(
+        "❌ Lỗi khi từ chối bài đăng: " + (error.message || "Unknown error")
+      );
     }
   };
 
   const openListingModal = (listing) => {
+    console.log("Opening modal for listing:", listing);
+    console.log("Listing status:", listing.status);
+    console.log("Will show approve buttons:", listing.status === "pending");
     setSelectedListing(listing);
     setShowModal(true);
   };
@@ -674,22 +703,72 @@ export const AdminDashboard = () => {
                 </div>
               </div>
 
-              {selectedListing.status === "pending" && (
-                <div className="mt-8 flex space-x-4">
-                  <button
-                    onClick={() => handleApprove(getId(selectedListing))}
-                    className="flex-1 bg-green-600 text-white px-6 py-3 rounded-xl hover:bg-green-700 transition-colors flex items-center justify-center font-medium"
-                  >
-                    <CheckCircle className="h-5 w-5 mr-2" />
-                    Duyệt tin đăng
-                  </button>
-                  <button
-                    onClick={() => handleReject(getId(selectedListing))}
-                    className="flex-1 bg-red-600 text-white px-6 py-3 rounded-xl hover:bg-red-700 transition-colors flex items-center justify-center font-medium"
-                  >
-                    <XCircle className="h-5 w-5 mr-2" />
-                    Từ chối tin đăng
-                  </button>
+              {/* Show approve/reject buttons for all non-approved listings */}
+              {selectedListing.status !== "approved" &&
+                selectedListing.status !== "sold" && (
+                  <div className="mt-8">
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                      <h4 className="text-lg font-semibold text-blue-900 mb-2">
+                        Hành động quản trị
+                      </h4>
+                      <p className="text-sm text-blue-700">
+                        Trạng thái hiện tại:{" "}
+                        <span className="font-medium">
+                          {selectedListing.status}
+                        </span>
+                      </p>
+                    </div>
+
+                    <div className="flex space-x-4">
+                      <button
+                        onClick={() => handleApprove(getId(selectedListing))}
+                        className="flex-1 bg-green-600 text-white px-6 py-3 rounded-xl hover:bg-green-700 transition-colors flex items-center justify-center font-medium"
+                      >
+                        <CheckCircle className="h-5 w-5 mr-2" />
+                        Duyệt tin đăng
+                      </button>
+                      <button
+                        onClick={() => handleReject(getId(selectedListing))}
+                        className="flex-1 bg-red-600 text-white px-6 py-3 rounded-xl hover:bg-red-700 transition-colors flex items-center justify-center font-medium"
+                      >
+                        <XCircle className="h-5 w-5 mr-2" />
+                        Từ chối tin đăng
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+              {/* Show info for already approved/sold listings */}
+              {selectedListing.status === "approved" && (
+                <div className="mt-8 bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-center">
+                    <CheckCircle className="h-6 w-6 text-green-600 mr-3" />
+                    <div>
+                      <h4 className="text-lg font-semibold text-green-900">
+                        Tin đăng đã được duyệt
+                      </h4>
+                      <p className="text-sm text-green-700">
+                        Tin đăng này đã được phê duyệt và hiển thị trên trang
+                        chủ
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {selectedListing.status === "sold" && (
+                <div className="mt-8 bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center">
+                    <Package className="h-6 w-6 text-gray-600 mr-3" />
+                    <div>
+                      <h4 className="text-lg font-semibold text-gray-900">
+                        Tin đăng đã bán
+                      </h4>
+                      <p className="text-sm text-gray-700">
+                        Sản phẩm này đã được bán
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

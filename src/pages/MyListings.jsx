@@ -25,8 +25,14 @@ export const MyListings = () => {
   const norm = (val) => String(val || "").toLowerCase();
   const getStatus = (l) => {
     const raw = norm(l?.status ?? l?.Status ?? l?.state);
-    if (raw.includes("pending") || raw.includes("chờ")) return "pending";
-    if (raw.includes("approve") || raw.includes("duyệt")) return "approved";
+    if (raw.includes("draft") || raw.includes("pending") || raw.includes("chờ"))
+      return "pending";
+    if (
+      raw.includes("active") ||
+      raw.includes("approve") ||
+      raw.includes("duyệt")
+    )
+      return "approved";
     if (raw.includes("reject") || raw.includes("từ chối")) return "rejected";
     if (raw.includes("sold") || raw.includes("đã bán")) return "sold";
     return raw || "pending";
