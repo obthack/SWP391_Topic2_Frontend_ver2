@@ -21,9 +21,14 @@ export const AuthProvider = ({ children }) => {
       try {
         const raw = localStorage.getItem("evtb_auth");
         if (raw) {
-          const parsed = JSON.parse(raw);
-          setUser(parsed?.user || null);
-          setProfile(parsed?.profile || null);
+          try {
+            const parsed = JSON.parse(raw);
+            setUser(parsed?.user || null);
+            setProfile(parsed?.profile || null);
+          } catch (parseError) {
+            console.warn("Corrupted auth data, clearing localStorage");
+            localStorage.removeItem("evtb_auth");
+          }
         }
         // Try load current user from backend to get freshest name/profile
         try {
@@ -43,9 +48,20 @@ export const AuthProvider = ({ children }) => {
             const mergedUser = { ...normalizedUser, ...(me.profile ? { profile: me.profile } : {}) };
             setUser((u) => ({ ...(u || {}), ...mergedUser }));
             if (me.profile) setProfile(me.profile);
-            const raw2 = localStorage.getItem("evtb_auth");
-            const sess = raw2 ? JSON.parse(raw2) : {};
-            localStorage.setItem("evtb_auth", JSON.stringify({ ...sess, user: mergedUser, profile: me.profile || sess.profile }));
+            
+            // Optimize localStorage storage
+            try {
+              const raw2 = localStorage.getItem("evtb_auth");
+              const sess = raw2 ? JSON.parse(raw2) : {};
+              const optimizedAuth = {
+                token: sess.token,
+                user: mergedUser,
+                profile: me.profile || sess.profile
+              };
+              localStorage.setItem("evtb_auth", JSON.stringify(optimizedAuth));
+            } catch (storageError) {
+              console.warn("Could not save optimized auth data:", storageError);
+            }
           }
         } catch {}
       } catch {
@@ -62,23 +78,67 @@ export const AuthProvider = ({ children }) => {
     setProfile(null);
   };
 
+  // Utility function to clear localStorage when quota is exceeded
+  const clearAuthStorage = () => {
+    try {
+      localStorage.removeItem("evtb_auth");
+      console.log("Auth storage cleared");
+    } catch (error) {
+      console.error("Could not clear auth storage:", error);
+    }
+  };
+
   const updateProfile = async (updates) => {
     if (!user) return;
-
+    
     try {
       const updatedUser = { ...user, ...updates };
       setUser(updatedUser);
       
+      // Optimize localStorage storage to prevent quota exceeded
       const authData = localStorage.getItem("evtb_auth");
       if (authData) {
-        const parsed = JSON.parse(authData);
-        localStorage.setItem("evtb_auth", JSON.stringify({
-          ...parsed,
-          user: updatedUser
-        }));
+        try {
+          const parsed = JSON.parse(authData);
+          
+          // Store only essential data to reduce size
+          const optimizedAuth = {
+            token: parsed.token,
+            user: {
+              id: updatedUser.id || updatedUser.userId,
+              email: updatedUser.email,
+              fullName: updatedUser.fullName || updatedUser.full_name,
+              phone: updatedUser.phone,
+              avatar: updatedUser.avatar,
+              roleId: updatedUser.roleId,
+              roleName: updatedUser.roleName
+            },
+            profile: parsed.profile ? {
+              id: parsed.profile.id,
+              fullName: parsed.profile.fullName || parsed.profile.full_name,
+              phone: parsed.profile.phone
+            } : null
+          };
+          
+          localStorage.setItem("evtb_auth", JSON.stringify(optimizedAuth));
+        } catch (storageError) {
+          console.warn("Could not save to localStorage:", storageError);
+          // Clear old data and try again with minimal data
+          localStorage.removeItem("evtb_auth");
+          const minimalAuth = {
+            token: parsed?.token,
+            user: {
+              id: updatedUser.id || updatedUser.userId,
+              email: updatedUser.email,
+              fullName: updatedUser.fullName || updatedUser.full_name
+            }
+          };
+          localStorage.setItem("evtb_auth", JSON.stringify(minimalAuth));
+        }
       }
     } catch (error) {
       console.error("Error updating profile:", error);
+      throw error; // Re-throw to let Profile component handle it
     }
   };
 
@@ -144,16 +204,37 @@ export const AuthProvider = ({ children }) => {
       full_name: fullName 
     });
 
-    const form = new FormData();
-    form.append("Email", email);
-    form.append("Password", password);
-    form.append("FullName", fullName);
-    form.append("Phone", phone);
+    // Try JSON format first (most APIs expect JSON)
+    const jsonData = {
+      email: email,
+      password: password,
+      fullName: fullName,
+      full_name: fullName, // Try both formats
+      phone: phone
+    };
 
-    const data = await apiRequest("/api/User/register", {
-      method: "POST",
-      body: form,
-    });
+    let data;
+    try {
+      // Try JSON first
+      data = await apiRequest("/api/User/register", {
+        method: "POST",
+        body: jsonData,
+      });
+    } catch (jsonError) {
+      console.log("JSON format failed, trying FormData:", jsonError);
+      
+      // Fallback to FormData if JSON fails
+      const form = new FormData();
+      form.append("Email", email);
+      form.append("Password", password);
+      form.append("FullName", fullName);
+      form.append("Phone", phone);
+
+      data = await apiRequest("/api/User/register", {
+        method: "POST",
+        body: form,
+      });
+    }
     
     // Try different data formats to find what backend expects
     const possibleFormats = [
@@ -299,6 +380,7 @@ export const AuthProvider = ({ children }) => {
     signUp,
     signOut,
     updateProfile,
+    clearAuthStorage,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

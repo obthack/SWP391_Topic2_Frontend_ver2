@@ -62,8 +62,7 @@ export const CreateListing = () => {
     setLoading(true);
 
     try {
-      // Upload images first (you'll need to implement image upload API)
-      const imageUrls = []; // For now, we'll skip image upload
+      // We'll upload images after creating the product to get productId
 
       // Get user's profile ID for seller_id reference
       // Based on API response, the user object has 'userId' field, not 'id'
@@ -123,27 +122,27 @@ export const CreateListing = () => {
         categoryId = brandToCategoryMap[formData.brand];
       }
 
-      const productDataRaw = {
-        title: formData.title,
-        description: formData.description,
-        product_type: formData.productType, // ✅ Required field
-        brand: formData.brand,
-        model: formData.model,
-        licensePlate: formData.licensePlate || undefined,
-        year: formData.year ? parseInt(formData.year) : undefined,
-        price: formData.price ? parseFloat(formData.price) : undefined, // ✅ Required field
-        mileage: formData.mileage ? parseInt(formData.mileage) : undefined,
-        condition: formData.condition || 'good', // ✅ Required field with default
-        images: imageUrls,
-        // Additional fields that might be useful
-        color: formData.color || undefined,
-        fuelType: formData.fuelType || undefined,
-        transmission: formData.transmission || undefined,
-        location: formData.location || undefined,
-        contactPhone: formData.contactPhone || undefined,
-        contactEmail: formData.contactEmail || undefined,
-        productType: formData.productType,
-      };
+       const productDataRaw = {
+         title: formData.title,
+         description: formData.description,
+         product_type: formData.productType, // ✅ Required field
+         brand: formData.brand,
+         model: formData.model,
+         licensePlate: formData.licensePlate || "",
+         year: formData.year ? parseInt(formData.year) : null,
+         price: formData.price ? parseFloat(formData.price) : undefined, // ✅ Required field
+         mileage: formData.mileage ? parseInt(formData.mileage) : null,
+         condition: formData.condition || 'good', // ✅ Required field with default
+         // Images will be uploaded after product creation
+         // Additional fields that might be useful
+         color: formData.color || "",
+         fuelType: formData.fuelType || "",
+         transmission: formData.transmission || "",
+         location: formData.location || "",
+         contactPhone: formData.contactPhone || "",
+         contactEmail: formData.contactEmail || "",
+         productType: formData.productType,
+       };
       
       // Map to correct database field names
       const productData = Object.fromEntries(Object.entries({
@@ -160,6 +159,18 @@ export const CreateListing = () => {
       console.log("Seller ID resolved:", sellerId);
       console.log("Category ID resolved:", categoryId);
       console.log("Sending product data:", productData);
+      console.log("Product data keys:", Object.keys(productData));
+      console.log("Product data values:", Object.values(productData));
+      console.log("Form data summary:", {
+        title: formData.title,
+        licensePlate: formData.licensePlate,
+        year: formData.year,
+        brand: formData.brand,
+        model: formData.model,
+        price: formData.price,
+        imageCount: images.length,
+        imageUrls: imageUrls.length
+      });
       
       // Additional debug for user object structure
       if (user) {
@@ -197,6 +208,22 @@ export const CreateListing = () => {
           throw new Error("Không thể xác định thông tin người bán. Vui lòng đăng nhập lại hoặc làm mới trang.");
         }
       }
+
+      // Validate other required fields
+      if (!formData.title || !formData.price || !formData.description || !formData.brand || !formData.productType || !formData.model) {
+        throw new Error("Vui lòng điền đầy đủ các trường bắt buộc: tiêu đề, giá, mô tả, hãng xe, model, và loại sản phẩm.");
+      }
+
+      // Validate price is a valid number
+      const price = parseFloat(formData.price);
+      if (isNaN(price) || price <= 0) {
+        throw new Error("Giá bán phải là một số dương hợp lệ.");
+      }
+
+      // Validate year if provided
+      if (formData.year && (isNaN(parseInt(formData.year)) || parseInt(formData.year) < 2010 || parseInt(formData.year) > 2024)) {
+        throw new Error("Năm sản xuất phải là số từ 2010 đến 2024.");
+      }
       
       // categoryId should always be set now since we have a default
       console.log("Using categoryId:", categoryId);
@@ -205,61 +232,186 @@ export const CreateListing = () => {
       productData.seller_id = sellerId;
       productData.category_id = categoryId;
 
-      const created = await apiRequest("/api/Product", {
-        method: "POST",
-        body: productData,
-      });
-      const pid = created?.id || created?.productId || created?.Id;
+       // Try different data formats to match backend expectations
+       let created = null;
+       const productDataVariations = [
+         // Format 1: Backend field names (based on Swagger response)
+         {
+           sellerId: sellerId,
+           productType: formData.productType,
+           title: formData.title,
+           description: formData.description,
+           price: parseFloat(formData.price),
+           brand: formData.brand,
+           model: formData.model,
+           condition: formData.condition || 'good',
+           vehicleType: null,
+           manufactureYear: formData.year ? parseInt(formData.year) : null,
+           mileage: formData.mileage ? parseInt(formData.mileage) : null,
+           batteryHealth: null,
+           batteryType: null,
+           capacity: null,
+           voltage: null,
+           cycleCount: null,
+           status: 'Draft',
+           verificationStatus: 'NotRequested',
+           imageUrls: [], // Will be updated after image upload
+           licensePlate: formData.licensePlate || "",
+           color: formData.color || "",
+           fuelType: formData.fuelType || "",
+           transmission: formData.transmission || "",
+           location: formData.location || "",
+           contactPhone: formData.contactPhone || "",
+           contactEmail: formData.contactEmail || "",
+         },
+        // Format 2: Original format (keep as backup)
+        productData,
+        // Format 3: Camel case field names
+        {
+          title: productData.title,
+          description: productData.description,
+          productType: productData.product_type,
+          brand: productData.brand,
+          model: productData.model,
+          licensePlate: productData.licensePlate,
+          year: productData.year,
+          price: productData.price,
+          mileage: productData.mileage,
+          condition: productData.condition,
+          images: productData.images,
+          representativeImage: productData.representativeImage,
+          color: productData.color,
+          fuelType: productData.fuelType,
+          transmission: productData.transmission,
+          location: productData.location,
+          contactPhone: productData.contactPhone,
+          contactEmail: productData.contactEmail,
+          sellerId: productData.seller_id,
+          categoryId: productData.category_id,
+          status: productData.status,
+          createdDate: productData.createdDate,
+          isActive: productData.isActive,
+        },
+        // Format 4: Minimal required fields with Pascal case
+        {
+          Title: formData.title,
+          Brand: formData.brand,
+          ProductType: formData.productType,
+          Model: formData.model,
+          LicensePlate: formData.licensePlate || "",
+          Year: formData.year ? parseInt(formData.year) : null,
+          Price: parseFloat(formData.price),
+          Images: imageUrls,
+          RepresentativeImage: imageUrls.length > 0 ? imageUrls[0] : null,
+          SellerId: sellerId,
+          CategoryId: categoryId,
+          Status: 'pending'
+        },
+        // Format 5: Test with different field names
+        {
+          name: formData.title,
+          description: formData.description,
+          cost: parseFloat(formData.price),
+          sellerId: sellerId,
+          categoryId: categoryId,
+          state: 'pending'
+        }
+      ];
 
-      if (pid && images.length > 0) {
-        // Try multiple upload endpoint first
+      for (let i = 0; i < productDataVariations.length; i++) {
         try {
-          const imageDataArray = [];
-          for (let i = 0; i < images.length; i++) {
-            const img = images[i];
-            const dataUrl = await fileToBase64(img);
-            imageDataArray.push({
-              productId: pid,
-              imageData: dataUrl,
-              isPrimary: i === 0,
-            });
-          }
-
-          console.log(
-            "Uploading images with multiple endpoint:",
-            imageDataArray
-          );
-          await apiRequest(`/api/ProductImage/multiple`, {
-            method: "POST",
-            body: imageDataArray,
+          console.log(`Trying product data format ${i + 1}:`, productDataVariations[i]);
+          created = await apiRequest("/api/Product", {
+        method: "POST",
+            body: productDataVariations[i],
           });
-          console.log("Multiple images uploaded successfully");
-        } catch (e) {
-          console.warn("Multiple upload failed, trying individual uploads:", e);
-
-          // Fallback to individual uploads
-          for (let i = 0; i < images.length; i++) {
-            const img = images[i];
-            const dataUrl = await fileToBase64(img);
-            try {
-              console.log(
-                `Uploading image ${i + 1}/${images.length} for product ${pid}`
-              );
-              await apiRequest(`/api/ProductImage`, {
-                method: "POST",
-                body: {
-                  productId: pid,
-                  imageData: dataUrl,
-                  isPrimary: i === 0,
-                },
-              });
-              console.log(`Image ${i + 1} uploaded successfully`);
-            } catch (e) {
-              console.warn(`Image ${i + 1} upload failed:`, e);
-            }
+          console.log(`Product created successfully with format ${i + 1}:`, created);
+          break;
+        } catch (formatError) {
+          console.log(`Format ${i + 1} failed:`, formatError.message);
+          if (i === productDataVariations.length - 1) {
+            throw formatError; // Re-throw the last error
           }
         }
       }
+       const pid = created?.id || created?.productId || created?.Id;
+
+       // Upload images after product creation (ProductImage API might need productId)
+       if (pid && images.length > 0) {
+         console.log(`Uploading ${images.length} images for product ${pid}...`);
+         
+         const uploadedImageUrls = [];
+         
+         // Try individual uploads with productId
+         for (let i = 0; i < images.length; i++) {
+           const img = images[i];
+           const dataUrl = await fileToBase64(img);
+           
+           try {
+             console.log(`Uploading image ${i + 1}/${images.length} for product ${pid}`);
+             
+             // Try ProductImage endpoint with productId
+             const uploadResponse = await apiRequest(`/api/ProductImage`, {
+               method: "POST",
+               body: {
+                 productId: pid,
+                 imageData: dataUrl,
+                 filename: img.name || `image_${Date.now()}_${i}.jpg`,
+                 isPrimary: i === 0,
+               },
+             });
+             
+             // Extract image URL from response
+             let imageUrl = null;
+             if (uploadResponse?.url) {
+               imageUrl = uploadResponse.url;
+             } else if (uploadResponse?.imageUrl) {
+               imageUrl = uploadResponse.imageUrl;
+             } else if (uploadResponse?.data?.url) {
+               imageUrl = uploadResponse.data.url;
+             } else if (uploadResponse?.data?.imageUrl) {
+               imageUrl = uploadResponse.data.imageUrl;
+             } else if (typeof uploadResponse === 'string') {
+               imageUrl = uploadResponse;
+             }
+             
+             if (imageUrl) {
+               uploadedImageUrls.push(imageUrl);
+               console.log(`Image ${i + 1} uploaded successfully:`, imageUrl);
+             } else {
+               console.warn(`Image ${i + 1} upload response missing URL:`, uploadResponse);
+               uploadedImageUrls.push(dataUrl); // Fallback to data URL
+             }
+           } catch (e) {
+             console.warn(`Image ${i + 1} upload failed:`, e);
+             uploadedImageUrls.push(dataUrl); // Fallback to data URL
+           }
+         }
+         
+         // Update product with image URLs if we got some
+         if (uploadedImageUrls.length > 0) {
+           try {
+             console.log(`Updating product ${pid} with ${uploadedImageUrls.length} image URLs...`);
+             await apiRequest(`/api/Product/${pid}`, {
+               method: "PUT",
+               body: {
+                 imageUrls: uploadedImageUrls
+               },
+             });
+             console.log("Product updated with image URLs successfully");
+           } catch (updateError) {
+             console.warn("Failed to update product with image URLs:", updateError);
+           }
+         }
+         
+         console.log(`Final uploaded image URLs:`, uploadedImageUrls);
+       } else if (imageUrls.length > 0) {
+         console.log(`${imageUrls.length} images were uploaded successfully before product creation`);
+       } else if (images.length > 0) {
+         console.warn(`No images were uploaded successfully. ${images.length} images were selected but upload failed.`);
+       } else {
+         console.log("No images were selected for upload.");
+       }
 
       show({
         title: "Tạo bài đăng thành công",
@@ -270,8 +422,20 @@ export const CreateListing = () => {
     } catch (err) {
       console.error("Error creating product:", err);
       console.error("Error details:", err.data);
+      console.error("Error status:", err.status);
+      console.error("Full error object:", JSON.stringify(err, null, 2));
 
       let errorMessage = "Có lỗi xảy ra khi tạo bài đăng";
+
+      if (err.status === 500) {
+        errorMessage = "Lỗi máy chủ (500): Có thể do dữ liệu không hợp lệ hoặc lỗi cơ sở dữ liệu. Vui lòng kiểm tra lại thông tin và thử lại.";
+      } else if (err.status === 400) {
+        errorMessage = "Lỗi dữ liệu (400): Thông tin gửi lên không hợp lệ. Vui lòng kiểm tra lại các trường bắt buộc.";
+      } else if (err.status === 401) {
+        errorMessage = "Lỗi xác thực (401): Vui lòng đăng nhập lại.";
+      } else if (err.status === 403) {
+        errorMessage = "Lỗi quyền truy cập (403): Bạn không có quyền thực hiện thao tác này.";
+      }
 
       if (err.data) {
         if (typeof err.data === "string") {
@@ -281,9 +445,16 @@ export const CreateListing = () => {
         } else if (err.data.errors) {
           const errorDetails = Object.values(err.data.errors).flat().join(", ");
           errorMessage = `Lỗi validation: ${errorDetails}`;
+        } else if (err.data.title) {
+          errorMessage = err.data.title;
         }
       } else if (err.message) {
         errorMessage = err.message;
+      }
+
+      // Add more specific error handling for common issues
+      if (errorMessage.includes("entity changes") || errorMessage.includes("database")) {
+        errorMessage += "\n\nGợi ý: Kiểm tra xem tất cả các trường bắt buộc đã được điền đúng chưa, đặc biệt là giá và thông tin người bán.";
       }
 
       setError(errorMessage);
@@ -322,7 +493,7 @@ export const CreateListing = () => {
             <div className="space-y-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Loại sản phẩm *
+                  Loại sản phẩm * <span className="text-red-500">(Bắt buộc)</span>
                 </label>
                 <select
                   name="productType"
@@ -370,7 +541,7 @@ export const CreateListing = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Hãng xe *
+                    Hãng xe * <span className="text-red-500">(Bắt buộc)</span>
                   </label>
                   <select
                     name="brand"
@@ -394,7 +565,7 @@ export const CreateListing = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Model *
+                    Model * <span className="text-red-500">(Bắt buộc)</span>
                   </label>
                   <input
                     type="text"
