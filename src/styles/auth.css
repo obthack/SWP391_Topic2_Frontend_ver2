@@ -135,6 +135,8 @@
   border: none;
   text-align: center;
   padding: 1rem;
+  min-width: 0;
+  flex: 1;
 }
 
 /* Car silhouettes animations */
@@ -346,9 +348,8 @@
 }
 
 .auth-checkbox:focus {
-  ring: 2px;
-  ring-color: #3b82f6;
-  ring-offset: 0;
+  outline: 2px solid #3b82f6;
+  outline-offset: 0;
 }
 
 .auth-checkbox-label {
@@ -466,16 +467,17 @@
 }
 
 .register-features {
-  margin-top: 1.5rem;
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 2rem;
+  max-width: 20rem;
 }
 
 @media (min-width: 640px) {
   .register-features {
     gap: 3rem;
+    max-width: 24rem;
   }
 }
 

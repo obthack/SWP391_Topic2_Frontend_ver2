@@ -278,18 +278,20 @@ export const LoginForm = () => {
           </div>
 
           {/* Features Cards */}
-          <div className="mt-8 grid grid-cols-3 gap-4">
-            <div className="feature-card">
-              <Car className="w-6 h-6 text-blue-400 mx-auto mb-2" />
-              <p className="text-xs text-blue-200">Xe điện chất lượng</p>
-            </div>
-            <div className="feature-card">
-              <Zap className="w-6 h-6 text-yellow-400 mx-auto mb-2" />
-              <p className="text-xs text-blue-200">Giao dịch nhanh</p>
-            </div>
-            <div className="feature-card">
-              <Shield className="w-6 h-6 text-green-400 mx-auto mb-2" />
-              <p className="text-xs text-blue-200">Bảo mật tuyệt đối</p>
+          <div className="mt-8 flex justify-center">
+            <div className="grid grid-cols-3 gap-4 max-w-xs">
+              <div className="feature-card">
+                <Car className="w-6 h-6 text-blue-400 mx-auto mb-2" />
+                <p className="text-xs text-blue-200">Xe điện chất lượng</p>
+              </div>
+              <div className="feature-card">
+                <Zap className="w-6 h-6 text-yellow-400 mx-auto mb-2" />
+                <p className="text-xs text-blue-200">Giao dịch nhanh</p>
+              </div>
+              <div className="feature-card">
+                <Shield className="w-6 h-6 text-green-400 mx-auto mb-2" />
+                <p className="text-xs text-blue-200">Bảo mật tuyệt đối</p>
+              </div>
             </div>
           </div>
         </div>

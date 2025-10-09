@@ -324,18 +324,20 @@ export const RegisterForm = () => {
           </div>
 
           {/* Benefits Cards */}
-          <div className="register-features">
-            <div className="auth-feature-card">
-              <Car className="auth-feature-icon text-emerald-400" />
-              <p className="auth-feature-text">Hàng nghìn xe điện</p>
-            </div>
-            <div className="auth-feature-card">
-              <Zap className="auth-feature-icon text-yellow-400" />
-              <p className="auth-feature-text">Giá cạnh tranh</p>
-            </div>
-            <div className="auth-feature-card">
-              <Shield className="auth-feature-icon text-blue-400" />
-              <p className="auth-feature-text">Giao dịch an toàn</p>
+          <div className="mt-8 flex justify-center">
+            <div className="register-features">
+              <div className="auth-feature-card">
+                <Car className="auth-feature-icon text-emerald-400" />
+                <p className="auth-feature-text">Hàng nghìn xe điện</p>
+              </div>
+              <div className="auth-feature-card">
+                <Zap className="auth-feature-icon text-yellow-400" />
+                <p className="auth-feature-text">Giá cạnh tranh</p>
+              </div>
+              <div className="auth-feature-card">
+                <Shield className="auth-feature-icon text-blue-400" />
+                <p className="auth-feature-text">Giao dịch an toàn</p>
+              </div>
             </div>
           </div>
         </div>
