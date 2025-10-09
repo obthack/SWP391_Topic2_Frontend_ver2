@@ -65,8 +65,29 @@ export const HomePage = () => {
         })
       );
 
-      console.log("Loaded approved products for homepage:", productsWithImages);
-      setFeaturedProducts(productsWithImages);
+      // Sort products to show approved ones first
+      const sortedProducts = productsWithImages.sort((a, b) => {
+        const aStatus = String(a.status || a.Status || "").toLowerCase();
+        const bStatus = String(b.status || b.Status || "").toLowerCase();
+
+        // If both are approved, maintain original order
+        if (aStatus === "approved" && bStatus === "approved") {
+          return 0;
+        }
+        // If only a is approved, it should come first
+        if (aStatus === "approved" && bStatus !== "approved") {
+          return -1;
+        }
+        // If only b is approved, it should come first
+        if (bStatus === "approved" && aStatus !== "approved") {
+          return 1;
+        }
+        // For other cases, maintain original order
+        return 0;
+      });
+
+      console.log("Loaded approved products for homepage:", sortedProducts);
+      setFeaturedProducts(sortedProducts);
     } catch (err) {
       console.error("Error loading featured products:", err);
       setFeaturedProducts([]);
