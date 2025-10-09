@@ -20,9 +20,10 @@ import { RegisterForm } from "./components/organisms/auth/RegisterForm";
 import { ForgotPassword } from "./pages/ForgotPassword";
 import { ResetPassword } from "./pages/ResetPassword";
 import { AuthCallback } from "./pages/AuthCallback";
+import { ProductDetail } from "./pages/ProductDetail";
 import { ToastProvider } from "./contexts/ToastContext";
 
-const ProtectedRoute = ({ children, adminOnly = false }) => {
+const ProtectedRoute = ({ children, adminOnly = false, userOnly = false }) => {
   const { user, profile, loading } = useAuth();
 
   if (loading) {
@@ -37,24 +38,25 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
     return <Navigate to="/login" />;
   }
 
-  if (adminOnly) {
-    // Check admin status using roleId or role
-    const roleId =
-      user?.roleId || profile?.roleId || user?.role || profile?.role;
-    const roleName = (
-      user?.roleName ||
-      profile?.roleName ||
-      user?.role ||
-      profile?.role ||
-      ""
-    )
-      .toString()
-      .toLowerCase();
-    const isAdmin = roleId === 1 || roleId === "1" || roleName === "admin";
+  // Check admin status using roleId or role
+  const roleId = user?.roleId || profile?.roleId || user?.role || profile?.role;
+  const roleName = (
+    user?.roleName ||
+    profile?.roleName ||
+    user?.role ||
+    profile?.role ||
+    ""
+  )
+    .toString()
+    .toLowerCase();
+  const isAdmin = roleId === 1 || roleId === "1" || roleName === "admin";
 
-    if (!isAdmin) {
-      return <Navigate to="/dashboard" />;
-    }
+  if (adminOnly && !isAdmin) {
+    return <Navigate to="/dashboard" />;
+  }
+
+  if (userOnly && isAdmin) {
+    return <Navigate to="/admin" />;
   }
 
   return children;
@@ -82,11 +84,12 @@ const AppContent = () => {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="/product/:id" element={<ProductDetail />} />
 
           <Route
             path="/dashboard"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute userOnly={true}>
                 <Dashboard />
               </ProtectedRoute>
             }
@@ -104,7 +107,7 @@ const AppContent = () => {
           <Route
             path="/create-listing"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute userOnly={true}>
                 <CreateListing />
               </ProtectedRoute>
             }
@@ -113,7 +116,7 @@ const AppContent = () => {
           <Route
             path="/my-listings"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute userOnly={true}>
                 <MyListings />
               </ProtectedRoute>
             }
@@ -121,7 +124,7 @@ const AppContent = () => {
           <Route
             path="/trash"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute userOnly={true}>
                 <Trash />
               </ProtectedRoute>
             }
@@ -130,7 +133,7 @@ const AppContent = () => {
           <Route
             path="/listing/:id/edit"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute userOnly={true}>
                 <EditListing />
               </ProtectedRoute>
             }
