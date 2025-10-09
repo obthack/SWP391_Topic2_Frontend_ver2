@@ -65,6 +65,7 @@ const ProtectedRoute = ({ children, adminOnly = false, userOnly = false }) => {
 const AppContent = () => {
   const { loading } = useAuth();
 
+  // show loading spinner while checking auth
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">

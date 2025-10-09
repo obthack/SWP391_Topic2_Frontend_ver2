@@ -21,125 +21,294 @@ export const AuthProvider = ({ children }) => {
       try {
         const raw = localStorage.getItem("evtb_auth");
         if (raw) {
-          const parsed = JSON.parse(raw);
-          setUser(parsed?.user || null);
-          setProfile(parsed?.profile || null);
-          const uid =
-            parsed?.user?.id ||
-            parsed?.user?.accountId ||
-            parsed?.user?.userId ||
-            parsed?.accountId;
-          if (uid) {
-            try {
-              const me = await apiRequest(`/api/User/${uid}`);
-              if (me) {
-                const mergedUser = {
-                  ...(parsed.user || {}),
-                  ...(me.user || me),
-                };
-                const prof = parsed.profile || mapProfileFromAny(me);
-                setUser(mergedUser);
-                setProfile(prof);
-                localStorage.setItem(
-                  "evtb_auth",
-                  JSON.stringify({ ...parsed, user: mergedUser, profile: prof })
-                );
-              }
-            } catch {}
+          try {
+            const parsed = JSON.parse(raw);
+            setUser(parsed?.user || null);
+            setProfile(parsed?.profile || null);
+          } catch (parseError) {
+            console.warn("Corrupted auth data, clearing localStorage");
+            localStorage.removeItem("evtb_auth");
           }
         }
+        // Try load current user from backend to get freshest name/profile
+        try {
+          const me = await apiRequest("/api/User/me");
+          if (me) {
+            // Normalize user data to ensure consistent field names
+            const userData = me.user || me;
+            const normalizedUser = {
+              ...userData,
+              fullName: userData.fullName || userData.full_name || userData.name,
+              email: userData.email,
+              phone: userData.phone,
+              id: userData.userId || userData.id || userData.accountId,
+              userId: userData.userId || userData.id || userData.accountId
+            };
+            
+            const mergedUser = { ...normalizedUser, ...(me.profile ? { profile: me.profile } : {}) };
+            setUser((u) => ({ ...(u || {}), ...mergedUser }));
+            if (me.profile) setProfile(me.profile);
+            
+            // Optimize localStorage storage
+            try {
+              const raw2 = localStorage.getItem("evtb_auth");
+              const sess = raw2 ? JSON.parse(raw2) : {};
+              const optimizedAuth = {
+                token: sess.token,
+                user: mergedUser,
+                profile: me.profile || sess.profile
+              };
+              localStorage.setItem("evtb_auth", JSON.stringify(optimizedAuth));
+            } catch (storageError) {
+              console.warn("Could not save optimized auth data:", storageError);
+            }
+          }
+        } catch {}
       } catch {
-        // ignore
+        // Ignore
       } finally {
         setLoading(false);
       }
     })();
   }, []);
 
-  const loadProfile = async (_userId) => {
-    return null;
+  const signOut = () => {
+    localStorage.removeItem("evtb_auth");
+    setUser(null);
+    setProfile(null);
   };
 
-  const isAdminFrom = (src) => {
-    const rawRoleId =
-      src?.roleId ??
-      src?.role?.roleId ??
-      src?.userRoleId ??
-      src?.userRoles ??
-      src?.RoleId ??
-      src?.role;
-    const rid = typeof rawRoleId === "string" ? Number(rawRoleId) : rawRoleId;
-    const roleName = (src?.roleName || src?.role?.roleName || src?.role || "")
-      .toString()
-      .toLowerCase();
-    return rid === 1 || roleName === "admin" || src?.isAdmin === true;
+  // Utility function to clear localStorage when quota is exceeded
+  const clearAuthStorage = () => {
+    try {
+      localStorage.removeItem("evtb_auth");
+      console.log("Auth storage cleared");
+    } catch (error) {
+      console.error("Could not clear auth storage:", error);
+    }
   };
 
-  const mapProfileFromAny = (src) => {
-    const rawRoleId =
-      src?.roleId ??
-      src?.role?.roleId ??
-      src?.userRoleId ??
-      src?.userRoles ??
-      src?.RoleId ??
-      src?.role;
-    const rid = typeof rawRoleId === "string" ? Number(rawRoleId) : rawRoleId;
-    const isAdmin = isAdminFrom(src);
-    const fullName =
-      src?.fullName ||
-      src?.FullName ||
-      src?.user?.fullName ||
-      src?.profile?.fullName ||
-      "";
-    const phone =
-      src?.phone || src?.Phone || src?.user?.phone || src?.profile?.phone || "";
+  const updateProfile = async (updates) => {
+    if (!user) return;
+    
+    try {
+      const updatedUser = { ...user, ...updates };
+      setUser(updatedUser);
+      
+      // Optimize localStorage storage to prevent quota exceeded
+      const authData = localStorage.getItem("evtb_auth");
+      if (authData) {
+        try {
+          const parsed = JSON.parse(authData);
+          
+          // Store only essential data to reduce size
+          const optimizedAuth = {
+            token: parsed.token,
+            user: {
+              id: updatedUser.id || updatedUser.userId,
+              email: updatedUser.email,
+              fullName: updatedUser.fullName || updatedUser.full_name,
+              phone: updatedUser.phone,
+              avatar: updatedUser.avatar,
+              roleId: updatedUser.roleId,
+              roleName: updatedUser.roleName
+            },
+            profile: parsed.profile ? {
+              id: parsed.profile.id,
+              fullName: parsed.profile.fullName || parsed.profile.full_name,
+              phone: parsed.profile.phone
+            } : null
+          };
+          
+          localStorage.setItem("evtb_auth", JSON.stringify(optimizedAuth));
+        } catch (storageError) {
+          console.warn("Could not save to localStorage:", storageError);
+          // Clear old data and try again with minimal data
+          localStorage.removeItem("evtb_auth");
+          const minimalAuth = {
+            token: parsed?.token,
+            user: {
+              id: updatedUser.id || updatedUser.userId,
+              email: updatedUser.email,
+              fullName: updatedUser.fullName || updatedUser.full_name
+            }
+          };
+          localStorage.setItem("evtb_auth", JSON.stringify(minimalAuth));
+        }
+      }
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      throw error; // Re-throw to let Profile component handle it
+    }
+  };
+
+  const buildSession = (data, email) => {
+    // Normalize possible backend shapes
+    const normalizedToken =
+      data?.token || data?.accessToken || data?.jwt || data?.tokenString ||
+      data?.data?.token || data?.data?.accessToken || data?.data?.jwt || 
+      data?.result?.token || data?.result?.accessToken || data?.result?.jwt ||
+      data?.data?.data?.token || data?.data?.data?.accessToken || data?.data?.data?.jwt;
+
+    const normalizedUser = data?.user || data?.data?.user || data?.result?.user || 
+                          data?.data?.data?.user || data?.data?.data?.data?.user || null;
+    
+    const normalizedProfile = data?.profile || data?.data?.profile || data?.result?.profile || 
+                             data?.data?.data?.profile || data?.data?.data?.data?.profile || null;
+
+    // If we have user data, normalize it
+    if (normalizedUser) {
+      const userData = normalizedUser;
+      const normalizedUserData = {
+        ...userData,
+        fullName: userData.fullName || userData.full_name || userData.name,
+        email: userData.email || email,
+        phone: userData.phone,
+        id: userData.userId || userData.id || userData.accountId,
+        userId: userData.userId || userData.id || userData.accountId
+      };
+      
+      return {
+        token: normalizedToken,
+        user: normalizedUserData,
+        profile: normalizedProfile
+      };
+    }
+
+    // If no user data but we have email, create minimal user object
+    if (email) {
+      return {
+        token: normalizedToken,
+        user: {
+          email: email,
+          id: data?.userId || data?.id || data?.accountId,
+          userId: data?.userId || data?.id || data?.accountId
+        },
+        profile: normalizedProfile
+      };
+    }
+
     return {
-      role: isAdmin ? "admin" : "member",
-      roleId: rid ?? (isAdmin ? 1 : 2),
-      full_name: fullName || "",
-      fullName: fullName || "",
-      phone: phone || "",
+      token: normalizedToken,
+      user: null,
+      profile: normalizedProfile
     };
   };
 
-  const buildSession = (data, fallbackEmail) => {
-    const token =
-      data?.token ||
-      data?.accessToken ||
-      data?.jwt ||
-      data?.tokenString ||
-      null;
-    const userObj =
-      data?.user || data || (fallbackEmail ? { email: fallbackEmail } : {});
-    const profileObj =
-      data?.profile || mapProfileFromAny(data) || mapProfileFromAny(userObj);
-    return { token, user: userObj, profile: profileObj };
-  };
-
   const signUp = async (email, password, fullName, phone = "") => {
-    const form = new FormData();
-    form.append("Email", email);
-    form.append("Password", password);
-    form.append("FullName", fullName || "");
-    form.append("Phone", phone || "");
-
-    const data = await apiRequest("/api/User/register", {
-      method: "POST",
-      body: form,
+    console.log("Register data being sent:", { 
+      email, 
+      password, 
+      fullName, 
+      phone,
+      full_name: fullName 
     });
+
+    // Try JSON format first (most APIs expect JSON)
+    const jsonData = {
+      email: email,
+      password: password,
+      fullName: fullName,
+      full_name: fullName, // Try both formats
+      phone: phone
+    };
+
+    let data;
+    try {
+      // Try JSON first
+      data = await apiRequest("/api/User/register", {
+        method: "POST",
+        body: jsonData,
+      });
+    } catch (jsonError) {
+      console.log("JSON format failed, trying FormData:", jsonError);
+      
+      // Fallback to FormData if JSON fails
+      const form = new FormData();
+      form.append("Email", email);
+      form.append("Password", password);
+      form.append("FullName", fullName);
+      form.append("Phone", phone);
+
+      data = await apiRequest("/api/User/register", {
+        method: "POST",
+        body: form,
+      });
+    }
+    
+    // Try different data formats to find what backend expects
+    const possibleFormats = [
+      // Format 1: Direct response
+      data,
+      // Format 2: Nested in data
+      data?.data,
+      // Format 3: Nested in result
+      data?.result,
+      // Format 4: Double nested
+      data?.data?.data,
+      data?.data?.result,
+      data?.result?.data,
+      // Format 5: Triple nested
+      data?.data?.data?.data,
+      data?.data?.data?.result,
+      data?.result?.result,
+      data?.result?.data?.data,
+    ];
+
+    for (const format of possibleFormats) {
+      if (!format) continue;
+      
+      console.log("Trying format:", format);
+      
+      // Check if this format has the expected structure
+      const hasToken = format?.token || format?.accessToken || format?.jwt || format?.tokenString;
+      const hasUser = format?.user || format?.userId || format?.id || format?.accountId;
+      
+      if (hasToken || hasUser) {
+        console.log("Found valid format:", format);
+        
+        // Normalize possible backend shapes
+        const normalizedToken =
+          format?.token || format?.accessToken || format?.jwt || format?.tokenString;
+
+        const userData = format?.user || format;
+        const normalizedUser = {
+          ...userData,
+          fullName: userData.fullName || userData.full_name || userData.name || fullName,
+          email: userData.email || email,
+          phone: userData.phone || phone,
+          id: userData.userId || userData.id || userData.accountId,
+          userId: userData.userId || userData.id || userData.accountId
+        };
+        
+        const session = {
+          token: normalizedToken,
+          user: normalizedUser,
+          profile: format?.profile || null
+        };
+        
+        console.log("Register response:", data);
+        
+        localStorage.setItem("evtb_auth", JSON.stringify(session));
+        setUser(session.user);
+        setProfile(session.profile || null);
+        return session;
+      }
+      
+      // Otherwise, continue to next format
+      continue;
+    }
 
     // Many backends don't return token on register; try auto-login to obtain token
     try {
       const session = await signIn(email, password);
-      return session;
-    } catch {
-      const session = buildSession(data, email);
-      try {
-        localStorage.setItem("evtb_auth", JSON.stringify(session));
-      } catch {}
+      localStorage.setItem("evtb_auth", JSON.stringify(session));
       setUser(session.user);
       setProfile(session.profile || null);
       return session;
+    } catch (loginError) {
+      console.error("Auto-login after register failed:", loginError);
+      throw new Error("Registration completed but auto-login failed. Please try logging in manually.");
     }
   };
 
@@ -149,59 +318,51 @@ export const AuthProvider = ({ children }) => {
       body: { email, password },
     });
 
+    // Normalize possible backend shapes
+    const normalizedToken =
+      data?.token || data?.accessToken || data?.jwt || data?.tokenString ||
+      data?.data?.token || data?.data?.accessToken || data?.data?.jwt || 
+      data?.result?.token || data?.result?.accessToken || data?.result?.jwt ||
+      data?.data?.data?.token || data?.data?.data?.accessToken || data?.data?.data?.jwt;
+
+    const normalizedUser = data?.user || data?.data?.user || data?.result?.user || 
+                          data?.data?.data?.user || data?.data?.data?.data?.user || null;
+    
+    const normalizedProfile = data?.profile || data?.data?.profile || data?.result?.profile || null;
+    
     console.log("=== SIGNIN DEBUG ===");
     console.log("Login API response:", data);
 
     const session = buildSession(data, email);
     console.log("Initial session:", session);
 
-    try {
-      const uid =
-        data?.accountId ||
-        data?.userId ||
-        session?.user?.id ||
-        session?.user?.accountId ||
-        session?.user?.userId;
-
-      console.log("User ID for profile fetch:", uid);
-
-      if (uid) {
-        const me = await apiRequest(`/api/User/${uid}`);
-        console.log("Profile API response:", me);
-
-        if (me) {
-          const mergedUser = { ...(session.user || {}), ...(me.user || me) };
-
-          // Check if this is the admin user by email or userId
-          const isAdminUser =
-            me.email === "admin@gmail.com" || me.userId === 1 || uid === 1;
-          if (isAdminUser) {
-            console.log("Detected admin user, overriding role");
-            mergedUser.roleId = 1;
-            mergedUser.role = "admin";
-            mergedUser.roleName = "admin";
-          }
-
-          session.user = mergedUser;
-          session.profile = session.profile || mapProfileFromAny(me);
-
-          // Override profile if admin user
-          if (isAdminUser) {
-            session.profile.roleId = 1;
-            session.profile.role = "admin";
-          }
-
-          console.log("Merged user:", mergedUser);
-          console.log("Final profile:", session.profile);
-        }
-      }
-    } catch (error) {
-      console.log("Error fetching profile:", error);
+    // If we have user data, normalize it
+    if (normalizedUser) {
+      const userData = normalizedUser;
+      const normalizedUserData = {
+        ...userData,
+        fullName: userData.fullName || userData.full_name || userData.name,
+        email: userData.email || email,
+        phone: userData.phone,
+        id: userData.userId || userData.id || userData.accountId,
+        userId: userData.userId || userData.id || userData.accountId
+      };
+      
+      session.user = normalizedUserData;
     }
 
-    try {
-      localStorage.setItem("evtb_auth", JSON.stringify(session));
-    } catch {}
+    // If no user data but we have email, create minimal user object
+    if (!session.user && email) {
+      session.user = {
+        email: email,
+        id: data?.userId || data?.id || data?.accountId,
+        userId: data?.userId || data?.id || data?.accountId
+      };
+    }
+
+    console.log("Final session:", session);
+
+    localStorage.setItem("evtb_auth", JSON.stringify(session));
     setUser(session.user);
     setProfile(session.profile || null);
 
@@ -211,54 +372,15 @@ export const AuthProvider = ({ children }) => {
     return session;
   };
 
-  const signOut = async () => {
-    localStorage.removeItem("evtb_auth");
-    setUser(null);
-    setProfile(null);
-  };
-
-  const updateProfile = async (updates) => {
-    if (!user) throw new Error("No user logged in");
-    const uid = user?.id || user?.accountId || user?.userId;
-    if (!uid) throw new Error("Thiếu ID người dùng để cập nhật");
-    const data = await apiRequest(`/api/User/${uid}`, {
-      method: "PUT",
-      body: updates,
-    });
-    const newProfile = data?.profile || mapProfileFromAny(data) || updates;
-    const updatedUser = { ...(data.user || data), ...updates };
-
-    setProfile(newProfile);
-    setUser(updatedUser);
-
-    try {
-      const raw = localStorage.getItem("evtb_auth");
-      const session = raw ? JSON.parse(raw) : {};
-      localStorage.setItem(
-        "evtb_auth",
-        JSON.stringify({
-          ...session,
-          profile: newProfile,
-          user: { ...(session.user || {}), ...updatedUser },
-        })
-      );
-    } catch {}
-    return newProfile;
-  };
-
   const value = {
     user,
     profile,
     loading,
-    signUp,
     signIn,
+    signUp,
     signOut,
     updateProfile,
-    isAdmin: isAdminFrom({ ...(profile || {}), ...(user || {}) }),
-    signInWithProvider: (provider) => {
-      const prov = provider === "google" ? "google" : "facebook";
-      window.location.href = `${API_BASE_URL}/api/Auth/${prov}`;
-    },
+    clearAuthStorage,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

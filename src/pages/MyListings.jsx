@@ -5,6 +5,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { apiRequest } from "../lib/api";
 import { formatPrice, formatDate } from "../utils/formatters";
 import { useToast } from "../contexts/ToastContext";
+import "../styles/mylistings.css";
 
 export const MyListings = () => {
   const { user } = useAuth();
@@ -200,23 +201,25 @@ export const MyListings = () => {
     const s = status ? status : "pending";
     const statusConfig = {
       pending: {
-        bg: "bg-yellow-100",
-        text: "text-yellow-700",
+        className: "mylistings-status-badge mylistings-status-pending",
         label: "Chờ duyệt",
       },
       approved: {
-        bg: "bg-green-100",
-        text: "text-green-700",
+        className: "mylistings-status-badge mylistings-status-approved",
         label: "Đã duyệt",
       },
-      rejected: { bg: "bg-red-100", text: "text-red-700", label: "Từ chối" },
-      sold: { bg: "bg-gray-100", text: "text-gray-700", label: "Đã bán" },
+      rejected: { 
+        className: "mylistings-status-badge mylistings-status-rejected", 
+        label: "Từ chối" 
+      },
+      sold: { 
+        className: "mylistings-status-badge mylistings-status-sold", 
+        label: "Đã bán" 
+      },
     };
     const config = statusConfig[s] || statusConfig.pending;
     return (
-      <span
-        className={`px-2 py-1 rounded-full text-xs font-medium ${config.bg} ${config.text}`}
-      >
+      <span className={config.className}>
         {config.label}
       </span>
     );
@@ -234,40 +237,40 @@ export const MyListings = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Đang tải dữ liệu...</p>
+      <div className="mylistings-loading">
+        <div className="mylistings-loading-content">
+          <div className="mylistings-spinner"></div>
+          <p className="mylistings-loading-text">Đang tải dữ liệu...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="mylistings-container">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
+        <div className="mylistings-header">
+          <div className="mylistings-header-content">
+            <div className="mylistings-title-section">
+              <h1 className="mylistings-title">
                 Quản lý tin đăng
               </h1>
-              <p className="text-gray-600 mt-2">
+              <p className="mylistings-subtitle">
                 Quản lý và theo dõi các bài đăng của bạn
               </p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="mylistings-actions">
               <Link
                 to="/trash"
-                className="px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                className="mylistings-trash-button"
               >
                 Thùng rác
               </Link>
               <Link
                 to="/create-listing"
-                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+                className="mylistings-create-button"
               >
-                <Plus className="h-5 w-5 mr-2" />
+                <Plus className="mylistings-create-icon" />
                 Đăng tin mới
               </Link>
             </div>
@@ -275,24 +278,24 @@ export const MyListings = () => {
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+        <div className="mylistings-filters">
+          <div className="mylistings-filters-grid">
+            <div className="mylistings-search-container">
+              <Search className="mylistings-search-icon" />
               <input
                 type="text"
                 placeholder="Tìm kiếm theo tiêu đề, hãng xe, model..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="mylistings-search-input"
               />
             </div>
-            <div className="relative">
-              <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <div className="mylistings-filter-container">
+              <Filter className="mylistings-filter-icon" />
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="mylistings-filter-select"
               >
                 <option value="all">Tất cả trạng thái</option>
                 <option value="pending">Chờ duyệt</option>
@@ -306,16 +309,16 @@ export const MyListings = () => {
 
         {/* Listings Grid */}
         {filteredListings.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-sm p-12 text-center">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Eye className="h-8 w-8 text-gray-400" />
+          <div className="mylistings-empty-state">
+            <div className="mylistings-empty-icon-container">
+              <Eye className="mylistings-empty-icon" />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
+            <h3 className="mylistings-empty-title">
               {listings.length === 0
                 ? "Chưa có tin đăng nào"
                 : "Không tìm thấy tin đăng phù hợp"}
             </h3>
-            <p className="text-gray-600 mb-6">
+            <p className="mylistings-empty-description">
               {listings.length === 0
                 ? "Hãy tạo bài đăng đầu tiên của bạn"
                 : "Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc"}
@@ -323,15 +326,15 @@ export const MyListings = () => {
             {listings.length === 0 && (
               <Link
                 to="/create-listing"
-                className="inline-flex items-center bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+                className="mylistings-empty-button"
               >
-                <Plus className="h-5 w-5 mr-2" />
+                <Plus className="mylistings-empty-button-icon" />
                 Tạo tin đăng đầu tiên
               </Link>
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          <div className="mylistings-grid">
             {filteredListings.map((listing) => {
               const idVal = getListingId(listing);
               console.log("Listing object:", listing);
@@ -339,9 +342,9 @@ export const MyListings = () => {
               return (
                 <div
                   key={idVal}
-                  className="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-shadow"
+                  className="mylistings-card"
                 >
-                  <div className="relative">
+                  <div className="mylistings-image-container">
                     <img
                       src={
                         listing.images && listing.images.length > 0
@@ -349,7 +352,7 @@ export const MyListings = () => {
                           : "https://images.pexels.com/photos/110844/pexels-photo-110844.jpeg?auto=compress&cs=tinysrgb&w=400"
                       }
                       alt={listing.title}
-                      className="w-full h-48 object-cover"
+                      className="mylistings-image"
                       onError={(e) => {
                         console.log(
                           `Image failed to load for listing ${
@@ -369,25 +372,25 @@ export const MyListings = () => {
                         );
                       }}
                     />
-                    <div className="absolute top-4 right-4">
+                    <div className="mylistings-status-badge-container">
                       {getStatusBadge(getStatus(listing))}
                     </div>
                   </div>
 
-                  <div className="p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
+                  <div className="mylistings-card-content">
+                    <h3 className="mylistings-card-title">
                       {listing.title}
                     </h3>
-                    <p className="text-sm text-gray-600 mb-2">
+                    <p className="mylistings-card-subtitle">
                       {listing.licensePlate || listing.license_plate || ""}
                     </p>
-                    <p className="text-lg font-bold text-blue-600 mb-4">
+                    <p className="mylistings-card-price">
                       {formatPrice(listing.price)}
                     </p>
 
-                    <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
-                      <span className="flex items-center">
-                        <Eye className="h-4 w-4 mr-1" />
+                    <div className="mylistings-card-meta">
+                      <span className="mylistings-card-views">
+                        <Eye className="mylistings-card-views-icon" />
                         {listing.viewsCount || listing.views_count || 0} lượt
                         xem
                       </span>
@@ -400,12 +403,12 @@ export const MyListings = () => {
                       </span>
                     </div>
 
-                    <div className="flex items-center space-x-2">
+                    <div className="mylistings-card-actions">
                       <Link
                         to={`/listing/${getListingId(listing)}/edit`}
-                        className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
+                        className="mylistings-edit-button"
                       >
-                        <Edit className="h-4 w-4 mr-2" />
+                        <Edit className="mylistings-edit-icon" />
                         Chỉnh sửa
                       </Link>
                       <button
@@ -417,9 +420,9 @@ export const MyListings = () => {
                           console.log("Trying to delete with ID:", listingId);
                           handleDelete(listingId);
                         }}
-                        className="px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors flex items-center justify-center"
+                        className="mylistings-delete-button"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="mylistings-delete-icon" />
                       </button>
                     </div>
                   </div>
@@ -431,34 +434,34 @@ export const MyListings = () => {
 
         {/* Stats */}
         {listings.length > 0 && (
-          <div className="mt-8 bg-white rounded-xl shadow-sm p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          <div className="mylistings-stats">
+            <h3 className="mylistings-stats-title">
               Thống kê
             </h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center">
-                <p className="text-2xl font-bold text-gray-900">
+            <div className="mylistings-stats-grid">
+              <div className="mylistings-stat-item">
+                <p className="mylistings-stat-value">
                   {listings.length}
                 </p>
-                <p className="text-sm text-gray-600">Tổng tin đăng</p>
+                <p className="mylistings-stat-label">Tổng tin đăng</p>
               </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-green-600">
+              <div className="mylistings-stat-item">
+                <p className="mylistings-stat-value mylistings-stat-value-green">
                   {listings.filter((l) => getStatus(l) === "approved").length}
                 </p>
-                <p className="text-sm text-gray-600">Đã duyệt</p>
+                <p className="mylistings-stat-label">Đã duyệt</p>
               </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-yellow-600">
+              <div className="mylistings-stat-item">
+                <p className="mylistings-stat-value mylistings-stat-value-yellow">
                   {listings.filter((l) => getStatus(l) === "pending").length}
                 </p>
-                <p className="text-sm text-gray-600">Chờ duyệt</p>
+                <p className="mylistings-stat-label">Chờ duyệt</p>
               </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-gray-600">
+              <div className="mylistings-stat-item">
+                <p className="mylistings-stat-value mylistings-stat-value-gray">
                   {listings.filter((l) => getStatus(l) === "sold").length}
                 </p>
-                <p className="text-sm text-gray-600">Đã bán</p>
+                <p className="mylistings-stat-label">Đã bán</p>
               </div>
             </div>
           </div>

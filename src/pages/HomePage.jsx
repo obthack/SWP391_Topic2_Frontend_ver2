@@ -1,8 +1,17 @@
+<<<<<<< HEAD
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Search, Zap, Shield, TrendingUp, CheckCircle } from "lucide-react";
 import { apiRequest } from "../lib/api";
 import { ProductCard } from "../components/molecules/ProductCard";
+=======
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { Search, Zap, Shield, TrendingUp, CheckCircle } from 'lucide-react';
+import { apiRequest } from '../lib/api';
+import { ProductCard } from '../components/molecules/ProductCard';
+import '../styles/homepage.css';
+>>>>>>> giang
 
 export const HomePage = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -18,6 +27,7 @@ export const HomePage = () => {
 
   const loadFeaturedProducts = async () => {
     try {
+<<<<<<< HEAD
       let approvedProducts = [];
 
       try {
@@ -94,13 +104,29 @@ export const HomePage = () => {
       setFeaturedError(err.message || String(err));
       try {
         // Expose a helpful debug object for the developer console (non-sensitive)
+=======
+      // try to get approved products first
+      const data = await apiRequest('/api/Product?status=approved&take=8');
+      const list = Array.isArray(data) ? data : (data?.items || []);
+      setFeaturedProducts(list.filter((x)=> String(x.status||x.Status).toLowerCase()==='approved'));
+    } catch (e1) {
+      // fallback if first request fails
+      console.log('first request failed, trying fallback...');
+      try {
+        const data2 = await apiRequest('/api/Product');
+        const list2 = Array.isArray(data2) ? data2 : (data2?.items || []);
+        setFeaturedProducts(list2.filter((x)=> String(x.status||x.Status).toLowerCase()==='approved').slice(0,8));
+      } catch (e2) {
+        console.error('both requests failed:', e2);
+        setFeaturedProducts([]);
+        setFeaturedError(e2.message || String(e2));
+        // debug stuff for me
+>>>>>>> giang
         window.__EVTB_LAST_ERROR = window.__EVTB_LAST_ERROR || {};
         window.__EVTB_LAST_ERROR.loadFeaturedProducts = {
-          message: err.message || String(err),
-          stack: err.stack || null,
+          message: e2.message || String(e2),
+          stack: e2.stack || null,
         };
-      } catch (e) {
-        // ignore
       }
     } finally {
       setLoading(false);
@@ -109,10 +135,13 @@ export const HomePage = () => {
 
   const handleSearch = (e) => {
     e.preventDefault();
+    // TODO: implement search functionality
+    console.log('search clicked:', { searchQuery, productType, location });
   };
 
   return (
     <div className="min-h-screen">
+<<<<<<< HEAD
       <section
         className="text-white py-20 relative overflow-hidden"
         style={{
@@ -130,10 +159,14 @@ export const HomePage = () => {
           backgroundAttachment: "fixed",
         }}
       >
+=======
+      <section className="text-white py-20 relative overflow-hidden hero-bg">
+>>>>>>> giang
         {/* Electric charging effects */}
         <div className="absolute inset-0 overflow-hidden">
           {/* Charging energy effects */}
           <div className="absolute top-1/3 left-1/4 w-16 h-16 bg-blue-400 bg-opacity-30 rounded-full animate-pulse"></div>
+<<<<<<< HEAD
           <div
             className="absolute top-1/2 right-1/3 w-12 h-12 bg-cyan-400 bg-opacity-25 rounded-full animate-bounce"
             style={{ animationDelay: "1s" }}
@@ -162,6 +195,18 @@ export const HomePage = () => {
               className="absolute bottom-1/3 right-1/5 w-2 h-7 bg-yellow-300 rounded-full animate-pulse opacity-75"
               style={{ animationDelay: "0.9s" }}
             ></div>
+=======
+          <div className="absolute top-1/2 right-1/3 w-12 h-12 bg-cyan-400 bg-opacity-25 rounded-full animate-bounce energy-effect-1"></div>
+          <div className="absolute bottom-1/3 left-1/3 w-14 h-14 bg-blue-300 bg-opacity-20 rounded-full animate-pulse energy-effect-2"></div>
+          <div className="absolute bottom-1/4 right-1/4 w-10 h-10 bg-white bg-opacity-30 rounded-full animate-bounce energy-effect-3"></div>
+          
+          {/* Electric spark effects */}
+          <div className="absolute inset-0">
+            <div className="absolute top-1/4 left-1/5 w-2 h-8 bg-yellow-400 rounded-full animate-pulse opacity-80"></div>
+            <div className="absolute top-1/3 right-1/4 w-2 h-6 bg-yellow-300 rounded-full animate-pulse opacity-70 spark-effect-1"></div>
+            <div className="absolute top-1/2 left-1/6 w-2 h-10 bg-yellow-400 rounded-full animate-pulse opacity-60 spark-effect-2"></div>
+            <div className="absolute bottom-1/3 right-1/5 w-2 h-7 bg-yellow-300 rounded-full animate-pulse opacity-75 spark-effect-3"></div>
+>>>>>>> giang
           </div>
 
           {/* Charging cable glow effect */}
@@ -173,12 +218,17 @@ export const HomePage = () => {
             {/* Electric car charging icon */}
             <div className="mb-8 flex justify-center">
               <div className="relative">
+<<<<<<< HEAD
                 <div className="w-28 h-28 bg-white bg-opacity-15 rounded-full flex items-center justify-center backdrop-blur-sm border border-white border-opacity-30 shadow-2xl">
                   <svg
                     className="w-16 h-16 text-white"
                     fill="currentColor"
                     viewBox="0 0 24 24"
                   >
+=======
+                <div className="hero-icon-container">
+                  <svg className="hero-icon" fill="currentColor" viewBox="0 0 24 24">
+>>>>>>> giang
                     {/* Electric car body */}
                     <path d="M19 7h-3V6a4 4 0 0 0-8 0v1H5a1 1 0 0 0-1 1v11a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V8a1 1 0 0 0-1-1zM10 6a2 2 0 0 1 4 0v1h-4V6zm8 13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V9h2v1a1 1 0 0 0 2 0V9h4v1a1 1 0 0 0 2 0V9h2v10z" />
                     {/* Charging port */}
@@ -193,6 +243,7 @@ export const HomePage = () => {
                   </svg>
                 </div>
                 {/* Charging cable effect */}
+<<<<<<< HEAD
                 <div className="absolute -top-1 -right-1 w-10 h-10 bg-blue-400 rounded-full flex items-center justify-center animate-pulse shadow-lg">
                   <svg
                     className="w-6 h-6 text-white"
@@ -215,6 +266,20 @@ export const HomePage = () => {
             </div>
 
             <h1 className="text-4xl md:text-5xl font-bold mb-8 bg-gradient-to-r from-white via-blue-100 to-cyan-100 bg-clip-text text-transparent">
+=======
+                <div className="charging-cable-effect">
+                  <svg className="charging-cable-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                  </svg>
+                </div>
+                {/* Energy sparks */}
+                <div className="energy-spark-1"></div>
+                <div className="energy-spark-2"></div>
+              </div>
+            </div>
+            
+            <h1 className="text-4xl md:text-5xl font-bold mb-8 bg-gradient-to-r from-white via-blue-100 to-cyan-100 bg-clip-text text-transparent leading-relaxed">
+>>>>>>> giang
               Nền tảng giao dịch xe điện & pin số 1 Việt Nam
             </h1>
             <p className="text-xl text-blue-100 max-w-3xl mx-auto">
@@ -222,16 +287,21 @@ export const HomePage = () => {
             </p>
           </div>
 
+<<<<<<< HEAD
           <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-2xl p-6">
             <form
               onSubmit={handleSearch}
               className="grid grid-cols-1 md:grid-cols-4 gap-4"
             >
+=======
+          <div className="search-form-container">
+            <form onSubmit={handleSearch} className="search-form">
+>>>>>>> giang
               <div className="md:col-span-1">
                 <select
                   value={productType}
                   onChange={(e) => setProductType(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
+                  className="search-input"
                 >
                   <option value="">Tất cả</option>
                   <option value="vehicle">Xe điện</option>
@@ -245,7 +315,7 @@ export const HomePage = () => {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Hãng xe, mẫu xe..."
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
+                  className="search-input"
                 />
               </div>
 
@@ -255,14 +325,14 @@ export const HomePage = () => {
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
                   placeholder="Địa điểm (VD: HN)"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
+                  className="search-input"
                 />
               </div>
 
               <div className="md:col-span-1">
                 <button
                   type="submit"
-                  className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center"
+                  className="search-button"
                 >
                   <Search className="h-5 w-5 mr-2" />
                   Tìm kiếm
@@ -271,6 +341,7 @@ export const HomePage = () => {
             </form>
           </div>
 
+<<<<<<< HEAD
           <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
             <div className="flex flex-col items-center">
               <Zap className="h-12 w-12 mb-3" />
@@ -292,6 +363,23 @@ export const HomePage = () => {
                 Giá minh bạch, cộng khai
               </h3>
               <p className="text-blue-100">Hỗ trợ AI gợi ý giá tốt nhất</p>
+=======
+          <div className="mt-12 features-grid">
+            <div className="feature-item">
+              <Zap className="feature-icon" />
+              <h3 className="feature-title">1000+ xe đã giao dịch</h3>
+              <p className="feature-description">Hàng nghìn giao dịch thành công</p>
+            </div>
+            <div className="feature-item">
+              <Shield className="feature-icon" />
+              <h3 className="feature-title">Kiểm định chính hãng</h3>
+              <p className="feature-description">Đảm bảo chất lượng từng sản phẩm</p>
+            </div>
+            <div className="feature-item">
+              <TrendingUp className="feature-icon" />
+              <h3 className="feature-title">Giá minh bạch, cộng khai</h3>
+              <p className="feature-description">Hỗ trợ AI gợi ý giá tốt nhất</p>
+>>>>>>> giang
             </div>
           </div>
         </div>
@@ -330,19 +418,27 @@ export const HomePage = () => {
           </div>
 
           {loading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="products-grid">
               {[...Array(4)].map((_, i) => (
+<<<<<<< HEAD
                 <div
                   key={i}
                   className="bg-white rounded-xl h-80 animate-pulse"
                 ></div>
+=======
+                <div key={i} className="skeleton-card"></div>
+>>>>>>> giang
               ))}
             </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          ) : featuredProducts.length > 0 ? (
+            <div className="products-grid">
               {featuredProducts.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-gray-500">Không có sản phẩm nào</p>
             </div>
           )}
         </div>
@@ -359,47 +455,67 @@ export const HomePage = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            <div className="text-center">
-              <div className="bg-blue-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle className="h-8 w-8 text-blue-600" />
+          <div className="benefits-grid">
+            <div className="benefit-item">
+              <div className="benefit-icon-container">
+                <CheckCircle className="benefit-icon" />
               </div>
+<<<<<<< HEAD
               <h3 className="text-lg font-semibold mb-2">
                 Kiểm duyệt kỹ lưỡng
               </h3>
               <p className="text-gray-600">
                 Mỗi tin đăng đều được admin kiểm tra và phê duyệt
               </p>
+=======
+              <h3 className="benefit-title">Kiểm duyệt kỹ lưỡng</h3>
+              <p className="benefit-description">Mỗi tin đăng đều được admin kiểm tra và phê duyệt</p>
+>>>>>>> giang
             </div>
 
-            <div className="text-center">
-              <div className="bg-blue-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Shield className="h-8 w-8 text-blue-600" />
+            <div className="benefit-item">
+              <div className="benefit-icon-container">
+                <Shield className="benefit-icon" />
               </div>
+<<<<<<< HEAD
               <h3 className="text-lg font-semibold mb-2">Thanh toán an toàn</h3>
               <p className="text-gray-600">
                 Hỗ trợ nhiều phương thức thanh toán bảo mật
               </p>
+=======
+              <h3 className="benefit-title">Thanh toán an toàn</h3>
+              <p className="benefit-description">Hỗ trợ nhiều phương thức thanh toán bảo mật</p>
+>>>>>>> giang
             </div>
 
-            <div className="text-center">
-              <div className="bg-blue-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <TrendingUp className="h-8 w-8 text-blue-600" />
+            <div className="benefit-item">
+              <div className="benefit-icon-container">
+                <TrendingUp className="benefit-icon" />
               </div>
+<<<<<<< HEAD
               <h3 className="text-lg font-semibold mb-2">AI gợi ý giá</h3>
               <p className="text-gray-600">
                 Công nghệ AI giúp định giá chính xác nhất
               </p>
+=======
+              <h3 className="benefit-title">AI gợi ý giá</h3>
+              <p className="benefit-description">Công nghệ AI giúp định giá chính xác nhất</p>
+>>>>>>> giang
             </div>
 
-            <div className="text-center">
-              <div className="bg-blue-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Zap className="h-8 w-8 text-blue-600" />
+            <div className="benefit-item">
+              <div className="benefit-icon-container">
+                <Zap className="benefit-icon" />
               </div>
+<<<<<<< HEAD
               <h3 className="text-lg font-semibold mb-2">Hỗ trợ 24/7</h3>
               <p className="text-gray-600">
                 Đội ngũ hỗ trợ sẵn sàng giải ��áp mọi thắc mắc
               </p>
+=======
+              <h3 className="benefit-title">Hỗ trợ 24/7</h3>
+              <p className="benefit-description">Đội ngũ hỗ trợ sẵn sàng giải đáp mọi thắc mắc</p>
+>>>>>>> giang
             </div>
           </div>
         </div>
