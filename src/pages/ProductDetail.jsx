@@ -19,25 +19,36 @@ import {
   Truck,
   CreditCard,
   MessageSquare,
+  Users,
+  Package,
 } from "lucide-react";
 import { apiRequest } from "../lib/api";
 import { formatPrice } from "../utils/formatters";
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
+import { toggleFavorite, isProductFavorited } from "../lib/favoriteApi";
 
 export const ProductDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { showToast } = useToast();
+  const { show: showToast } = useToast();
 
   const [product, setProduct] = useState(null);
+  const [seller, setSeller] = useState(null);
   const [images, setImages] = useState([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [favoriteId, setFavoriteId] = useState(null);
   const [showContactModal, setShowContactModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [contactForm, setContactForm] = useState({
+    name: "",
+    phone: "",
+    message: "",
+  });
+  const [showSellerContact, setShowSellerContact] = useState(false);
 
   useEffect(() => {
     console.log("ProductDetail - ID from params:", id);
@@ -57,6 +68,26 @@ export const ProductDetail = () => {
       const productData = await apiRequest(`/api/Product/${id}`);
       setProduct(productData);
 
+      // Load seller information
+      const sellerId =
+        productData.sellerId || productData.seller_id || productData.seller?.id;
+      if (sellerId) {
+        try {
+          const sellerData = await apiRequest(`/api/User/${sellerId}`);
+          setSeller(sellerData);
+          console.log("Loaded seller data:", sellerData);
+        } catch (sellerError) {
+          console.warn("Could not load seller data:", sellerError);
+          // Set fallback seller data
+          setSeller({
+            fullName: productData.sellerName || "Người bán",
+            email: productData.sellerEmail || "",
+            phone: productData.sellerPhone || "",
+            avatar: null,
+          });
+        }
+      }
+
       // Load product images
       try {
         const imagesData = await apiRequest(`/api/ProductImage/product/${id}`);
@@ -70,9 +101,29 @@ export const ProductDetail = () => {
         console.log("No images found for product");
         setImages([]);
       }
+
+      // Check if product is favorited by current user
+      if (user) {
+        try {
+          const favoriteData = await isProductFavorited(
+            user.id || user.userId || user.accountId,
+            id
+          );
+          if (favoriteData) {
+            setIsFavorite(true);
+            setFavoriteId(favoriteData.favoriteId);
+          }
+        } catch (favoriteError) {
+          console.warn("Could not check favorite status:", favoriteError);
+        }
+      }
     } catch (error) {
       console.error("Error loading product:", error);
-      showToast("Không thể tải thông tin sản phẩm", "error");
+      showToast({
+        title: "❌ Lỗi tải sản phẩm",
+        description: "Không thể tải thông tin sản phẩm. Vui lòng thử lại.",
+        type: "error",
+      });
       navigate("/");
     } finally {
       setLoading(false);
@@ -91,29 +142,84 @@ export const ProductDetail = () => {
     }
   };
 
-  const handleFavorite = () => {
+  const handleFavorite = async () => {
     if (!user) {
-      showToast("Vui lòng đăng nhập để thêm vào yêu thích", "warning");
+      showToast({
+        title: "⚠️ Cần đăng nhập",
+        description: "Vui lòng đăng nhập để thêm vào yêu thích",
+        type: "warning",
+      });
       return;
     }
-    setIsFavorite(!isFavorite);
-    showToast(
-      isFavorite ? "Đã xóa khỏi yêu thích" : "Đã thêm vào yêu thích",
-      "success"
-    );
+
+    try {
+      const result = await toggleFavorite(
+        user.id || user.userId || user.accountId,
+        id
+      );
+
+      setIsFavorite(result.isFavorited);
+      setFavoriteId(result.favoriteId || null);
+
+      showToast({
+        title: result.isFavorited ? "❤️ Đã thêm vào yêu thích" : "💔 Đã xóa khỏi yêu thích",
+        description: result.isFavorited ? "Sản phẩm đã được thêm vào danh sách yêu thích" : "Sản phẩm đã được xóa khỏi danh sách yêu thích",
+        type: "success",
+      });
+    } catch (error) {
+      console.error("Error toggling favorite:", error);
+      showToast({
+        title: "❌ Lỗi cập nhật yêu thích",
+        description: "Không thể cập nhật trạng thái yêu thích. Vui lòng thử lại.",
+        type: "error",
+      });
+    }
   };
 
   const handleContactSeller = () => {
     if (!user) {
-      showToast("Vui lòng đăng nhập để liên hệ người bán", "warning");
+      showToast({
+        title: "⚠️ Cần đăng nhập",
+        description: "Vui lòng đăng nhập để liên hệ người bán",
+        type: "warning",
+      });
       return;
     }
     setShowContactModal(true);
   };
 
+  const handleContactFormSubmit = (e) => {
+    e.preventDefault();
+    if (!contactForm.name.trim() || !contactForm.phone.trim()) {
+      showToast({
+        title: "⚠️ Thiếu thông tin",
+        description: "Vui lòng điền đầy đủ họ tên và số điện thoại",
+        type: "warning",
+      });
+      return;
+    }
+    setShowSellerContact(true);
+    showToast({
+      title: "✅ Gửi thông tin thành công",
+      description: "Thông tin liên hệ đã được gửi cho người bán",
+      type: "success",
+    });
+  };
+
+  const handleContactFormChange = (e) => {
+    setContactForm({
+      ...contactForm,
+      [e.target.name]: e.target.value,
+    });
+  };
+
   const handleBuyNow = () => {
     if (!user) {
-      showToast("Vui lòng đăng nhập để mua hàng", "warning");
+      showToast({
+        title: "⚠️ Cần đăng nhập",
+        description: "Vui lòng đăng nhập để mua hàng",
+        type: "warning",
+      });
       return;
     }
     setShowPaymentModal(true);
@@ -329,8 +435,8 @@ export const ProductDetail = () => {
                     onClick={handleContactSeller}
                     className="bg-green-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center justify-center"
                   >
-                    <Phone className="h-5 w-5 mr-2" />
-                    Gọi ngay
+                    <MessageCircle className="h-5 w-5 mr-2" />
+                    Liên hệ người bán
                   </button>
                   <button className="bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center">
                     <MessageSquare className="h-5 w-5 mr-2" />
@@ -346,14 +452,24 @@ export const ProductDetail = () => {
                 Thông tin người bán
               </h3>
               <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                  <span className="text-blue-600 font-semibold">
-                    {product.sellerName?.charAt(0) || "N"}
-                  </span>
+                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center overflow-hidden">
+                  {seller?.avatar ? (
+                    <img
+                      src={seller.avatar}
+                      alt="Seller Avatar"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-blue-600 font-semibold">
+                      {seller?.fullName?.charAt(0) ||
+                        product.sellerName?.charAt(0) ||
+                        "N"}
+                    </span>
+                  )}
                 </div>
                 <div className="flex-1">
                   <h4 className="font-medium text-gray-900">
-                    {product.sellerName || "Người bán"}
+                    {seller?.fullName || product.sellerName || "Người bán"}
                   </h4>
                   <p className="text-sm text-gray-600">
                     <MapPin className="h-4 w-4 inline mr-1" />
@@ -365,6 +481,32 @@ export const ProductDetail = () => {
                       4.8 (120 đánh giá)
                     </span>
                   </div>
+                </div>
+                <div className="flex flex-col space-y-2">
+                  <button
+                    onClick={() =>
+                      navigate(
+                        `/seller/${product.sellerId || product.seller_id || 1}`
+                      )
+                    }
+                    className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+                  >
+                    <Users className="h-4 w-4 mr-1" />
+                    Xem profile
+                  </button>
+                  <button
+                    onClick={() =>
+                      navigate(
+                        `/seller/${
+                          product.sellerId || product.seller_id || 1
+                        }/products`
+                      )
+                    }
+                    className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors flex items-center"
+                  >
+                    <Package className="h-4 w-4 mr-1" />
+                    Sản phẩm
+                  </button>
                 </div>
               </div>
             </div>
@@ -494,55 +636,123 @@ export const ProductDetail = () => {
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
               Liên hệ người bán
             </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Họ và tên
-                </label>
-                <input
-                  type="text"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Nhập họ tên của bạn"
-                />
+
+            {!showSellerContact ? (
+              <form onSubmit={handleContactFormSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Họ và tên *
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={contactForm.name}
+                    onChange={handleContactFormChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Nhập họ tên của bạn"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Số điện thoại *
+                  </label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={contactForm.phone}
+                    onChange={handleContactFormChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Nhập số điện thoại"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Tin nhắn
+                  </label>
+                  <textarea
+                    name="message"
+                    value={contactForm.message}
+                    onChange={handleContactFormChange}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Nhập tin nhắn cho người bán"
+                  />
+                </div>
+                <div className="flex space-x-3 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setShowContactModal(false)}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Gửi thông tin
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="space-y-4">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-center">
+                    <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
+                    <span className="text-green-800 font-medium">
+                      Thông tin đã được gửi thành công!
+                    </span>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="font-medium text-gray-900 mb-3">
+                    Thông tin liên hệ người bán:
+                  </h4>
+                  <div className="space-y-2">
+                    <div className="flex items-center">
+                      <Phone className="h-4 w-4 text-gray-600 mr-2" />
+                      <span className="text-gray-700">
+                        {seller?.phone ||
+                          product.sellerPhone ||
+                          product.contactPhone ||
+                          "Chưa cập nhật"}
+                      </span>
+                    </div>
+                    <div className="flex items-center">
+                      <MessageCircle className="h-4 w-4 text-gray-600 mr-2" />
+                      <span className="text-gray-700">
+                        {seller?.email ||
+                          product.sellerEmail ||
+                          product.contactEmail ||
+                          "Chưa cập nhật"}
+                      </span>
+                    </div>
+                    <div className="flex items-center">
+                      <span className="text-sm text-gray-500">
+                        Người bán:{" "}
+                        {seller?.fullName || product.sellerName || "Người bán"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex space-x-3 mt-6">
+                  <button
+                    onClick={() => {
+                      setShowContactModal(false);
+                      setShowSellerContact(false);
+                      setContactForm({ name: "", phone: "", message: "" });
+                    }}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Đóng
+                  </button>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Số điện thoại
-                </label>
-                <input
-                  type="tel"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Nhập số điện thoại"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tin nhắn
-                </label>
-                <textarea
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Nhập tin nhắn cho người bán"
-                />
-              </div>
-            </div>
-            <div className="flex space-x-3 mt-6">
-              <button
-                onClick={() => setShowContactModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-              >
-                Hủy
-              </button>
-              <button
-                onClick={() => {
-                  setShowContactModal(false);
-                  showToast("Đã gửi tin nhắn cho người bán", "success");
-                }}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Gửi tin nhắn
-              </button>
-            </div>
+            )}
           </div>
         </div>
       )}
@@ -584,7 +794,11 @@ export const ProductDetail = () => {
               <button
                 onClick={() => {
                   setShowPaymentModal(false);
-                  showToast("Đã tạo đơn hàng thành công!", "success");
+                  showToast({
+                    title: "✅ Tạo đơn hàng thành công",
+                    description: "Đơn hàng đã được tạo và gửi đến người bán",
+                    type: "success",
+                  });
                 }}
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >

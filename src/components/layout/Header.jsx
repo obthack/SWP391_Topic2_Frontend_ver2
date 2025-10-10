@@ -59,7 +59,7 @@ export const Header = () => {
             {user ? (
               <>
                 <Link
-                  to="/wishlist"
+                  to="/favorites"
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                 >
                   <Heart className="h-5 w-5 text-gray-600" />
