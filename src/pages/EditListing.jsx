@@ -94,6 +94,14 @@ export const EditListing = () => {
     setImages(images.filter((_, i) => i !== index));
   };
 
+  const fileToBase64 = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -106,20 +114,14 @@ export const EditListing = () => {
         description: formData.description,
         brand: formData.brand,
         model: formData.model,
-        year: formData.year ? parseInt(formData.year) : undefined,
+        manufactureYear: formData.year ? parseInt(formData.year) : undefined,
         price: formData.price ? parseFloat(formData.price) : undefined,
         mileage: formData.mileage ? parseInt(formData.mileage) : undefined,
-        color: formData.color || undefined,
-        fuelType: formData.fuelType || undefined,
-        transmission: formData.transmission || undefined,
+        vehicleType: formData.color || undefined, // Màu sắc có thể map với VehicleType
         condition: formData.condition || undefined,
-        location: formData.location || undefined,
-        contactPhone: formData.contactPhone || undefined,
-        contactEmail: formData.contactEmail || undefined,
         productType: formData.productType,
-        sellerId: user?.id || user?.accountId || user?.userId || 1,
-        isActive: true,
-        updatedAt: new Date().toISOString(),
+        // Các trường sau không có trong ProductRequest DTO của backend:
+        // fuelType, transmission, location, contactPhone, contactEmail, sellerId, isActive, updatedAt
       };
 
       console.log("Updating product data:", productData);
@@ -133,44 +135,38 @@ export const EditListing = () => {
       // Upload new images if any
       if (images.length > 0) {
         try {
-          const imageDataArray = [];
-          for (let i = 0; i < images.length; i++) {
-            const img = images[i];
-            const dataUrl = await fileToBase64(img);
-            imageDataArray.push({
-              productId: pid,
-              imageData: dataUrl,
-              isPrimary: i === 0,
-            });
-          }
-
-          console.log(
-            "Uploading images with multiple endpoint:",
-            imageDataArray
-          );
-          await apiRequest(`/api/ProductImage/multiple`, {
-            method: "POST",
-            body: imageDataArray,
+          // Try multiple upload first
+          const formData = new FormData();
+          formData.append('productId', pid);
+          
+          // Add all images to FormData
+          images.forEach((image, index) => {
+            formData.append('images', image);
           });
-          console.log("Multiple images uploaded successfully");
+
+          console.log("Uploading images with multiple endpoint:", images.length, "images");
+          const uploadedImages = await apiRequest(`/api/ProductImage/multiple`, {
+            method: "POST",
+            body: formData,
+          });
+          console.log("Multiple images uploaded successfully:", uploadedImages);
         } catch (e) {
           console.warn("Multiple upload failed, trying individual uploads:", e);
 
           // Fallback to individual uploads
           for (let i = 0; i < images.length; i++) {
             const img = images[i];
-            const dataUrl = await fileToBase64(img);
             try {
+              const formData = new FormData();
+              formData.append('productId', pid);
+              formData.append('imageFile', img);
+
               console.log(
                 `Uploading image ${i + 1}/${images.length} for product ${pid}`
               );
               await apiRequest(`/api/ProductImage`, {
                 method: "POST",
-                body: {
-                  productId: pid,
-                  imageData: dataUrl,
-                  isPrimary: i === 0,
-                },
+                body: formData,
               });
               console.log(`Image ${i + 1} uploaded successfully`);
             } catch (e) {
