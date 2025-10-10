@@ -21,8 +21,10 @@ import {
 } from "lucide-react";
 import { apiRequest } from "../lib/api";
 import { formatPrice, formatDate } from "../utils/formatters";
+import { useToast } from "../contexts/ToastContext";
 
 export const AdminDashboard = () => {
+  const { show: showToast } = useToast();
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalListings: 0,
@@ -245,12 +247,20 @@ export const AdminDashboard = () => {
       });
 
       console.log("Product approved successfully!");
-      alert("✅ Duyệt bài đăng thành công!");
-      setShowModal(false);
-      loadAdminData();
+            showToast({
+              title: "✅ Duyệt bài đăng thành công!",
+              description: "Bài đăng đã được phê duyệt và hiển thị trên trang chủ.",
+              type: "success",
+            });
+            setShowModal(false);
+            loadAdminData();
     } catch (error) {
       console.error("Error approving listing:", error);
-      alert("❌ Lỗi khi duyệt bài đăng: " + (error.message || "Unknown error"));
+      showToast({
+        title: "❌ Lỗi khi duyệt bài đăng",
+        description: error.message || "Unknown error",
+        type: "error",
+      });
     }
   };
 
@@ -296,14 +306,20 @@ export const AdminDashboard = () => {
         throw new Error("Tất cả API reject đều thất bại");
       }
 
-      alert("✅ Từ chối bài đăng thành công!");
-      setShowModal(false);
-      loadAdminData();
+            showToast({
+              title: "✅ Từ chối bài đăng thành công!",
+              description: "Bài đăng đã được từ chối và không hiển thị trên trang chủ.",
+              type: "success",
+            });
+            setShowModal(false);
+            loadAdminData();
     } catch (error) {
       console.error("Error rejecting listing:", error);
-      alert(
-        "❌ Lỗi khi từ chối bài đăng: " + (error.message || "Unknown error")
-      );
+      showToast({
+        title: "❌ Lỗi khi từ chối bài đăng",
+        description: error.message || "Unknown error",
+        type: "error",
+      });
     }
   };
 

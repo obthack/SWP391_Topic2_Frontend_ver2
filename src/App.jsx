@@ -21,6 +21,9 @@ import { ForgotPassword } from "./pages/ForgotPassword";
 import { ResetPassword } from "./pages/ResetPassword";
 import { AuthCallback } from "./pages/AuthCallback";
 import { ProductDetail } from "./pages/ProductDetail";
+import { SellerProfile } from "./pages/SellerProfile";
+import { SellerProducts } from "./pages/SellerProducts";
+import { Favorites } from "./pages/Favorites";
 import { ToastProvider } from "./contexts/ToastContext";
 
 const ProtectedRoute = ({ children, adminOnly = false, userOnly = false }) => {
@@ -153,6 +156,20 @@ const AppContent = () => {
             element={
               <ProtectedRoute adminOnly>
                 <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Seller Routes */}
+          <Route path="/seller/:id" element={<SellerProfile />} />
+          <Route path="/seller/:id/products" element={<SellerProducts />} />
+
+          {/* Favorites Route */}
+          <Route
+            path="/favorites"
+            element={
+              <ProtectedRoute>
+                <Favorites />
               </ProtectedRoute>
             }
           />

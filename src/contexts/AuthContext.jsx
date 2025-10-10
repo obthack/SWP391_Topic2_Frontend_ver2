@@ -475,6 +475,83 @@ export const AuthProvider = ({ children }) => {
       };
     }
 
+    // Try to get full user profile from /api/User (fallback if /api/User/me fails)
+    try {
+      console.log("=== FETCHING USER PROFILE ===");
+      console.log("Current email:", email);
+      console.log("Current session user before update:", session.user);
+      
+      const usersData = await apiRequest("/api/User", {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${session.token}`,
+        },
+      });
+      console.log("User API response:", usersData);
+      console.log("Users data type:", typeof usersData);
+      console.log("Is array:", Array.isArray(usersData));
+
+      if (Array.isArray(usersData)) {
+        console.log("Total users found:", usersData.length);
+        console.log("All user emails:", usersData.map(u => u.email));
+        
+        // Find current user by email
+        const currentUser = usersData.find((u) => u.email === email);
+        console.log("Found current user:", currentUser);
+        console.log("Current user fullName:", currentUser?.fullName);
+        console.log("Current user phone:", currentUser?.phone);
+
+        if (currentUser) {
+          const fullUserData = {
+            ...session.user,
+            fullName:
+              currentUser.fullName ||
+              currentUser.full_name ||
+              currentUser.name ||
+              session.user?.fullName,
+            phone: currentUser.phone || session.user?.phone,
+            email: currentUser.email || email,
+            avatar: currentUser.avatar || session.user?.avatar,
+            id:
+              currentUser.userId ||
+              currentUser.id ||
+              currentUser.accountId ||
+              session.user?.id,
+            userId:
+              currentUser.userId ||
+              currentUser.id ||
+              currentUser.accountId ||
+              session.user?.userId,
+            roleId:
+              currentUser.roleId || currentUser.role || session.user?.roleId,
+            roleName:
+              currentUser.roleName ||
+              currentUser.role ||
+              session.user?.roleName,
+          };
+
+          console.log("Updated user with full profile:", fullUserData);
+          console.log("Final fullName:", fullUserData.fullName);
+          console.log("Final phone:", fullUserData.phone);
+          session.user = fullUserData;
+          
+          // Update localStorage and state to trigger re-render
+          localStorage.setItem("evtb_auth", JSON.stringify(session));
+          setUser(session.user);
+        } else {
+          console.warn("No user found with email:", email);
+        }
+      } else {
+        console.warn("Users data is not an array:", usersData);
+      }
+      console.log("=== END FETCHING USER PROFILE ===");
+    } catch (userError) {
+      console.warn(
+        "Failed to fetch user profile from /api/User:",
+        userError.message
+      );
+    }
+
     // TEMPORARY FIX: Override roleId for admin@gmail.com
     if (session.user && email === "admin@gmail.com") {
       console.log("TEMPORARY FIX: Overriding roleId for admin@gmail.com");

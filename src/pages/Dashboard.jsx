@@ -1,10 +1,27 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { 
-  Package, DollarSign, Eye, Heart, Settings, Plus, 
-  TrendingUp, Users, MessageSquare, Star, Award,
-  Calendar, Clock, CheckCircle, AlertCircle, BarChart3,
-  ArrowUpRight, ArrowDownRight, Activity, Zap, Target
+import {
+  Package,
+  DollarSign,
+  Eye,
+  Heart,
+  Settings,
+  Plus,
+  TrendingUp,
+  Users,
+  MessageSquare,
+  Star,
+  Award,
+  Calendar,
+  Clock,
+  CheckCircle,
+  AlertCircle,
+  BarChart3,
+  ArrowUpRight,
+  ArrowDownRight,
+  Activity,
+  Zap,
+  Target,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { apiRequest } from "../lib/api";
@@ -29,7 +46,7 @@ export const Dashboard = () => {
     conversionRate: 0,
     avgViewsPerListing: 0,
     recentActivity: 0,
-    monthlyGrowth: 0
+    monthlyGrowth: 0,
   });
   const [myListings, setMyListings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -37,9 +54,24 @@ export const Dashboard = () => {
 
   useEffect(() => {
     if (user) {
+      console.log("=== DASHBOARD USER DATA ===");
+      console.log("User object:", user);
+      console.log("Profile object:", profile);
+      console.log("User fullName:", user?.fullName);
+      console.log("User full_name:", user?.full_name);
+      console.log("User phone:", user?.phone);
+      console.log("===========================");
       loadDashboardData();
     }
   }, [user, profile]);
+
+  // Additional effect to log when user data changes
+  useEffect(() => {
+    console.log("=== USER DATA CHANGED ===");
+    console.log("User fullName changed to:", user?.fullName);
+    console.log("User phone changed to:", user?.phone);
+    console.log("=========================");
+  }, [user?.fullName, user?.phone]);
 
   const loadDashboardData = async () => {
     try {
@@ -51,8 +83,18 @@ export const Dashboard = () => {
       const norm = (v) => String(v || "").toLowerCase();
       const mapStatus = (l) => {
         const raw = norm(l?.status || l?.Status);
-        if (raw.includes("draft") || raw.includes("pending") || raw.includes("chờ")) return "pending";
-        if (raw.includes("active") || raw.includes("approve") || raw.includes("duyệt")) return "approved";
+        if (
+          raw.includes("draft") ||
+          raw.includes("pending") ||
+          raw.includes("chờ")
+        )
+          return "pending";
+        if (
+          raw.includes("active") ||
+          raw.includes("approve") ||
+          raw.includes("duyệt")
+        )
+          return "approved";
         if (raw.includes("reject") || raw.includes("từ chối"))
           return "rejected";
         if (raw.includes("sold") || raw.includes("đã bán")) return "sold";
@@ -97,7 +139,7 @@ export const Dashboard = () => {
 
       const conversionRate = total > 0 ? Math.round((sold / total) * 100) : 0;
       const avgViewsPerListing = total > 0 ? Math.round(views / total) : 0;
-      
+
       setStats({
         totalListings: total,
         activeListings: active,
@@ -105,24 +147,28 @@ export const Dashboard = () => {
         totalViews: views,
         conversionRate,
         avgViewsPerListing,
-        recentActivity: normalized.filter(l => {
-          const createdDate = new Date(l.createdDate || l.created_date || Date.now());
+        recentActivity: normalized.filter((l) => {
+          const createdDate = new Date(
+            l.createdDate || l.created_date || Date.now()
+          );
           const weekAgo = new Date();
           weekAgo.setDate(weekAgo.getDate() - 7);
           return createdDate > weekAgo;
         }).length,
-        monthlyGrowth: Math.floor(Math.random() * 20) + 5 // Simulated growth
+        monthlyGrowth: Math.floor(Math.random() * 20) + 5, // Simulated growth
       });
       setMyListings(normalized);
-      
+
       // Generate recent activity data
-      const activities = normalized.slice(0, 5).map(listing => ({
+      const activities = normalized.slice(0, 5).map((listing) => ({
         id: getListingId(listing),
-        type: 'listing_view',
+        type: "listing_view",
         title: listing.title,
-        description: `Tin đăng "${listing.title}" có ${listing.viewsCount || 0} lượt xem`,
+        description: `Tin đăng "${listing.title}" có ${
+          listing.viewsCount || 0
+        } lượt xem`,
         time: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000),
-        status: listing.status
+        status: listing.status,
       }));
       setRecentActivity(activities);
     } catch (error) {
@@ -144,11 +190,12 @@ export const Dashboard = () => {
                 Chào mừng,{" "}
                 <span className="bg-gradient-to-r from-yellow-300 to-orange-300 bg-clip-text text-transparent">
                   {user?.fullName ||
+                    user?.full_name ||
                     user?.name ||
-                    profile?.full_name ||
                     profile?.fullName ||
+                    profile?.full_name ||
                     profile?.name ||
-                    user?.email ||
+                    user?.email?.split("@")[0] ||
                     "bạn"}
                 </span>
                 !
@@ -157,7 +204,7 @@ export const Dashboard = () => {
                 Quản lý tin đăng và theo dõi hoạt động của bạn
               </p>
             </div>
-            
+
             <div className="flex space-x-4">
               <Link
                 to="/create-listing"
@@ -185,11 +232,17 @@ export const Dashboard = () => {
           <div className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 border border-gray-100 group">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">Tổng tin đăng</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.totalListings}</p>
+                <p className="text-sm font-medium text-gray-600 mb-1">
+                  Tổng tin đăng
+                </p>
+                <p className="text-3xl font-bold text-gray-900">
+                  {stats.totalListings}
+                </p>
                 <div className="flex items-center mt-2">
                   <ArrowUpRight className="h-4 w-4 text-green-500 mr-1" />
-                  <span className="text-sm text-green-600 font-medium">+{stats.monthlyGrowth}%</span>
+                  <span className="text-sm text-green-600 font-medium">
+                    +{stats.monthlyGrowth}%
+                  </span>
                 </div>
               </div>
               <div className="p-4 bg-blue-100 rounded-full group-hover:bg-blue-200 transition-colors">
@@ -202,11 +255,17 @@ export const Dashboard = () => {
           <div className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 border border-gray-100 group">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">Đang hoạt động</p>
-                <p className="text-3xl font-bold text-green-600">{stats.activeListings}</p>
+                <p className="text-sm font-medium text-gray-600 mb-1">
+                  Đang hoạt động
+                </p>
+                <p className="text-3xl font-bold text-green-600">
+                  {stats.activeListings}
+                </p>
                 <div className="flex items-center mt-2">
                   <CheckCircle className="h-4 w-4 text-green-500 mr-1" />
-                  <span className="text-sm text-green-600 font-medium">Đang hiển thị</span>
+                  <span className="text-sm text-green-600 font-medium">
+                    Đang hiển thị
+                  </span>
                 </div>
               </div>
               <div className="p-4 bg-green-100 rounded-full group-hover:bg-green-200 transition-colors">
@@ -220,10 +279,14 @@ export const Dashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600 mb-1">Đã bán</p>
-                <p className="text-3xl font-bold text-orange-600">{stats.soldListings}</p>
+                <p className="text-3xl font-bold text-orange-600">
+                  {stats.soldListings}
+                </p>
                 <div className="flex items-center mt-2">
                   <Target className="h-4 w-4 text-orange-500 mr-1" />
-                  <span className="text-sm text-orange-600 font-medium">{stats.conversionRate}% tỷ lệ</span>
+                  <span className="text-sm text-orange-600 font-medium">
+                    {stats.conversionRate}% tỷ lệ
+                  </span>
                 </div>
               </div>
               <div className="p-4 bg-orange-100 rounded-full group-hover:bg-orange-200 transition-colors">
@@ -236,11 +299,17 @@ export const Dashboard = () => {
           <div className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 border border-gray-100 group">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">Lượt xem</p>
-                <p className="text-3xl font-bold text-purple-600">{stats.totalViews}</p>
+                <p className="text-sm font-medium text-gray-600 mb-1">
+                  Lượt xem
+                </p>
+                <p className="text-3xl font-bold text-purple-600">
+                  {stats.totalViews}
+                </p>
                 <div className="flex items-center mt-2">
                   <Eye className="h-4 w-4 text-purple-500 mr-1" />
-                  <span className="text-sm text-purple-600 font-medium">{stats.avgViewsPerListing} TB/tin</span>
+                  <span className="text-sm text-purple-600 font-medium">
+                    {stats.avgViewsPerListing} TB/tin
+                  </span>
                 </div>
               </div>
               <div className="p-4 bg-purple-100 rounded-full group-hover:bg-purple-200 transition-colors">
@@ -292,8 +361,12 @@ export const Dashboard = () => {
                     <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                       <Package className="h-12 w-12 text-gray-400" />
                     </div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">Chưa có tin đăng nào</h3>
-                    <p className="text-gray-500 mb-6">Hãy bắt đầu bằng việc đăng tin đầu tiên của bạn</p>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                      Chưa có tin đăng nào
+                    </h3>
+                    <p className="text-gray-500 mb-6">
+                      Hãy bắt đầu bằng việc đăng tin đầu tiên của bạn
+                    </p>
                     <Link
                       to="/create-listing"
                       className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200"
@@ -306,7 +379,10 @@ export const Dashboard = () => {
                   <div className="space-y-4">
                     {myListings.slice(0, 5).map((listing, idx) => (
                       <div
-                        key={getListingId(listing) ?? `${listing.title || "listing"}_${idx}`}
+                        key={
+                          getListingId(listing) ??
+                          `${listing.title || "listing"}_${idx}`
+                        }
                         className="flex items-center space-x-4 p-4 rounded-lg hover:bg-gray-50 transition-colors duration-200 group"
                       >
                         <div className="relative">
@@ -319,7 +395,8 @@ export const Dashboard = () => {
                             alt={listing.title}
                             className="w-16 h-16 object-cover rounded-lg"
                             onError={(e) => {
-                              e.target.src = "https://images.pexels.com/photos/110844/pexels-photo-110844.jpeg?auto=compress&cs=tinysrgb&w=200";
+                              e.target.src =
+                                "https://images.pexels.com/photos/110844/pexels-photo-110844.jpeg?auto=compress&cs=tinysrgb&w=200";
                             }}
                           />
                           <span
@@ -339,13 +416,15 @@ export const Dashboard = () => {
                             {listing.status === "rejected" && "Từ chối"}
                           </span>
                         </div>
-                        
+
                         <div className="flex-1 min-w-0">
                           <h3 className="text-lg font-medium text-gray-900 truncate">
                             {listing.title}
                           </h3>
                           <p className="text-sm text-gray-500">
-                            {listing.licensePlate || listing.license_plate || ""}
+                            {listing.licensePlate ||
+                              listing.license_plate ||
+                              ""}
                           </p>
                           <div className="flex items-center space-x-4 mt-1">
                             <span className="text-sm font-medium text-blue-600">
@@ -357,7 +436,7 @@ export const Dashboard = () => {
                             </div>
                           </div>
                         </div>
-                        
+
                         <Link
                           to={`/listing/${getListingId(listing) || ""}/edit`}
                           className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-2 text-gray-400 hover:text-blue-600"
@@ -376,18 +455,35 @@ export const Dashboard = () => {
           <div className="space-y-6">
             {/* Account Info Card */}
             <div className="bg-white rounded-xl shadow-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <Users className="h-5 w-5 mr-2 text-blue-600" />
-                Thông tin tài khoản
-              </h3>
+              <div className="flex items-center mb-4">
+                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center overflow-hidden mr-4">
+                  {user?.avatar ? (
+                    <img 
+                      src={user.avatar} 
+                      alt="Avatar" 
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-blue-600 font-semibold text-lg">
+                      {user?.fullName?.charAt(0) || user?.full_name?.charAt(0) || "U"}
+                    </span>
+                  )}
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                  <Users className="h-5 w-5 mr-2 text-blue-600" />
+                  Thông tin tài khoản
+                </h3>
+              </div>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Họ và tên</span>
                   <span className="text-sm font-medium text-gray-900">
-                    {profile?.full_name ||
-                      profile?.fullName ||
-                      user?.fullName ||
+                    {user?.fullName ||
+                      user?.full_name ||
                       user?.name ||
+                      profile?.fullName ||
+                      profile?.full_name ||
+                      profile?.name ||
                       "Chưa cập nhật"}
                   </span>
                 </div>
@@ -400,7 +496,7 @@ export const Dashboard = () => {
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Số điện thoại</span>
                   <span className="text-sm font-medium text-gray-900">
-                    {profile?.phone || user?.phone || "Chưa cập nhật"}
+                    {user?.phone || profile?.phone || "Chưa cập nhật"}
                   </span>
                 </div>
                 <div className="pt-4 border-t border-gray-200">
@@ -423,16 +519,28 @@ export const Dashboard = () => {
               </h3>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Tỷ lệ chuyển đổi</span>
-                  <span className="text-sm font-medium text-green-600">{stats.conversionRate}%</span>
+                  <span className="text-sm text-gray-600">
+                    Tỷ lệ chuyển đổi
+                  </span>
+                  <span className="text-sm font-medium text-green-600">
+                    {stats.conversionRate}%
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Lượt xem trung bình</span>
-                  <span className="text-sm font-medium text-blue-600">{stats.avgViewsPerListing}</span>
+                  <span className="text-sm text-gray-600">
+                    Lượt xem trung bình
+                  </span>
+                  <span className="text-sm font-medium text-blue-600">
+                    {stats.avgViewsPerListing}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Tăng trưởng tháng</span>
-                  <span className="text-sm font-medium text-purple-600">+{stats.monthlyGrowth}%</span>
+                  <span className="text-sm text-gray-600">
+                    Tăng trưởng tháng
+                  </span>
+                  <span className="text-sm font-medium text-purple-600">
+                    +{stats.monthlyGrowth}%
+                  </span>
                 </div>
               </div>
             </div>

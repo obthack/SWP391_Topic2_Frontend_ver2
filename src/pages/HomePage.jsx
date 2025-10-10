@@ -3,19 +3,28 @@ import { Link } from "react-router-dom";
 import { Search, Zap, Shield, TrendingUp, CheckCircle } from "lucide-react";
 import { apiRequest } from "../lib/api";
 import { ProductCard } from "../components/molecules/ProductCard";
+import { useAuth } from "../contexts/AuthContext";
+import { useToast } from "../contexts/ToastContext";
+import { toggleFavorite, isProductFavorited } from "../lib/favoriteApi";
 import "../styles/homepage.css";
 
 export const HomePage = () => {
+  const { user } = useAuth();
+  const { show: showToast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [productType, setProductType] = useState("");
   const [location, setLocation] = useState("");
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [featuredError, setFeaturedError] = useState("");
+  const [favorites, setFavorites] = useState(new Set());
 
   useEffect(() => {
     loadFeaturedProducts();
-  }, []);
+    if (user) {
+      loadFavorites();
+    }
+  }, [user]);
 
   const loadFeaturedProducts = async () => {
     try {
@@ -105,6 +114,62 @@ export const HomePage = () => {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadFavorites = async () => {
+    if (!user) return;
+    
+    try {
+      const userId = user.id || user.userId || user.accountId;
+      const favoritesData = await apiRequest(`/api/Favorite/user/${userId}`);
+      const favoriteIds = Array.isArray(favoritesData) 
+        ? favoritesData.map(fav => fav.productId)
+        : [];
+      setFavorites(new Set(favoriteIds));
+    } catch (error) {
+      console.warn("Could not load favorites:", error);
+    }
+  };
+
+  const handleToggleFavorite = async (productId) => {
+    if (!user) {
+      showToast({
+        title: "⚠️ Cần đăng nhập",
+        description: "Vui lòng đăng nhập để thêm vào yêu thích",
+        type: "warning",
+      });
+      return;
+    }
+
+    try {
+      const result = await toggleFavorite(
+        user.id || user.userId || user.accountId,
+        productId
+      );
+      
+      setFavorites(prev => {
+        const newFavorites = new Set(prev);
+        if (result.isFavorited) {
+          newFavorites.add(productId);
+        } else {
+          newFavorites.delete(productId);
+        }
+        return newFavorites;
+      });
+      
+      showToast({
+        title: result.isFavorited ? "❤️ Đã thêm vào yêu thích" : "💔 Đã xóa khỏi yêu thích",
+        description: result.isFavorited ? "Sản phẩm đã được thêm vào danh sách yêu thích" : "Sản phẩm đã được xóa khỏi danh sách yêu thích",
+        type: "success",
+      });
+    } catch (error) {
+      console.error("Error toggling favorite:", error);
+      showToast({
+        title: "❌ Lỗi cập nhật yêu thích",
+        description: "Không thể cập nhật trạng thái yêu thích. Vui lòng thử lại.",
+        type: "error",
+      });
     }
   };
 
@@ -284,7 +349,12 @@ export const HomePage = () => {
           ) : featuredProducts.length > 0 ? (
             <div className="products-grid">
               {featuredProducts.map((product) => (
-                <ProductCard key={product.id} product={product} />
+                <ProductCard 
+                  key={product.id} 
+                  product={product} 
+                  onToggleFavorite={handleToggleFavorite}
+                  isFavorite={favorites.has(product.id || product.productId)}
+                />
               ))}
             </div>
           ) : (
