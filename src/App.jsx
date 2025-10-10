@@ -51,6 +51,14 @@ const ProtectedRoute = ({ children, adminOnly = false, userOnly = false }) => {
     .toLowerCase();
   const isAdmin = roleId === 1 || roleId === "1" || roleName === "admin";
 
+  console.log("=== ROLE CHECK DEBUG ===");
+  console.log("User object:", user);
+  console.log("Profile object:", profile);
+  console.log("RoleId:", roleId);
+  console.log("RoleName:", roleName);
+  console.log("IsAdmin:", isAdmin);
+  console.log("========================");
+
   if (adminOnly && !isAdmin) {
     return <Navigate to="/dashboard" />;
   }

@@ -1,6 +1,19 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Mail, Lock, User, Phone, AlertCircle, Eye, EyeOff, Car, Zap, Shield, Star, CheckCircle } from "lucide-react";
+import {
+  Mail,
+  Lock,
+  User,
+  Phone,
+  AlertCircle,
+  Eye,
+  EyeOff,
+  Car,
+  Zap,
+  Shield,
+  Star,
+  CheckCircle,
+} from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import "../../styles/auth.css";
 
@@ -52,30 +65,59 @@ export const RegisterForm = () => {
         formData.fullName,
         formData.phone
       );
-      const rawId = session?.user?.roleId ?? session?.profile?.roleId ?? session?.user?.role;
-      const rid = typeof rawId === 'string' ? Number(rawId) : rawId;
-      const roleName = (session?.user?.roleName || session?.profile?.role || '').toString().toLowerCase();
-      const isAdmin = rid === 1 || roleName === 'admin';
+      const rawId =
+        session?.user?.roleId ??
+        session?.profile?.roleId ??
+        session?.user?.role;
+      const rid = typeof rawId === "string" ? Number(rawId) : rawId;
+      const roleName = (session?.user?.roleName || session?.profile?.role || "")
+        .toString()
+        .toLowerCase();
+      const isAdmin = rid === 1 || roleName === "admin";
       navigate(isAdmin ? "/admin" : "/dashboard");
     } catch (err) {
       console.error("Register form error:", err);
-      
+
       // Handle specific error cases
       let errorMessage = "Đã có lỗi xảy ra. Vui lòng thử lại.";
-      
+
       if (err.status === 400) {
-        if (err.data && typeof err.data === 'object') {
+        if (err.data && typeof err.data === "object") {
           // Try to extract meaningful error message
-          errorMessage = err.data.message || err.data.error || "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại thông tin.";
-        } else if (err.message && err.message.includes('400')) {
-          errorMessage = "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại thông tin.";
+          errorMessage =
+            err.data.message ||
+            err.data.error ||
+            "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại thông tin.";
+        } else if (err.message && err.message.includes("400")) {
+          errorMessage =
+            "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại thông tin.";
+        } else {
+          errorMessage =
+            "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại thông tin.";
         }
       } else if (err.status === 409) {
         errorMessage = "Email này đã được sử dụng. Vui lòng chọn email khác.";
+      } else if (err.status === 500) {
+        if (err.message && err.message.includes("SQL Server")) {
+          errorMessage = "Lỗi kết nối cơ sở dữ liệu. Vui lòng thử lại sau.";
+        } else {
+          errorMessage = "Lỗi máy chủ. Vui lòng thử lại sau.";
+        }
       } else if (err.message) {
-        errorMessage = err.message;
+        // Handle specific error messages
+        if (err.message.includes("All data formats rejected")) {
+          errorMessage =
+            "Định dạng dữ liệu không được hỗ trợ. Vui lòng liên hệ quản trị viên.";
+        } else if (
+          err.message.includes("Registration completed but auto-login failed")
+        ) {
+          errorMessage =
+            "Đăng ký thành công nhưng không thể đăng nhập tự động. Vui lòng đăng nhập thủ công.";
+        } else {
+          errorMessage = err.message;
+        }
       }
-      
+
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -89,31 +131,85 @@ export const RegisterForm = () => {
         {/* Electric car silhouettes - more variety */}
         <div className="absolute top-16 right-16 w-40 h-20 opacity-15 car-silhouette-1">
           <svg viewBox="0 0 200 100" className="w-full h-full text-cyan-400">
-            <path d="M15 65 L40 45 L170 45 L190 65 L190 85 L170 85 L150 65 L110 65 L90 85 L70 85 L50 65 L15 65 Z" fill="currentColor" opacity="0.3"/>
-            <circle cx="30" cy="85" r="8" fill="currentColor" opacity="0.4"/>
-            <circle cx="170" cy="85" r="8" fill="currentColor" opacity="0.4"/>
-            <rect x="80" y="50" width="40" height="15" fill="currentColor" opacity="0.2"/>
-            <rect x="85" y="35" width="30" height="10" fill="currentColor" opacity="0.1"/>
+            <path
+              d="M15 65 L40 45 L170 45 L190 65 L190 85 L170 85 L150 65 L110 65 L90 85 L70 85 L50 65 L15 65 Z"
+              fill="currentColor"
+              opacity="0.3"
+            />
+            <circle cx="30" cy="85" r="8" fill="currentColor" opacity="0.4" />
+            <circle cx="170" cy="85" r="8" fill="currentColor" opacity="0.4" />
+            <rect
+              x="80"
+              y="50"
+              width="40"
+              height="15"
+              fill="currentColor"
+              opacity="0.2"
+            />
+            <rect
+              x="85"
+              y="35"
+              width="30"
+              height="10"
+              fill="currentColor"
+              opacity="0.1"
+            />
           </svg>
         </div>
-        
+
         <div className="absolute top-32 left-12 w-36 h-18 opacity-20 car-silhouette-2">
           <svg viewBox="0 0 200 100" className="w-full h-full text-emerald-400">
-            <path d="M25 62 L50 42 L180 42 L200 62 L200 82 L180 82 L160 62 L120 62 L100 82 L80 82 L60 62 L25 62 Z" fill="currentColor" opacity="0.3"/>
-            <circle cx="40" cy="82" r="8" fill="currentColor" opacity="0.4"/>
-            <circle cx="160" cy="82" r="8" fill="currentColor" opacity="0.4"/>
-            <rect x="90" y="47" width="20" height="15" fill="currentColor" opacity="0.2"/>
-            <rect x="95" y="32" width="10" height="10" fill="currentColor" opacity="0.1"/>
+            <path
+              d="M25 62 L50 42 L180 42 L200 62 L200 82 L180 82 L160 62 L120 62 L100 82 L80 82 L60 62 L25 62 Z"
+              fill="currentColor"
+              opacity="0.3"
+            />
+            <circle cx="40" cy="82" r="8" fill="currentColor" opacity="0.4" />
+            <circle cx="160" cy="82" r="8" fill="currentColor" opacity="0.4" />
+            <rect
+              x="90"
+              y="47"
+              width="20"
+              height="15"
+              fill="currentColor"
+              opacity="0.2"
+            />
+            <rect
+              x="95"
+              y="32"
+              width="10"
+              height="10"
+              fill="currentColor"
+              opacity="0.1"
+            />
           </svg>
         </div>
 
         <div className="absolute bottom-40 left-20 w-44 h-22 opacity-10 car-silhouette-3">
           <svg viewBox="0 0 200 100" className="w-full h-full text-blue-400">
-            <path d="M20 60 L55 40 L185 40 L205 60 L205 80 L185 80 L165 60 L125 60 L105 80 L85 80 L65 60 L20 60 Z" fill="currentColor" opacity="0.3"/>
-            <circle cx="45" cy="80" r="8" fill="currentColor" opacity="0.4"/>
-            <circle cx="165" cy="80" r="8" fill="currentColor" opacity="0.4"/>
-            <rect x="95" y="45" width="10" height="15" fill="currentColor" opacity="0.2"/>
-            <rect x="100" y="30" width="20" height="10" fill="currentColor" opacity="0.1"/>
+            <path
+              d="M20 60 L55 40 L185 40 L205 60 L205 80 L185 80 L165 60 L125 60 L105 80 L85 80 L65 60 L20 60 Z"
+              fill="currentColor"
+              opacity="0.3"
+            />
+            <circle cx="45" cy="80" r="8" fill="currentColor" opacity="0.4" />
+            <circle cx="165" cy="80" r="8" fill="currentColor" opacity="0.4" />
+            <rect
+              x="95"
+              y="45"
+              width="10"
+              height="15"
+              fill="currentColor"
+              opacity="0.2"
+            />
+            <rect
+              x="100"
+              y="30"
+              width="20"
+              height="10"
+              fill="currentColor"
+              opacity="0.1"
+            />
           </svg>
         </div>
 
@@ -122,17 +218,34 @@ export const RegisterForm = () => {
         <div className="absolute bottom-1/3 right-1/4 w-4 h-4 border border-emerald-400 opacity-40 tech-element-2"></div>
         <div className="absolute top-1/2 left-1/3 w-3 h-3 bg-blue-400 opacity-20 rounded-full tech-element-3"></div>
         <div className="absolute bottom-1/4 left-1/2 w-5 h-5 border border-indigo-400 opacity-25 tech-element-4"></div>
-        
+
         {/* Circuit patterns */}
         <div className="absolute inset-0 opacity-5">
           <svg viewBox="0 0 1000 1000" className="w-full h-full">
             <defs>
-              <pattern id="circuit2" x="0" y="0" width="80" height="80" patternUnits="userSpaceOnUse">
-                <path d="M0 40 L80 40 M40 0 L40 80 M20 20 L60 60 M60 20 L20 60" stroke="currentColor" strokeWidth="1" fill="none"/>
-                <circle cx="40" cy="40" r="3" fill="currentColor"/>
+              <pattern
+                id="circuit2"
+                x="0"
+                y="0"
+                width="80"
+                height="80"
+                patternUnits="userSpaceOnUse"
+              >
+                <path
+                  d="M0 40 L80 40 M40 0 L40 80 M20 20 L60 60 M60 20 L20 60"
+                  stroke="currentColor"
+                  strokeWidth="1"
+                  fill="none"
+                />
+                <circle cx="40" cy="40" r="3" fill="currentColor" />
               </pattern>
             </defs>
-            <rect width="100%" height="100%" fill="url(#circuit2)" className="text-cyan-400"/>
+            <rect
+              width="100%"
+              height="100%"
+              fill="url(#circuit2)"
+              className="text-cyan-400"
+            />
           </svg>
         </div>
 
@@ -250,7 +363,11 @@ export const RegisterForm = () => {
                     onClick={() => setShowPassword(!showPassword)}
                     className="auth-password-toggle"
                   >
-                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    {showPassword ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -277,7 +394,11 @@ export const RegisterForm = () => {
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     className="auth-password-toggle"
                   >
-                    {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    {showConfirmPassword ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -292,11 +413,17 @@ export const RegisterForm = () => {
                 />
                 <label htmlFor="terms" className="auth-checkbox-label">
                   Tôi đồng ý với{" "}
-                  <Link to="/terms" className="text-emerald-300 hover:text-white transition-colors">
+                  <Link
+                    to="/terms"
+                    className="text-emerald-300 hover:text-white transition-colors"
+                  >
                     Điều khoản sử dụng
                   </Link>{" "}
                   và{" "}
-                  <Link to="/privacy" className="text-emerald-300 hover:text-white transition-colors">
+                  <Link
+                    to="/privacy"
+                    className="text-emerald-300 hover:text-white transition-colors"
+                  >
                     Chính sách bảo mật
                   </Link>
                 </label>

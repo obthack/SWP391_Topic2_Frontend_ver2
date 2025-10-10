@@ -52,13 +52,37 @@ export const AdminDashboard = () => {
 
   const loadAdminData = async () => {
     try {
-      const [users, listings, transactions] = await Promise.all([
-        apiRequest("/api/User"),
-        apiRequest("/api/Product"),
-        apiRequest("/api/Order"),
-      ]);
+      // Load each API separately to handle individual failures
+      let users = [];
+      let listings = [];
+      let transactions = [];
+
+      try {
+        users = await apiRequest("/api/User");
+        console.log("✅ Users loaded:", users);
+      } catch (error) {
+        console.warn("⚠️ Failed to load users:", error.message);
+      }
+
+      try {
+        listings = await apiRequest("/api/Product");
+        console.log("✅ Products loaded:", listings);
+      } catch (error) {
+        console.warn("⚠️ Failed to load products:", error.message);
+      }
+
+      try {
+        transactions = await apiRequest("/api/Order");
+        console.log("✅ Orders loaded:", transactions);
+      } catch (error) {
+        console.warn("⚠️ Failed to load orders:", error.message);
+      }
 
       console.log("Admin loaded data:", { users, listings, transactions });
+      console.log("Listings type:", typeof listings);
+      console.log("Listings is array:", Array.isArray(listings));
+      console.log("Listings length:", listings?.length);
+      console.log("Listings content:", listings);
 
       const norm = (v) => String(v || "").toLowerCase();
       const mapStatus = (l) => {
@@ -84,9 +108,25 @@ export const AdminDashboard = () => {
         return result;
       };
 
+      // Handle different response formats
+      let listingsArray = [];
+      if (Array.isArray(listings)) {
+        listingsArray = listings;
+      } else if (listings?.items && Array.isArray(listings.items)) {
+        listingsArray = listings.items;
+      } else if (listings?.data && Array.isArray(listings.data)) {
+        listingsArray = listings.data;
+      } else {
+        console.warn("Unexpected listings format:", listings);
+        listingsArray = [];
+      }
+
+      console.log("Processed listings array:", listingsArray);
+      console.log("Listings array length:", listingsArray.length);
+
       // Process all listings with images
       const processedListings = await Promise.all(
-        (listings || []).map(async (l) => {
+        listingsArray.map(async (l) => {
           try {
             const imagesData = await apiRequest(
               `/api/ProductImage/product/${l.id || l.productId || l.Id}`
@@ -111,16 +151,17 @@ export const AdminDashboard = () => {
       const approved = processedListings.filter((l) => l.status === "approved");
       const rejected = processedListings.filter((l) => l.status === "rejected");
 
-      const revenue =
-        transactions
-          ?.filter((t) => t.status === "completed")
-          .reduce(
-            (sum, t) => sum + parseFloat(t.totalAmount || t.amount || 0),
-            0
-          ) || 0;
+      const revenue = Array.isArray(transactions)
+        ? transactions
+            ?.filter((t) => t.status === "completed")
+            .reduce(
+              (sum, t) => sum + parseFloat(t.totalAmount || t.amount || 0),
+              0
+            ) || 0
+        : 0;
 
       setStats({
-        totalUsers: users?.length || 0,
+        totalUsers: Array.isArray(users) ? users.length : 0,
         totalListings: processedListings.length,
         pendingListings: pending.length,
         approvedListings: approved.length,
@@ -131,6 +172,18 @@ export const AdminDashboard = () => {
       setAllListings(processedListings);
     } catch (error) {
       console.error("Error loading admin data:", error);
+      console.error("Error details:", error.message, error.status, error.data);
+
+      // Set empty data on error
+      setStats({
+        totalUsers: 0,
+        totalListings: 0,
+        pendingListings: 0,
+        approvedListings: 0,
+        rejectedListings: 0,
+        totalRevenue: 0,
+      });
+      setAllListings([]);
     } finally {
       setLoading(false);
     }
@@ -205,13 +258,44 @@ export const AdminDashboard = () => {
     try {
       console.log("Rejecting listing with ID:", listingId);
 
-      // Use PUT method to update status to rejected
-      await apiRequest(`/api/Product/${listingId}`, {
-        method: "PUT",
-        body: { status: "rejected" },
-      });
+      // Try different reject API endpoints
+      const rejectEndpoints = [
+        // Try dedicated reject endpoint first
+        `/api/Product/reject/${listingId}`,
+        // Fallback to update endpoint
+        `/api/Product/${listingId}`,
+      ];
 
-      console.log("Product rejected successfully!");
+      let rejected = false;
+      for (const endpoint of rejectEndpoints) {
+        try {
+          if (endpoint.includes("/reject/")) {
+            // Try PUT to reject endpoint
+            await apiRequest(endpoint, {
+              method: "PUT",
+            });
+          } else {
+            // Try PUT to update status
+            await apiRequest(endpoint, {
+              method: "PUT",
+              body: { status: "rejected" },
+            });
+          }
+          console.log(`Product rejected successfully using ${endpoint}!`);
+          rejected = true;
+          break;
+        } catch (endpointError) {
+          console.log(
+            `Reject endpoint ${endpoint} failed:`,
+            endpointError.message
+          );
+        }
+      }
+
+      if (!rejected) {
+        throw new Error("Tất cả API reject đều thất bại");
+      }
+
       alert("✅ Từ chối bài đăng thành công!");
       setShowModal(false);
       loadAdminData();
