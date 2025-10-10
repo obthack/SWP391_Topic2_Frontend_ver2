@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import { Link, useNavigate } from "react-router-dom";
 import {
   Zap,
@@ -9,11 +8,6 @@ import {
   LayoutDashboard,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
-=======
-import { Link, useNavigate } from 'react-router-dom';
-import { Zap, Search, Heart, User, LogOut, LayoutDashboard, FileText } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
->>>>>>> giang
 
 export const Header = () => {
   const { user, profile, signOut, isAdmin } = useAuth();
@@ -40,22 +34,8 @@ export const Header = () => {
           </Link>
 
           <nav className="hidden md:flex items-center space-x-8">
-<<<<<<< HEAD
-            <Link
-              to="/vehicles"
-              className="text-gray-700 hover:text-blue-600 transition-colors"
-            >
-              Xe điện
-            </Link>
-            <Link
-              to="/batteries"
-              className="text-gray-700 hover:text-blue-600 transition-colors"
-            >
-              Pin
-=======
             <Link to="/" className="text-gray-700 hover:text-blue-600 transition-colors">
               Trang chủ
->>>>>>> giang
             </Link>
             <Link
               to="/search"

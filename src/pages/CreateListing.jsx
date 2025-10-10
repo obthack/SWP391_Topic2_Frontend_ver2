@@ -117,19 +117,6 @@ export const CreateListing = () => {
         'Hyundai': 7,
         'Kia': 8
       };
-<<<<<<< HEAD
-      // Remove undefined to avoid backend validation errors
-      const productData = Object.fromEntries(
-        Object.entries({
-          ...productDataRaw,
-          sellerId: user?.accountId || user?.id || user?.userId,
-          accountId: user?.accountId || undefined,
-          status: "Draft",
-          createdDate: new Date().toISOString(),
-          isActive: true,
-        }).filter(([, v]) => v !== undefined)
-      );
-=======
       
       if (formData.brand && brandToCategoryMap[formData.brand]) {
         categoryId = brandToCategoryMap[formData.brand];
@@ -166,7 +153,6 @@ export const CreateListing = () => {
         createdDate: new Date().toISOString(),
         isActive: true,
       }).filter(([,v]) => v !== undefined && v !== null));
->>>>>>> giang
 
       console.log("User object:", user);
       console.log("Profile object:", profile);
@@ -182,14 +168,8 @@ export const CreateListing = () => {
         brand: formData.brand,
         model: formData.model,
         price: formData.price,
-        imageCount: images.length,
-        imageUrls: imageUrls.length
+        imageCount: images.length
       });
-<<<<<<< HEAD
-
-      console.log("Product created successfully:", created);
-      const pid = created?.id || created?.productId || created?.Id;
-=======
       
       // Additional debug for user object structure
       if (user) {
@@ -205,7 +185,6 @@ export const CreateListing = () => {
           accountIdValue: user.accountId
         });
       }
->>>>>>> giang
 
       // Validate required fields
       if (!sellerId) {
