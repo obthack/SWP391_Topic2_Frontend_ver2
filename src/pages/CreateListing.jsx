@@ -360,75 +360,46 @@ export const CreateListing = () => {
        if (pid && images.length > 0) {
          console.log(`Uploading ${images.length} images for product ${pid}...`);
          
-         const uploadedImageUrls = [];
-         
-         // Try individual uploads with productId
-         for (let i = 0; i < images.length; i++) {
-           const img = images[i];
-           const dataUrl = await fileToBase64(img);
+         try {
+           // Try multiple upload first
+           const formData = new FormData();
+           formData.append('productId', pid);
            
-           try {
-             console.log(`Uploading image ${i + 1}/${images.length} for product ${pid}`);
-             
-             // Try ProductImage endpoint with productId
-             const uploadResponse = await apiRequest(`/api/ProductImage`, {
-               method: "POST",
-               body: {
-                 productId: pid,
-                 imageData: dataUrl,
-                 filename: img.name || `image_${Date.now()}_${i}.jpg`,
-                 isPrimary: i === 0,
-               },
-             });
-             
-             // Extract image URL from response
-             let imageUrl = null;
-             if (uploadResponse?.url) {
-               imageUrl = uploadResponse.url;
-             } else if (uploadResponse?.imageUrl) {
-               imageUrl = uploadResponse.imageUrl;
-             } else if (uploadResponse?.data?.url) {
-               imageUrl = uploadResponse.data.url;
-             } else if (uploadResponse?.data?.imageUrl) {
-               imageUrl = uploadResponse.data.imageUrl;
-             } else if (typeof uploadResponse === 'string') {
-               imageUrl = uploadResponse;
+           // Add all images to FormData
+           images.forEach((image, index) => {
+             formData.append('images', image);
+           });
+
+           console.log("Uploading images with multiple endpoint:", images.length, "images");
+           const uploadedImages = await apiRequest(`/api/ProductImage/multiple`, {
+             method: "POST",
+             body: formData,
+           });
+           console.log("Multiple images uploaded successfully:", uploadedImages);
+         } catch (e) {
+           console.warn("Multiple upload failed, trying individual uploads:", e);
+
+           // Fallback to individual uploads
+           for (let i = 0; i < images.length; i++) {
+             const img = images[i];
+             try {
+               const formData = new FormData();
+               formData.append('productId', pid);
+               formData.append('imageFile', img);
+
+               console.log(
+                 `Uploading image ${i + 1}/${images.length} for product ${pid}`
+               );
+               await apiRequest(`/api/ProductImage`, {
+                 method: "POST",
+                 body: formData,
+               });
+               console.log(`Image ${i + 1} uploaded successfully`);
+             } catch (e) {
+               console.warn(`Image ${i + 1} upload failed:`, e);
              }
-             
-             if (imageUrl) {
-               uploadedImageUrls.push(imageUrl);
-               console.log(`Image ${i + 1} uploaded successfully:`, imageUrl);
-             } else {
-               console.warn(`Image ${i + 1} upload response missing URL:`, uploadResponse);
-               uploadedImageUrls.push(dataUrl); // Fallback to data URL
-             }
-           } catch (e) {
-             console.warn(`Image ${i + 1} upload failed:`, e);
-             uploadedImageUrls.push(dataUrl); // Fallback to data URL
            }
          }
-         
-         // Update product with image URLs if we got some
-         if (uploadedImageUrls.length > 0) {
-           try {
-             console.log(`Updating product ${pid} with ${uploadedImageUrls.length} image URLs...`);
-             await apiRequest(`/api/Product/${pid}`, {
-               method: "PUT",
-               body: {
-                 imageUrls: uploadedImageUrls
-               },
-             });
-             console.log("Product updated with image URLs successfully");
-           } catch (updateError) {
-             console.warn("Failed to update product with image URLs:", updateError);
-           }
-         }
-         
-         console.log(`Final uploaded image URLs:`, uploadedImageUrls);
-       } else if (imageUrls.length > 0) {
-         console.log(`${imageUrls.length} images were uploaded successfully before product creation`);
-       } else if (images.length > 0) {
-         console.warn(`No images were uploaded successfully. ${images.length} images were selected but upload failed.`);
        } else {
          console.log("No images were selected for upload.");
        }
