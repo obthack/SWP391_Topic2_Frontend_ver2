@@ -3,9 +3,7 @@ import { Heart, Eye, Calendar, Gauge, Battery, Info } from "lucide-react";
 import { formatPrice } from "../../utils/formatters";
 
 export const ProductCard = ({ product, onToggleFavorite, isFavorite }) => {
-  const primaryImage =
-    product.images?.[0] ||
-    "https://images.pexels.com/photos/110844/pexels-photo-110844.jpeg?auto=compress&cs=tinysrgb&w=800";
+  const primaryImage = product.images?.[0];
 
   // Helper function to get the correct product ID
   const getProductId = (product) => {
@@ -41,11 +39,23 @@ export const ProductCard = ({ product, onToggleFavorite, isFavorite }) => {
         )}
 
         <Link to={`/product/${productId}`}>
-          <img
-            src={primaryImage}
-            alt={product.title}
-            className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
-          />
+          {primaryImage ? (
+            <img
+              src={primaryImage}
+              alt={product.title}
+              className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+              onError={(e) => {
+                e.target.style.display = "none";
+              }}
+            />
+          ) : (
+            <div className="w-full h-48 bg-gray-200 flex items-center justify-center">
+              <div className="text-gray-400 text-center">
+                <div className="text-4xl mb-2">🚗</div>
+                <div className="text-sm">Chưa có ảnh</div>
+              </div>
+            </div>
+          )}
         </Link>
 
         {onToggleFavorite && (

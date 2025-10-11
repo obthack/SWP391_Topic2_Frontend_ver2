@@ -106,10 +106,15 @@ export const Dashboard = () => {
         return s !== "deleted" && s !== "inactive";
       });
 
-      // Load images for each listing
+      // Load images for each listing with delay to prevent DbContext conflicts
       const normalized = await Promise.all(
-        filtered.map(async (l) => {
+        filtered.map(async (l, index) => {
           try {
+            // Add delay between API calls to prevent DbContext conflicts
+            if (index > 0) {
+              await new Promise(resolve => setTimeout(resolve, 100 * index));
+            }
+            
             const imagesData = await apiRequest(
               `/api/ProductImage/product/${l.id || l.productId || l.Id}`
             );
@@ -123,7 +128,8 @@ export const Dashboard = () => {
                 (img) => img.imageData || img.imageUrl || img.url
               ),
             };
-          } catch {
+          } catch (error) {
+            console.warn(`Failed to load images for product ${l.id}:`, error);
             return { ...l, status: mapStatus(l), images: [] };
           }
         })
@@ -285,7 +291,7 @@ export const Dashboard = () => {
                 <div className="flex items-center mt-2">
                   <Target className="h-4 w-4 text-orange-500 mr-1" />
                   <span className="text-sm text-orange-600 font-medium">
-                    {stats.conversionRate}% tỷ lệ
+                    {stats.conversionRate || 0}% tỷ lệ
                   </span>
                 </div>
               </div>
@@ -386,19 +392,28 @@ export const Dashboard = () => {
                         className="flex items-center space-x-4 p-4 rounded-lg hover:bg-gray-50 transition-colors duration-200 group"
                       >
                         <div className="relative">
-                          <img
-                            src={
-                              listing.images && listing.images.length > 0
-                                ? listing.images[0]
-                                : "https://images.pexels.com/photos/110844/pexels-photo-110844.jpeg?auto=compress&cs=tinysrgb&w=200"
-                            }
-                            alt={listing.title}
-                            className="w-16 h-16 object-cover rounded-lg"
-                            onError={(e) => {
-                              e.target.src =
-                                "https://images.pexels.com/photos/110844/pexels-photo-110844.jpeg?auto=compress&cs=tinysrgb&w=200";
-                            }}
-                          />
+                          {listing.images && listing.images.length > 0 ? (
+                            <img
+                              src={listing.images[0]}
+                              alt={listing.title}
+                              className="w-16 h-16 object-cover rounded-lg"
+                              onError={(e) => {
+                                e.target.style.display = "none";
+                                // Show fallback icon when image fails to load
+                                const fallback = e.target.nextElementSibling;
+                                if (fallback) {
+                                  fallback.style.display = "flex";
+                                }
+                              }}
+                            />
+                          ) : null}
+                          <div 
+                            className={`w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center ${
+                              listing.images && listing.images.length > 0 ? 'hidden' : ''
+                            }`}
+                          >
+                            <Package className="h-6 w-6 text-gray-400" />
+                          </div>
                           <span
                             className={`absolute -top-1 -right-1 px-2 py-1 text-xs font-medium rounded-full ${
                               listing.status === "approved"
@@ -458,14 +473,16 @@ export const Dashboard = () => {
               <div className="flex items-center mb-4">
                 <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center overflow-hidden mr-4">
                   {user?.avatar ? (
-                    <img 
-                      src={user.avatar} 
-                      alt="Avatar" 
+                    <img
+                      src={user.avatar}
+                      alt="Avatar"
                       className="w-full h-full object-cover"
                     />
                   ) : (
                     <span className="text-blue-600 font-semibold text-lg">
-                      {user?.fullName?.charAt(0) || user?.full_name?.charAt(0) || "U"}
+                      {user?.fullName?.charAt(0) ||
+                        user?.full_name?.charAt(0) ||
+                        "U"}
                     </span>
                   )}
                 </div>

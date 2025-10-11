@@ -24,6 +24,7 @@ import { ProductDetail } from "./pages/ProductDetail";
 import { SellerProfile } from "./pages/SellerProfile";
 import { SellerProducts } from "./pages/SellerProducts";
 import { Favorites } from "./pages/Favorites";
+import { Notifications } from "./pages/Notifications";
 import { ToastProvider } from "./contexts/ToastContext";
 
 const ProtectedRoute = ({ children, adminOnly = false, userOnly = false }) => {
@@ -170,6 +171,16 @@ const AppContent = () => {
             element={
               <ProtectedRoute>
                 <Favorites />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Notifications Route */}
+          <Route
+            path="/notifications"
+            element={
+              <ProtectedRoute>
+                <Notifications />
               </ProtectedRoute>
             }
           />

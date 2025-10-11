@@ -21,12 +21,48 @@ import {
   MessageSquare,
   Users,
   Package,
+  X,
 } from "lucide-react";
 import { apiRequest } from "../lib/api";
 import { formatPrice } from "../utils/formatters";
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
 import { toggleFavorite, isProductFavorited } from "../lib/favoriteApi";
+
+// Helper function to fix Vietnamese character encoding
+const fixVietnameseEncoding = (str) => {
+  if (!str || typeof str !== "string") return str;
+
+  // Only fix if the string contains the specific encoding issues
+  if (!str.includes("?")) {
+    return str;
+  }
+
+  // Common encoding fixes for Vietnamese characters
+  const fixes = {
+    "B?o": "Bảo",
+    "Th?ch": "Thạch",
+    "Nguy?n": "Nguyễn",
+    "Tr?n": "Trần",
+    "Ph?m": "Phạm",
+    "H?:ng": "Hồng",
+    "Th?y": "Thủy",
+    "M?nh": "Mạnh",
+    "V?n": "Văn",
+    "Th?": "Thị",
+    "Qu?c": "Quốc",
+    "Vi?t": "Việt",
+    "B?c": "Bắc",
+    "Đ?ng": "Đông",
+  };
+
+  let fixed = str;
+  Object.entries(fixes).forEach(([wrong, correct]) => {
+    fixed = fixed.replace(new RegExp(wrong.replace("?", "\\?"), "g"), correct);
+  });
+
+  return fixed;
+};
 
 export const ProductDetail = () => {
   const { id } = useParams();
@@ -37,12 +73,14 @@ export const ProductDetail = () => {
   const [product, setProduct] = useState(null);
   const [seller, setSeller] = useState(null);
   const [images, setImages] = useState([]);
+  const [documentImages, setDocumentImages] = useState([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteId, setFavoriteId] = useState(null);
   const [showContactModal, setShowContactModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showDocumentModal, setShowDocumentModal] = useState(false);
   const [contactForm, setContactForm] = useState({
     name: "",
     phone: "",
@@ -74,13 +112,19 @@ export const ProductDetail = () => {
       if (sellerId) {
         try {
           const sellerData = await apiRequest(`/api/User/${sellerId}`);
+          // Fix Vietnamese encoding for seller name
+          if (sellerData.fullName) {
+            sellerData.fullName = fixVietnameseEncoding(sellerData.fullName);
+          }
           setSeller(sellerData);
           console.log("Loaded seller data:", sellerData);
         } catch (sellerError) {
           console.warn("Could not load seller data:", sellerError);
           // Set fallback seller data
           setSeller({
-            fullName: productData.sellerName || "Người bán",
+            fullName: fixVietnameseEncoding(
+              productData.sellerName || "Người bán"
+            ),
             email: productData.sellerEmail || "",
             phone: productData.sellerPhone || "",
             avatar: null,
@@ -88,18 +132,71 @@ export const ProductDetail = () => {
         }
       }
 
-      // Load product images
+      // Load product images and separate product images from document images
       try {
         const imagesData = await apiRequest(`/api/ProductImage/product/${id}`);
-        const productImages = Array.isArray(imagesData)
+        const allImages = Array.isArray(imagesData)
           ? imagesData
           : imagesData?.items || [];
+
+        console.log("🔍 All images data:", allImages);
+        console.log("🔍 First image structure:", allImages[0]);
+
+        // Separate product images from document images
+        // Try different possible field names for image type
+        const productImages = allImages.filter((img) => {
+          const imageType =
+            img.imageType || img.type || img.image_type || img.category;
+          console.log(`🔍 Image type for ${img.id || "unknown"}:`, imageType);
+
+          // If no imageType field exists, use temporary logic
+          if (!imageType) {
+            console.log(
+              "🔍 No imageType found, using temporary separation logic"
+            );
+
+            // Temporary logic: Assume first 2-3 images are product images
+            // This is a workaround until backend supports imageType
+            const imageIndex = allImages.indexOf(img);
+            const isProductImage = imageIndex < 2; // First 2 images are products
+
+            console.log(
+              `🔍 Image ${imageIndex}: treating as ${
+                isProductImage ? "product" : "document"
+              }`
+            );
+            return isProductImage;
+          }
+
+          return imageType !== "document";
+        });
+
+        const docImages = allImages.filter((img) => {
+          const imageType =
+            img.imageType || img.type || img.image_type || img.category;
+
+          if (!imageType) {
+            // Temporary logic: Images after index 2 are documents
+            const imageIndex = allImages.indexOf(img);
+            return imageIndex >= 2;
+          }
+
+          return imageType === "document";
+        });
+
+        console.log("🔍 Product images:", productImages.length);
+        console.log("🔍 Document images:", docImages.length);
+
         setImages(
           productImages.map((img) => img.imageData || img.imageUrl || img.url)
+        );
+        setDocumentImages(
+          docImages.map((img) => img.imageData || img.imageUrl || img.url)
         );
       } catch (imageError) {
         console.log("No images found for product");
         setImages([]);
+        setDocumentImages([]);
       }
 
       // Check if product is favorited by current user
@@ -158,20 +255,36 @@ export const ProductDetail = () => {
         id
       );
 
-      setIsFavorite(result.isFavorited);
-      setFavoriteId(result.favoriteId || null);
+      // Only update UI if we got a valid result
+      if (result && typeof result.isFavorited === "boolean") {
+        setIsFavorite(result.isFavorited);
+        setFavoriteId(result.favoriteId || null);
 
-      showToast({
-        title: result.isFavorited ? "❤️ Đã thêm vào yêu thích" : "💔 Đã xóa khỏi yêu thích",
-        description: result.isFavorited ? "Sản phẩm đã được thêm vào danh sách yêu thích" : "Sản phẩm đã được xóa khỏi danh sách yêu thích",
-        type: "success",
-      });
+        showToast({
+          title: result.isFavorited
+            ? "❤️ Đã thêm vào yêu thích"
+            : "💔 Đã xóa khỏi yêu thích",
+          description: result.isFavorited
+            ? "Sản phẩm đã được thêm vào danh sách yêu thích"
+            : "Sản phẩm đã được xóa khỏi danh sách yêu thích",
+          type: "success",
+        });
+      } else {
+        // If API is not available, show warning but don't crash
+        showToast({
+          title: "⚠️ Tính năng yêu thích tạm thời không khả dụng",
+          description:
+            "Backend chưa hỗ trợ tính năng yêu thích. Vui lòng thử lại sau.",
+          type: "warning",
+        });
+      }
     } catch (error) {
       console.error("Error toggling favorite:", error);
       showToast({
-        title: "❌ Lỗi cập nhật yêu thích",
-        description: "Không thể cập nhật trạng thái yêu thích. Vui lòng thử lại.",
-        type: "error",
+        title: "⚠️ Tính năng yêu thích tạm thời không khả dụng",
+        description:
+          "Backend chưa hỗ trợ tính năng yêu thích. Vui lòng thử lại sau.",
+        type: "warning",
       });
     }
   };
@@ -249,9 +362,7 @@ export const ProductDetail = () => {
     );
   }
 
-  const currentImage =
-    images[currentImageIndex] ||
-    "https://images.pexels.com/photos/110844/pexels-photo-110844.jpeg?auto=compress&cs=tinysrgb&w=800";
+  const currentImage = images[currentImageIndex];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -297,11 +408,20 @@ export const ProductDetail = () => {
           {/* Image Gallery */}
           <div className="space-y-4">
             <div className="relative bg-white rounded-xl shadow-sm overflow-hidden">
-              <img
-                src={currentImage}
-                alt={product.title}
-                className="w-full h-96 object-cover"
-              />
+              {currentImage ? (
+                <img
+                  src={currentImage}
+                  alt={product.title}
+                  className="w-full h-96 object-cover"
+                  onError={(e) => {
+                    e.target.style.display = "none";
+                  }}
+                />
+              ) : (
+                <div className="w-full h-96 bg-gray-200 flex items-center justify-center">
+                  <Car className="h-16 w-16 text-gray-400" />
+                </div>
+              )}
 
               {images.length > 1 && (
                 <>
@@ -342,9 +462,31 @@ export const ProductDetail = () => {
                       src={image}
                       alt={`${product.title} ${index + 1}`}
                       className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.style.display = "none";
+                      }}
                     />
                   </button>
                 ))}
+              </div>
+            )}
+
+            {/* Document Images Button */}
+            {documentImages.length > 0 && (
+              <div className="mt-4">
+                <button
+                  onClick={() => {
+                    console.log(
+                      "🔍 Opening document modal with images:",
+                      documentImages
+                    );
+                    setShowDocumentModal(true);
+                  }}
+                  className="w-full bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center space-x-2"
+                >
+                  <Shield className="h-5 w-5" />
+                  <span>Xem giấy tờ xe ({documentImages.length} ảnh)</span>
+                </button>
               </div>
             )}
           </div>
@@ -794,15 +936,68 @@ export const ProductDetail = () => {
               <button
                 onClick={() => {
                   setShowPaymentModal(false);
-                  showToast({
-                    title: "✅ Tạo đơn hàng thành công",
-                    description: "Đơn hàng đã được tạo và gửi đến người bán",
-                    type: "success",
-                  });
                 }}
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Xác nhận
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Document Images Modal */}
+      {showDocumentModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-semibold text-gray-900 flex items-center">
+                  <Shield className="h-6 w-6 text-green-600 mr-2" />
+                  Giấy tờ xe ({documentImages.length} ảnh)
+                </h3>
+                <button
+                  onClick={() => setShowDocumentModal(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 overflow-y-auto max-h-[70vh]">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {documentImages.map((image, index) => (
+                  <div key={index} className="relative group">
+                    <img
+                      src={image}
+                      alt={`Giấy tờ ${index + 1}`}
+                      className="w-full h-48 object-cover rounded-lg border-2 border-green-200 hover:border-green-400 transition-colors"
+                      onError={(e) => {
+                        e.target.style.display = "none";
+                      }}
+                    />
+                    <div className="absolute bottom-2 left-2 bg-green-600 text-white px-2 py-1 rounded text-xs">
+                      Giấy tờ {index + 1}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {documentImages.length === 0 && (
+                <div className="text-center py-12">
+                  <Shield className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500">Chưa có ảnh giấy tờ nào</p>
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 border-t border-gray-200">
+              <button
+                onClick={() => setShowDocumentModal(false)}
+                className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
+                Đóng
               </button>
             </div>
           </div>
