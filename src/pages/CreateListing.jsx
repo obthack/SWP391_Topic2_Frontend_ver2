@@ -1,9 +1,10 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Upload, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { apiRequest } from "../lib/api";
 import { useToast } from "../contexts/ToastContext";
+import { notifyPostCreated } from "../lib/notificationApi";
 
 export const CreateListing = () => {
   const { user, profile } = useAuth();
@@ -12,6 +13,7 @@ export const CreateListing = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [images, setImages] = useState([]);
+  const [documentImages, setDocumentImages] = useState([]);
   const [formData, setFormData] = useState({
     title: "",
     licensePlate: "",
@@ -25,9 +27,6 @@ export const CreateListing = () => {
     fuelType: "",
     transmission: "",
     condition: "excellent",
-    location: "",
-    contactPhone: "",
-    contactEmail: user?.email || "",
     productType: "vehicle",
   });
 
@@ -44,8 +43,18 @@ export const CreateListing = () => {
     setImages([...images, ...newImages]);
   };
 
+  const handleDocumentImageUpload = (e) => {
+    const files = Array.from(e.target.files);
+    const newImages = files.slice(0, 3 - documentImages.length); // Max 3 document images
+    setDocumentImages([...documentImages, ...newImages]);
+  };
+
   const removeImage = (index) => {
     setImages(images.filter((_, i) => i !== index));
+  };
+
+  const removeDocumentImage = (index) => {
+    setDocumentImages(documentImages.filter((_, i) => i !== index));
   };
 
   const fileToBase64 = (file) =>
@@ -146,9 +155,6 @@ export const CreateListing = () => {
         color: formData.color || "",
         fuelType: formData.fuelType || "",
         transmission: formData.transmission || "",
-        location: formData.location || "",
-        contactPhone: formData.contactPhone || "",
-        contactEmail: formData.contactEmail || "",
         productType: formData.productType,
       };
 
@@ -240,6 +246,16 @@ export const CreateListing = () => {
         );
       }
 
+      // Validate license plate format
+      if (formData.licensePlate) {
+        const licensePlateRegex = /^[0-9]{2}[A-Z]-[0-9]{5}$/;
+        if (!licensePlateRegex.test(formData.licensePlate)) {
+          throw new Error(
+            "Biển số xe không đúng định dạng. Vui lòng nhập theo định dạng: 30A-12345 (2 số + 1 chữ cái + 5 số)"
+          );
+        }
+      }
+
       // Validate price is a valid number
       const price = parseFloat(formData.price);
       if (isNaN(price) || price <= 0) {
@@ -291,9 +307,6 @@ export const CreateListing = () => {
           color: formData.color || "",
           fuelType: formData.fuelType || "",
           transmission: formData.transmission || "",
-          location: formData.location || "",
-          contactPhone: formData.contactPhone || "",
-          contactEmail: formData.contactEmail || "",
         },
         // Format 2: Original format (keep as backup)
         productData,
@@ -314,9 +327,6 @@ export const CreateListing = () => {
           color: productData.color,
           fuelType: productData.fuelType,
           transmission: productData.transmission,
-          location: productData.location,
-          contactPhone: productData.contactPhone,
-          contactEmail: productData.contactEmail,
           sellerId: productData.seller_id,
           categoryId: productData.category_id,
           status: productData.status,
@@ -347,6 +357,27 @@ export const CreateListing = () => {
           categoryId: categoryId,
           state: "pending",
         },
+        // Format 6: Backend expected PascalCase format
+        {
+          SellerId: sellerId,
+          ProductType: formData.productType,
+          Title: formData.title,
+          Description: formData.description,
+          Price: price,
+          Brand: formData.brand,
+          Model: formData.model,
+          LicensePlate: formData.licensePlate,
+          Year: formData.year,
+          Mileage: formData.mileage,
+          Condition: formData.condition,
+          Color: formData.color,
+          FuelType: formData.fuelType,
+          Transmission: formData.transmission,
+          CategoryId: categoryId,
+          Status: "pending",
+          CreatedDate: new Date().toISOString(),
+          IsActive: true,
+        },
       ];
 
       for (let i = 0; i < productDataVariations.length; i++) {
@@ -373,22 +404,24 @@ export const CreateListing = () => {
       }
       const pid = created?.id || created?.productId || created?.Id;
 
-      // Upload images after product creation (ProductImage API might need productId)
+      // Upload product images after product creation
       if (pid && images.length > 0) {
-        console.log(`Uploading ${images.length} images for product ${pid}...`);
+        console.log(
+          `Uploading ${images.length} product images for product ${pid}...`
+        );
 
         try {
           // Try multiple upload first
           const formData = new FormData();
           formData.append("productId", pid);
 
-          // Add all images to FormData
+          // Add all product images to FormData
           images.forEach((image, index) => {
             formData.append("images", image);
           });
 
           console.log(
-            "Uploading images with multiple endpoint:",
+            "Uploading product images with multiple endpoint:",
             images.length,
             "images"
           );
@@ -399,9 +432,15 @@ export const CreateListing = () => {
               body: formData,
             }
           );
-          console.log("Multiple images uploaded successfully:", uploadedImages);
+          console.log(
+            "Multiple product images uploaded successfully:",
+            uploadedImages
+          );
         } catch (e) {
-          console.warn("Multiple upload failed, trying individual uploads:", e);
+          console.warn(
+            "Multiple product image upload failed, trying individual uploads:",
+            e
+          );
 
           // Fallback to individual uploads
           for (let i = 0; i < images.length; i++) {
@@ -412,25 +451,116 @@ export const CreateListing = () => {
               formData.append("imageFile", img);
 
               console.log(
-                `Uploading image ${i + 1}/${images.length} for product ${pid}`
+                `Uploading product image ${i + 1}/${
+                  images.length
+                } for product ${pid}`
               );
               await apiRequest(`/api/ProductImage`, {
                 method: "POST",
                 body: formData,
               });
-              console.log(`Image ${i + 1} uploaded successfully`);
+              console.log(`Product image ${i + 1} uploaded successfully`);
             } catch (e) {
-              console.warn(`Image ${i + 1} upload failed:`, e);
+              console.warn(`Product image ${i + 1} upload failed:`, e);
             }
           }
         }
       } else {
-        console.log("No images were selected for upload.");
+        console.log("No product images were selected for upload.");
+      }
+
+      // Upload document images after product creation
+      if (pid && documentImages.length > 0) {
+        console.log(
+          `Uploading ${documentImages.length} document images for product ${pid}...`
+        );
+
+        try {
+          // Try multiple upload first for documents
+          const formData = new FormData();
+          formData.append("productId", pid);
+          formData.append("imageType", "document"); // Add type to distinguish from product images
+
+          // Add all document images to FormData
+          documentImages.forEach((image, index) => {
+            formData.append("images", image);
+          });
+
+          console.log(
+            "Uploading document images with multiple endpoint:",
+            documentImages.length,
+            "images"
+          );
+          const uploadedDocumentImages = await apiRequest(
+            `/api/ProductImage/multiple`,
+            {
+              method: "POST",
+              body: formData,
+            }
+          );
+          console.log(
+            "Multiple document images uploaded successfully:",
+            uploadedDocumentImages
+          );
+        } catch (e) {
+          console.warn(
+            "Multiple document image upload failed, trying individual uploads:",
+            e
+          );
+
+          // Fallback to individual uploads for documents
+          for (let i = 0; i < documentImages.length; i++) {
+            const img = documentImages[i];
+            try {
+              const formData = new FormData();
+              formData.append("productId", pid);
+              formData.append("imageFile", img);
+              formData.append("imageType", "document"); // Add type to distinguish
+
+              console.log(
+                `Uploading document image ${i + 1}/${
+                  documentImages.length
+                } for product ${pid}`
+              );
+              await apiRequest(`/api/ProductImage`, {
+                method: "POST",
+                body: formData,
+              });
+              console.log(`Document image ${i + 1} uploaded successfully`);
+            } catch (e) {
+              console.warn(`Document image ${i + 1} upload failed:`, e);
+            }
+          }
+        }
+      } else {
+        console.log("No document images were selected for upload.");
+      }
+
+      // Send notification to user (optional - don't block success)
+      let notificationSent = false;
+      try {
+        notificationSent = await notifyPostCreated(
+          user.id || user.userId || user.accountId,
+          formData.title
+        );
+        if (notificationSent) {
+          console.log("✅ Notification sent successfully");
+        } else {
+          console.log("⚠️ Notification API not available");
+        }
+      } catch (notificationError) {
+        console.warn(
+          "⚠️ Could not send notification (API not available):",
+          notificationError
+        );
+        // Don't throw error - notification is optional
       }
 
       show({
         title: "✅ Tạo bài đăng thành công",
-        description: "Bài đăng của bạn đang chờ duyệt từ admin. Bạn sẽ được thông báo khi được duyệt.",
+        description: notificationSent
+          ? "Bài đăng của bạn đang chờ duyệt từ admin. Bạn sẽ được thông báo khi được duyệt."
+          : "Bài đăng của bạn đang chờ duyệt từ admin. (Hệ thống thông báo tạm thời không khả dụng)",
         type: "success",
       });
       navigate("/dashboard");
@@ -444,10 +574,10 @@ export const CreateListing = () => {
 
       if (err.status === 500) {
         errorMessage =
-          "Lỗi máy chủ (500): Có thể do dữ liệu không hợp lệ hoặc lỗi cơ sở dữ liệu. Vui lòng kiểm tra lại thông tin và thử lại.";
+          "Lỗi máy chủ (500): Backend gặp lỗi khi lưu dữ liệu. Vui lòng báo admin kiểm tra database và thử lại sau.";
       } else if (err.status === 400) {
         errorMessage =
-          "Lỗi dữ liệu (400): Thông tin gửi lên không hợp lệ. Vui lòng kiểm tra lại các trường bắt buộc.";
+          "Lỗi dữ liệu (400): Backend không nhận được đúng format dữ liệu. Vui lòng báo admin kiểm tra API contract.";
       } else if (err.status === 401) {
         errorMessage = "Lỗi xác thực (401): Vui lòng đăng nhập lại.";
       } else if (err.status === 403) {
@@ -557,9 +687,14 @@ export const CreateListing = () => {
                     value={formData.licensePlate}
                     onChange={handleChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="VD: 30A-123.45"
+                    placeholder="VD: 30A-12345 (5 số cuối)"
+                    pattern="[0-9]{2}[A-Z]-[0-9]{5}"
+                    title="Định dạng: 30A-12345 (2 số + 1 chữ cái + 5 số)"
                     required
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Định dạng: 30A-12345 (2 số + 1 chữ cái + 5 số)
+                  </p>
                 </div>
 
                 <div>
@@ -737,69 +872,15 @@ export const CreateListing = () => {
             </div>
           </div>
 
-          {/* Contact Information */}
+          {/* Product Images Upload */}
           <div className="bg-white rounded-xl shadow-sm p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-6">
-              Thông tin liên hệ
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Địa điểm *
-                </label>
-                <input
-                  type="text"
-                  name="location"
-                  value={formData.location}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Ví dụ: Hà Nội, TP.HCM"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Số điện thoại *
-                </label>
-                <input
-                  type="tel"
-                  name="contactPhone"
-                  value={formData.contactPhone}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Ví dụ: 0123456789"
-                  required
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email liên hệ
-                </label>
-                <input
-                  type="email"
-                  name="contactEmail"
-                  value={formData.contactEmail}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="your@email.com"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Image Upload */}
-          <div className="bg-white rounded-xl shadow-sm p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">
-              Hình ảnh (Tối đa 5 ảnh)
+              Hình ảnh sản phẩm (Tối đa 5 ảnh)
             </h2>
             <div className="space-y-4">
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                 <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600 mb-4">
-                  Kéo thả ảnh vào đây hoặc click để chọn
-                </p>
+                <p className="text-gray-600 mb-4">Upload hình ảnh xe của bạn</p>
                 <input
                   type="file"
                   multiple
@@ -812,7 +893,7 @@ export const CreateListing = () => {
                   htmlFor="image-upload"
                   className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 cursor-pointer"
                 >
-                  Chọn ảnh
+                  Chọn ảnh xe
                 </label>
               </div>
 
@@ -832,6 +913,64 @@ export const CreateListing = () => {
                       >
                         <X className="h-4 w-4" />
                       </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Document Images Upload */}
+          <div className="bg-white rounded-xl shadow-sm p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">
+              Hình ảnh giấy tờ xe (Tối đa 3 ảnh)
+            </h2>
+            <div className="space-y-4">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                <p className="text-sm text-yellow-800">
+                  <strong>Lưu ý:</strong> Upload các giấy tờ quan trọng như:
+                  Đăng ký xe, Bảo hiểm, Giấy tờ sở hữu, v.v.
+                </p>
+              </div>
+
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600 mb-4">Upload hình ảnh giấy tờ xe</p>
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={handleDocumentImageUpload}
+                  className="hidden"
+                  id="document-upload"
+                />
+                <label
+                  htmlFor="document-upload"
+                  className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 cursor-pointer"
+                >
+                  Chọn ảnh giấy tờ
+                </label>
+              </div>
+
+              {documentImages.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {documentImages.map((image, index) => (
+                    <div key={index} className="relative">
+                      <img
+                        src={URL.createObjectURL(image)}
+                        alt={`Document ${index + 1}`}
+                        className="w-full h-32 object-cover rounded-lg border-2 border-green-200"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeDocumentImage(index)}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                      <div className="absolute bottom-2 left-2 bg-green-600 text-white px-2 py-1 rounded text-xs">
+                        Giấy tờ {index + 1}
+                      </div>
                     </div>
                   ))}
                 </div>

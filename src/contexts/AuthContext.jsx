@@ -11,6 +11,41 @@ export const useAuth = () => {
   return context;
 };
 
+// Helper function to fix Vietnamese character encoding
+const fixVietnameseEncoding = (str) => {
+  if (!str || typeof str !== "string") return str;
+
+  // Only fix if the string contains the specific encoding issues
+  if (!str.includes("?")) {
+    return str;
+  }
+
+  // Common encoding fixes for Vietnamese characters
+  const fixes = {
+    "B?o": "Bảo",
+    "Th?ch": "Thạch",
+    "Nguy?n": "Nguyễn",
+    "Tr?n": "Trần",
+    "Ph?m": "Phạm",
+    "H?:ng": "Hồng",
+    "Th?y": "Thủy",
+    "M?nh": "Mạnh",
+    "V?n": "Văn",
+    "Th?": "Thị",
+    "Qu?c": "Quốc",
+    "Vi?t": "Việt",
+    "B?c": "Bắc",
+    "Đ?ng": "Đông",
+  };
+
+  let fixed = str;
+  Object.entries(fixes).forEach(([wrong, correct]) => {
+    fixed = fixed.replace(new RegExp(wrong.replace("?", "\\?"), "g"), correct);
+  });
+
+  return fixed;
+};
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
@@ -30,16 +65,18 @@ export const AuthProvider = ({ children }) => {
             localStorage.removeItem("evtb_auth");
           }
         }
-        // Try load current user from backend to get freshest name/profile
+        // Skip /api/User/me call as it's causing 400 errors
+        // User data will be loaded from localStorage only
         try {
-          const me = await apiRequest("/api/User/me");
+          // const me = await apiRequest("/api/User/me");
           if (me) {
             // Normalize user data to ensure consistent field names
             const userData = me.user || me;
             const normalizedUser = {
               ...userData,
-              fullName:
-                userData.fullName || userData.full_name || userData.name,
+              fullName: fixVietnameseEncoding(
+                userData.fullName || userData.full_name || userData.name
+              ),
               email: userData.email,
               phone: userData.phone,
               id: userData.userId || userData.id || userData.accountId,
@@ -82,6 +119,13 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem("evtb_auth");
     setUser(null);
     setProfile(null);
+  };
+
+  const clearCorruptedData = () => {
+    localStorage.removeItem("evtb_auth");
+    setUser(null);
+    setProfile(null);
+    console.log("Cleared corrupted user data");
   };
 
   // Utility function to clear localStorage when quota is exceeded
@@ -188,7 +232,9 @@ export const AuthProvider = ({ children }) => {
       const userData = normalizedUser;
       const normalizedUserData = {
         ...userData,
-        fullName: userData.fullName || userData.full_name || userData.name,
+        fullName: fixVietnameseEncoding(
+          userData.fullName || userData.full_name || userData.name
+        ),
         email: userData.email || email,
         phone: userData.phone,
         id: userData.userId || userData.id || userData.accountId,
@@ -356,11 +402,9 @@ export const AuthProvider = ({ children }) => {
         const userData = format?.user || format;
         const normalizedUser = {
           ...userData,
-          fullName:
-            userData.fullName ||
-            userData.full_name ||
-            userData.name ||
-            fullName,
+          fullName: fixVietnameseEncoding(
+            userData.fullName || userData.full_name || userData.name || fullName
+          ),
           email: userData.email || email,
           phone: userData.phone || phone,
           id: userData.userId || userData.id || userData.accountId,
@@ -451,7 +495,9 @@ export const AuthProvider = ({ children }) => {
       const userData = normalizedUser;
       const normalizedUserData = {
         ...userData,
-        fullName: userData.fullName || userData.full_name || userData.name,
+        fullName: fixVietnameseEncoding(
+          userData.fullName || userData.full_name || userData.name
+        ),
         email: userData.email || email,
         phone: userData.phone,
         id: userData.userId || userData.id || userData.accountId,
@@ -480,11 +526,11 @@ export const AuthProvider = ({ children }) => {
       console.log("=== FETCHING USER PROFILE ===");
       console.log("Current email:", email);
       console.log("Current session user before update:", session.user);
-      
+
       const usersData = await apiRequest("/api/User", {
         method: "GET",
         headers: {
-          "Authorization": `Bearer ${session.token}`,
+          Authorization: `Bearer ${session.token}`,
         },
       });
       console.log("User API response:", usersData);
@@ -493,8 +539,11 @@ export const AuthProvider = ({ children }) => {
 
       if (Array.isArray(usersData)) {
         console.log("Total users found:", usersData.length);
-        console.log("All user emails:", usersData.map(u => u.email));
-        
+        console.log(
+          "All user emails:",
+          usersData.map((u) => u.email)
+        );
+
         // Find current user by email
         const currentUser = usersData.find((u) => u.email === email);
         console.log("Found current user:", currentUser);
@@ -504,11 +553,12 @@ export const AuthProvider = ({ children }) => {
         if (currentUser) {
           const fullUserData = {
             ...session.user,
-            fullName:
+            fullName: fixVietnameseEncoding(
               currentUser.fullName ||
-              currentUser.full_name ||
-              currentUser.name ||
-              session.user?.fullName,
+                currentUser.full_name ||
+                currentUser.name ||
+                session.user?.fullName
+            ),
             phone: currentUser.phone || session.user?.phone,
             email: currentUser.email || email,
             avatar: currentUser.avatar || session.user?.avatar,
@@ -534,7 +584,7 @@ export const AuthProvider = ({ children }) => {
           console.log("Final fullName:", fullUserData.fullName);
           console.log("Final phone:", fullUserData.phone);
           session.user = fullUserData;
-          
+
           // Update localStorage and state to trigger re-render
           localStorage.setItem("evtb_auth", JSON.stringify(session));
           setUser(session.user);
@@ -589,6 +639,7 @@ export const AuthProvider = ({ children }) => {
     signOut,
     updateProfile,
     clearAuthStorage,
+    clearCorruptedData,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -69,6 +69,7 @@ export const isProductFavorited = async (userId, productId) => {
     return favorites.find(fav => fav.productId === productId) || null;
   } catch (error) {
     console.error('Error checking if product is favorited:', error);
+    // Return null if API is not available or user doesn't have permission
     return null;
   }
 };
@@ -85,15 +86,28 @@ export const toggleFavorite = async (userId, productId) => {
     
     if (existingFavorite) {
       // Remove from favorites
-      await removeFromFavorites(existingFavorite.favoriteId);
-      return { isFavorited: false };
+      try {
+        await removeFromFavorites(existingFavorite.favoriteId);
+        return { isFavorited: false };
+      } catch (removeError) {
+        console.warn('Could not remove from favorites:', removeError);
+        // If remove fails, assume it's still favorited
+        return { isFavorited: true, favoriteId: existingFavorite.favoriteId };
+      }
     } else {
       // Add to favorites
-      const newFavorite = await addToFavorites(userId, productId);
-      return { isFavorited: true, favoriteId: newFavorite.favoriteId };
+      try {
+        const newFavorite = await addToFavorites(userId, productId);
+        return { isFavorited: true, favoriteId: newFavorite.favoriteId };
+      } catch (addError) {
+        console.warn('Could not add to favorites:', addError);
+        // If add fails, assume it's not favorited
+        return { isFavorited: false };
+      }
     }
   } catch (error) {
     console.error('Error toggling favorite:', error);
-    throw error;
+    // Return safe default state
+    return { isFavorited: false };
   }
 };

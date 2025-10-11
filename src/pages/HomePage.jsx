@@ -18,6 +18,7 @@ export const HomePage = () => {
   const [loading, setLoading] = useState(true);
   const [featuredError, setFeaturedError] = useState("");
   const [favorites, setFavorites] = useState(new Set());
+  const [showAllProducts, setShowAllProducts] = useState(false);
 
   useEffect(() => {
     loadFeaturedProducts();
@@ -51,10 +52,15 @@ export const HomePage = () => {
           .slice(0, 8);
       }
 
-      // Load images for each approved product
+      // Load images for each approved product with delay to avoid DbContext conflicts
       const productsWithImages = await Promise.all(
-        approvedProducts.map(async (product) => {
+        approvedProducts.map(async (product, index) => {
           try {
+            // Add delay to avoid DbContext conflicts
+            if (index > 0) {
+              await new Promise((resolve) => setTimeout(resolve, 100 * index));
+            }
+
             const imagesData = await apiRequest(
               `/api/ProductImage/product/${
                 product.id || product.productId || product.Id
@@ -69,31 +75,30 @@ export const HomePage = () => {
                 (img) => img.imageData || img.imageUrl || img.url
               ),
             };
-          } catch {
+          } catch (error) {
+            console.warn(
+              `Failed to load images for product ${
+                product.id || product.productId
+              }:`,
+              error
+            );
             return { ...product, images: [] };
           }
         })
       );
 
-      // Sort products to show approved ones first
+      // Sort products by approval date (newest approved first)
       const sortedProducts = productsWithImages.sort((a, b) => {
-        const aStatus = String(a.status || a.Status || "").toLowerCase();
-        const bStatus = String(b.status || b.Status || "").toLowerCase();
+        // Get approval date or created date
+        const aDate = new Date(
+          a.approvedDate || a.createdDate || a.created_date || 0
+        );
+        const bDate = new Date(
+          b.approvedDate || b.createdDate || b.created_date || 0
+        );
 
-        // If both are approved, maintain original order
-        if (aStatus === "approved" && bStatus === "approved") {
-          return 0;
-        }
-        // If only a is approved, it should come first
-        if (aStatus === "approved" && bStatus !== "approved") {
-          return -1;
-        }
-        // If only b is approved, it should come first
-        if (bStatus === "approved" && aStatus !== "approved") {
-          return 1;
-        }
-        // For other cases, maintain original order
-        return 0;
+        // Sort by date descending (newest first)
+        return bDate - aDate;
       });
 
       console.log("Loaded approved products for homepage:", sortedProducts);
@@ -119,12 +124,12 @@ export const HomePage = () => {
 
   const loadFavorites = async () => {
     if (!user) return;
-    
+
     try {
       const userId = user.id || user.userId || user.accountId;
       const favoritesData = await apiRequest(`/api/Favorite/user/${userId}`);
-      const favoriteIds = Array.isArray(favoritesData) 
-        ? favoritesData.map(fav => fav.productId)
+      const favoriteIds = Array.isArray(favoritesData)
+        ? favoritesData.map((fav) => fav.productId)
         : [];
       setFavorites(new Set(favoriteIds));
     } catch (error) {
@@ -147,28 +152,44 @@ export const HomePage = () => {
         user.id || user.userId || user.accountId,
         productId
       );
-      
-      setFavorites(prev => {
-        const newFavorites = new Set(prev);
-        if (result.isFavorited) {
-          newFavorites.add(productId);
-        } else {
-          newFavorites.delete(productId);
-        }
-        return newFavorites;
-      });
-      
-      showToast({
-        title: result.isFavorited ? "❤️ Đã thêm vào yêu thích" : "💔 Đã xóa khỏi yêu thích",
-        description: result.isFavorited ? "Sản phẩm đã được thêm vào danh sách yêu thích" : "Sản phẩm đã được xóa khỏi danh sách yêu thích",
-        type: "success",
-      });
+
+      // Only update UI if we got a valid result
+      if (result && typeof result.isFavorited === "boolean") {
+        setFavorites((prev) => {
+          const newFavorites = new Set(prev);
+          if (result.isFavorited) {
+            newFavorites.add(productId);
+          } else {
+            newFavorites.delete(productId);
+          }
+          return newFavorites;
+        });
+
+        showToast({
+          title: result.isFavorited
+            ? "❤️ Đã thêm vào yêu thích"
+            : "💔 Đã xóa khỏi yêu thích",
+          description: result.isFavorited
+            ? "Sản phẩm đã được thêm vào danh sách yêu thích"
+            : "Sản phẩm đã được xóa khỏi danh sách yêu thích",
+          type: "success",
+        });
+      } else {
+        // If API is not available, show warning but don't crash
+        showToast({
+          title: "⚠️ Tính năng yêu thích tạm thời không khả dụng",
+          description:
+            "Backend chưa hỗ trợ tính năng yêu thích. Vui lòng thử lại sau.",
+          type: "warning",
+        });
+      }
     } catch (error) {
       console.error("Error toggling favorite:", error);
       showToast({
-        title: "❌ Lỗi cập nhật yêu thích",
-        description: "Không thể cập nhật trạng thái yêu thích. Vui lòng thử lại.",
-        type: "error",
+        title: "⚠️ Tính năng yêu thích tạm thời không khả dụng",
+        description:
+          "Backend chưa hỗ trợ tính năng yêu thích. Vui lòng thử lại sau.",
+        type: "warning",
       });
     }
   };
@@ -176,7 +197,7 @@ export const HomePage = () => {
   const handleSearch = (e) => {
     e.preventDefault();
     // TODO: implement search functionality
-    console.log('search clicked:', { searchQuery, productType, location });
+    console.log("search clicked:", { searchQuery, productType, location });
   };
 
   return (
@@ -189,7 +210,7 @@ export const HomePage = () => {
           <div className="absolute top-1/2 right-1/3 w-12 h-12 bg-cyan-400 bg-opacity-25 rounded-full animate-bounce energy-effect-1"></div>
           <div className="absolute bottom-1/3 left-1/3 w-14 h-14 bg-blue-300 bg-opacity-20 rounded-full animate-pulse energy-effect-2"></div>
           <div className="absolute bottom-1/4 right-1/4 w-10 h-10 bg-white bg-opacity-30 rounded-full animate-bounce energy-effect-3"></div>
-          
+
           {/* Electric spark effects */}
           <div className="absolute inset-0">
             <div className="absolute top-1/4 left-1/5 w-2 h-8 bg-yellow-400 rounded-full animate-pulse opacity-80"></div>
@@ -208,7 +229,11 @@ export const HomePage = () => {
             <div className="mb-8 flex justify-center">
               <div className="relative">
                 <div className="hero-icon-container">
-                  <svg className="hero-icon" fill="currentColor" viewBox="0 0 24 24">
+                  <svg
+                    className="hero-icon"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  >
                     {/* Electric car body */}
                     <path d="M19 7h-3V6a4 4 0 0 0-8 0v1H5a1 1 0 0 0-1 1v11a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V8a1 1 0 0 0-1-1zM10 6a2 2 0 0 1 4 0v1h-4V6zm8 13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V9h2v1a1 1 0 0 0 2 0V9h4v1a1 1 0 0 0 2 0V9h2v10z" />
                     {/* Charging port */}
@@ -224,8 +249,12 @@ export const HomePage = () => {
                 </div>
                 {/* Charging cable effect */}
                 <div className="charging-cable-effect">
-                  <svg className="charging-cable-icon" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                  <svg
+                    className="charging-cable-icon"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
                   </svg>
                 </div>
                 {/* Energy sparks */}
@@ -233,7 +262,7 @@ export const HomePage = () => {
                 <div className="energy-spark-2"></div>
               </div>
             </div>
-            
+
             <h1 className="text-4xl md:text-5xl font-bold mb-8 bg-gradient-to-r from-white via-blue-100 to-cyan-100 bg-clip-text text-transparent leading-relaxed">
               Nền tảng giao dịch xe điện & pin số 1 Việt Nam
             </h1>
@@ -277,10 +306,7 @@ export const HomePage = () => {
               </div>
 
               <div className="md:col-span-1">
-                <button
-                  type="submit"
-                  className="search-button"
-                >
+                <button type="submit" className="search-button">
                   <Search className="h-5 w-5 mr-2" />
                   Tìm kiếm
                 </button>
@@ -292,17 +318,23 @@ export const HomePage = () => {
             <div className="feature-item">
               <Zap className="feature-icon" />
               <h3 className="feature-title">1000+ xe đã giao dịch</h3>
-              <p className="feature-description">Hàng nghìn giao dịch thành công</p>
+              <p className="feature-description">
+                Hàng nghìn giao dịch thành công
+              </p>
             </div>
             <div className="feature-item">
               <Shield className="feature-icon" />
               <h3 className="feature-title">Kiểm định chính hãng</h3>
-              <p className="feature-description">Đảm bảo chất lượng từng sản phẩm</p>
+              <p className="feature-description">
+                Đảm bảo chất lượng từng sản phẩm
+              </p>
             </div>
             <div className="feature-item">
               <TrendingUp className="feature-icon" />
               <h3 className="feature-title">Giá minh bạch, cộng khai</h3>
-              <p className="feature-description">Hỗ trợ AI gợi ý giá tốt nhất</p>
+              <p className="feature-description">
+                Hỗ trợ AI gợi ý giá tốt nhất
+              </p>
             </div>
           </div>
         </div>
@@ -342,21 +374,61 @@ export const HomePage = () => {
 
           {loading ? (
             <div className="products-grid">
-              {[...Array(4)].map((_, i) => (
+              {[...Array(8)].map((_, i) => (
                 <div key={i} className="skeleton-card"></div>
               ))}
             </div>
           ) : featuredProducts.length > 0 ? (
-            <div className="products-grid">
-              {featuredProducts.map((product) => (
-                <ProductCard 
-                  key={product.id} 
-                  product={product} 
-                  onToggleFavorite={handleToggleFavorite}
-                  isFavorite={favorites.has(product.id || product.productId)}
-                />
-              ))}
-            </div>
+            <>
+              <div className="products-grid">
+                {(showAllProducts
+                  ? featuredProducts
+                  : featuredProducts.slice(0, 8)
+                ).map((product, index) => (
+                  <ProductCard
+                    key={
+                      product.id ||
+                      product.productId ||
+                      product.Id ||
+                      `product-${index}`
+                    }
+                    product={product}
+                    onToggleFavorite={handleToggleFavorite}
+                    isFavorite={favorites.has(product.id || product.productId)}
+                  />
+                ))}
+              </div>
+
+              {featuredProducts.length > 8 && (
+                <div className="text-center mt-8">
+                  <button
+                    onClick={() => setShowAllProducts(!showAllProducts)}
+                    className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center mx-auto space-x-2"
+                  >
+                    <span>
+                      {showAllProducts
+                        ? "Thu gọn"
+                        : `Xem tất cả (${featuredProducts.length} sản phẩm)`}
+                    </span>
+                    <svg
+                      className={`w-5 h-5 transition-transform duration-200 ${
+                        showAllProducts ? "rotate-180" : ""
+                      }`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              )}
+            </>
           ) : (
             <div className="text-center py-8">
               <p className="text-gray-500">Không có sản phẩm nào</p>
@@ -382,7 +454,9 @@ export const HomePage = () => {
                 <CheckCircle className="benefit-icon" />
               </div>
               <h3 className="benefit-title">Kiểm duyệt kỹ lưỡng</h3>
-              <p className="benefit-description">Mỗi tin đăng đều được admin kiểm tra và phê duyệt</p>
+              <p className="benefit-description">
+                Mỗi tin đăng đều được admin kiểm tra và phê duyệt
+              </p>
             </div>
 
             <div className="benefit-item">
@@ -390,7 +464,9 @@ export const HomePage = () => {
                 <Shield className="benefit-icon" />
               </div>
               <h3 className="benefit-title">Thanh toán an toàn</h3>
-              <p className="benefit-description">Hỗ trợ nhiều phương thức thanh toán bảo mật</p>
+              <p className="benefit-description">
+                Hỗ trợ nhiều phương thức thanh toán bảo mật
+              </p>
             </div>
 
             <div className="benefit-item">
@@ -398,7 +474,9 @@ export const HomePage = () => {
                 <TrendingUp className="benefit-icon" />
               </div>
               <h3 className="benefit-title">AI gợi ý giá</h3>
-              <p className="benefit-description">Công nghệ AI giúp định giá chính xác nhất</p>
+              <p className="benefit-description">
+                Công nghệ AI giúp định giá chính xác nhất
+              </p>
             </div>
 
             <div className="benefit-item">
