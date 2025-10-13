@@ -21,6 +21,14 @@ import { ForgotPassword } from "./pages/ForgotPassword";
 import { ResetPassword } from "./pages/ResetPassword";
 import { AuthCallback } from "./pages/AuthCallback";
 import { ToastProvider } from "./contexts/ToastContext";
+import { About } from "./pages/footer/About";
+import { HowItWorks } from "./pages/footer/HowItWorks";
+import { Careers } from "./pages/footer/Careers";
+import { Contact } from "./pages/footer/Contact";
+import { FAQ } from "./pages/footer/FAQ";
+import { Terms } from "./pages/footer/Terms";
+import { Privacy } from "./pages/footer/Privacy";
+import { HelpCenter } from "./pages/footer/HelpCenter";
 
 const ProtectedRoute = ({ children, adminOnly = false }) => {
   const { user, profile, loading } = useAuth();
@@ -82,6 +90,16 @@ const AppContent = () => {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
+
+          {/* Footer informational pages */}
+          <Route path="/about" element={<About />} />
+          <Route path="/how-it-works" element={<HowItWorks />} />
+          <Route path="/careers" element={<Careers />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/faq" element={<FAQ />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/help" element={<HelpCenter />} />
 
           <Route
             path="/dashboard"

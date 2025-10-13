@@ -60,4 +60,29 @@ export async function apiRequest(path, { method = "GET", body, headers } = {}) {
   return data;
 }
 
-export { API_BASE_URL };
+// AI Price Prediction API
+const AI_API_BASE_URL = import.meta.env.VITE_AI_API_BASE_URL || "/ai";
+
+export async function predictVehiclePrice(vehicleData) {
+  try {
+    const response = await fetch(`${AI_API_BASE_URL}/predict-price`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(vehicleData),
+    });
+
+    if (!response.ok) {
+      throw new Error(`AI API error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error('Error calling AI price prediction:', error);
+    throw error;
+  }
+}
+
+export { API_BASE_URL, AI_API_BASE_URL };
