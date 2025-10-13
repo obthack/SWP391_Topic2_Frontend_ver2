@@ -6,9 +6,15 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:5044', // địa chỉ backend
+        target: 'http://localhost:5044', // địa chỉ backend C#
         changeOrigin: true,
         secure: false,
+      },
+      '/ai': {
+        target: 'http://localhost:5000', // địa chỉ AI service
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/ai/, ''),
       },
     },
   },

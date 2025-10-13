@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Upload, X } from "lucide-react";
+import { ArrowLeft, Upload, X, Sparkles, TrendingUp, Info } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import { apiRequest } from "../lib/api";
+import { apiRequest, predictVehiclePrice } from "../lib/api";
 import { useToast } from "../contexts/ToastContext";
 import { notifyPostCreated } from "../lib/notificationApi";
 
@@ -13,7 +13,7 @@ export const CreateListing = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [images, setImages] = useState([]);
-  const [documentImages, setDocumentImages] = useState([]);
+
   const [formData, setFormData] = useState({
     title: "",
     licensePlate: "",
@@ -53,8 +53,7 @@ export const CreateListing = () => {
     setImages(images.filter((_, i) => i !== index));
   };
 
-  const removeDocumentImage = (index) => {
-    setDocumentImages(documentImages.filter((_, i) => i !== index));
+
   };
 
   const fileToBase64 = (file) =>
@@ -758,15 +757,29 @@ export const CreateListing = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Giá bán (VNĐ) *
                   </label>
-                  <input
-                    type="number"
-                    name="price"
-                    value={formData.price}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Ví dụ: 1200000000"
-                    required
-                  />
+                  <div className="flex space-x-2">
+                    <input
+                      type="number"
+                      name="price"
+                      value={formData.price}
+                      onChange={handleChange}
+                      className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Ví dụ: 1200000000"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAiPricePrediction}
+                      disabled={aiLoading || !formData.brand || !formData.year}
+                      className="px-4 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      <span>{aiLoading ? "AI..." : "AI"}</span>
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Nhấn AI để nhận đề xuất giá thông minh
+                  </p>
                 </div>
               </div>
 
@@ -977,6 +990,110 @@ export const CreateListing = () => {
               )}
             </div>
           </div>
+
+          {/* AI Price Suggestion */}
+          {showAiSuggestion && aiPrediction && (
+            <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-2">
+                  <Sparkles className="h-5 w-5 text-purple-600" />
+                  <h3 className="text-lg font-semibold text-gray-900">Đề xuất giá từ AI</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAiSuggestion(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div className="bg-white rounded-lg p-4 border border-purple-100">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-600">Giá đề xuất</span>
+                      <TrendingUp className="h-4 w-4 text-green-500" />
+                    </div>
+                    <div className="text-2xl font-bold text-green-600">
+                      {formatPrice(aiPrediction.predicted_price)}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      Độ tin cậy: {Math.round(aiPrediction.confidence * 100)}%
+                    </div>
+                  </div>
+                  
+                  <div className="bg-white rounded-lg p-4 border border-purple-100">
+                    <div className="text-sm font-medium text-gray-600 mb-2">Chi tiết dự đoán</div>
+                    <div className="space-y-1 text-sm text-gray-600">
+                      <div>Random Forest: {formatPrice(aiPrediction.rf_prediction || aiPrediction.predicted_price)}</div>
+                      <div>Gradient Boosting: {formatPrice(aiPrediction.gb_prediction || aiPrediction.predicted_price)}</div>
+                      <div>Ensemble: {formatPrice(aiPrediction.ensemble_prediction || aiPrediction.predicted_price)}</div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="bg-white rounded-lg p-4 border border-purple-100">
+                    <div className="text-sm font-medium text-gray-600 mb-2">Các yếu tố ảnh hưởng</div>
+                    <div className="space-y-2 text-sm text-gray-600">
+                      {aiPrediction.factors && (
+                        <>
+                          <div className="flex justify-between">
+                            <span>Tuổi xe:</span>
+                            <span>{aiPrediction.factors.age} năm</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Số km:</span>
+                            <span>{aiPrediction.factors.mileage?.toLocaleString('vi-VN')} km</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Tình trạng:</span>
+                            <span className="capitalize">{aiPrediction.factors.condition}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Vị trí:</span>
+                            <span>{aiPrediction.factors.location}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Xu hướng thị trường:</span>
+                            <span className="capitalize">{aiPrediction.factors.market_trend}</span>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <div className="flex items-start space-x-2">
+                      <Info className="h-4 w-4 text-blue-600 mt-0.5" />
+                      <div className="text-sm text-blue-800">
+                        <p className="font-medium">Lưu ý:</p>
+                        <p>Giá đề xuất chỉ mang tính chất tham khảo. Giá thực tế có thể khác tùy thuộc vào tình trạng cụ thể và thị trường địa phương.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowAiSuggestion(false)}
+                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Bỏ qua
+                </button>
+                <button
+                  type="button"
+                  onClick={applyAiPrice}
+                  className="px-6 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700"
+                >
+                  Áp dụng giá này
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Submit Button */}
           <div className="flex justify-end space-x-4">
