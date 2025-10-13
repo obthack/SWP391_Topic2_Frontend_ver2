@@ -112,9 +112,9 @@ export const Dashboard = () => {
           try {
             // Add delay between API calls to prevent DbContext conflicts
             if (index > 0) {
-              await new Promise(resolve => setTimeout(resolve, 100 * index));
+              await new Promise((resolve) => setTimeout(resolve, 100 * index));
             }
-            
+
             const imagesData = await apiRequest(
               `/api/ProductImage/product/${l.id || l.productId || l.Id}`
             );
@@ -163,7 +163,19 @@ export const Dashboard = () => {
         }).length,
         monthlyGrowth: Math.floor(Math.random() * 20) + 5, // Simulated growth
       });
-      setMyListings(normalized);
+
+      // Sort listings to show newest first (by createdDate or createdAt)
+      const sortedListings = normalized.sort((a, b) => {
+        const dateA = new Date(
+          a.createdDate || a.createdAt || a.created_date || 0
+        );
+        const dateB = new Date(
+          b.createdDate || b.createdAt || b.created_date || 0
+        );
+        return dateB - dateA; // Newest first
+      });
+
+      setMyListings(sortedListings);
 
       // Generate recent activity data
       const activities = normalized.slice(0, 5).map((listing) => ({
@@ -407,9 +419,11 @@ export const Dashboard = () => {
                               }}
                             />
                           ) : null}
-                          <div 
+                          <div
                             className={`w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center ${
-                              listing.images && listing.images.length > 0 ? 'hidden' : ''
+                              listing.images && listing.images.length > 0
+                                ? "hidden"
+                                : ""
                             }`}
                           >
                             <Package className="h-6 w-6 text-gray-400" />
@@ -441,14 +455,23 @@ export const Dashboard = () => {
                               listing.license_plate ||
                               ""}
                           </p>
-                          <div className="flex items-center space-x-4 mt-1">
+                          <div className="flex items-center justify-between mt-1">
                             <span className="text-sm font-medium text-blue-600">
                               {formatPrice(listing.price)}
                             </span>
-                            <div className="flex items-center text-sm text-gray-500">
-                              <Eye className="h-4 w-4 mr-1" />
-                              {listing.views_count || 0}
-                            </div>
+                            <span className="text-sm text-gray-500">
+                              {new Date(
+                                listing.createdAt ||
+                                  listing.created_at ||
+                                  listing.createdDate
+                              ).toLocaleString("vi-VN", {
+                                year: "numeric",
+                                month: "2-digit",
+                                day: "2-digit",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </span>
                           </div>
                         </div>
 
