@@ -43,6 +43,7 @@ export const AdminDashboard = () => {
   const [showModal, setShowModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [expandedDetails, setExpandedDetails] = useState(false);
 
   const getId = (x) => x?.id || x?.productId || x?.Id || x?.listingId;
 
@@ -128,7 +129,7 @@ export const AdminDashboard = () => {
       console.log("Processed listings array:", listingsArray);
       console.log("Listings array length:", listingsArray.length);
 
-      // Process all listings with images (with delay to prevent DbContext conflicts)
+      // Process all listings with images and seller info (with delay to prevent DbContext conflicts)
       const processedListings = await Promise.all(
         listingsArray.map(async (l, index) => {
           try {
@@ -143,19 +144,49 @@ export const AdminDashboard = () => {
             const images = Array.isArray(imagesData)
               ? imagesData
               : imagesData?.items || [];
+
+            // Get seller information
+            let seller = null;
+            try {
+              if (l.sellerId || l.seller_id || l.userId || l.user_id) {
+                const sellerId =
+                  l.sellerId || l.seller_id || l.userId || l.user_id;
+                seller = users.find(
+                  (u) => u.id === sellerId || u.userId === sellerId
+                );
+              }
+            } catch (error) {
+              console.warn(
+                `Failed to get seller info for product ${l.id}:`,
+                error
+              );
+            }
+
             return {
               ...l,
               status: mapStatus(l),
               images: images.map(
                 (img) => img.imageData || img.imageUrl || img.url
               ),
+              seller: seller,
             };
           } catch (error) {
             console.warn(`Failed to load images for product ${l.id}:`, error);
-            return { ...l, status: mapStatus(l), images: [] };
+            return { ...l, status: mapStatus(l), images: [], seller: null };
           }
         })
       );
+
+      // Sort listings to show newest first (by createdDate or createdAt)
+      const sortedListings = processedListings.sort((a, b) => {
+        const dateA = new Date(
+          a.createdDate || a.createdAt || a.created_date || 0
+        );
+        const dateB = new Date(
+          b.createdDate || b.createdAt || b.created_date || 0
+        );
+        return dateB - dateA; // Newest first
+      });
 
       const pending = processedListings.filter((l) => l.status === "pending");
       const approved = processedListings.filter((l) => l.status === "approved");
@@ -179,7 +210,7 @@ export const AdminDashboard = () => {
         totalRevenue: revenue,
       });
 
-      setAllListings(processedListings);
+      setAllListings(sortedListings);
     } catch (error) {
       console.error("Error loading admin data:", error);
       console.error("Error details:", error.message, error.status, error.data);
@@ -397,6 +428,7 @@ export const AdminDashboard = () => {
     console.log("Will show approve buttons:", listing.status === "pending");
     setSelectedListing(listing);
     setCurrentImageIndex(0); // Reset to first image
+    setExpandedDetails(false); // Reset expanded details
     setShowModal(true);
   };
 
@@ -697,18 +729,38 @@ export const AdminDashboard = () => {
                         </h3>
                         <div className="space-y-1 text-sm text-gray-600">
                           <div className="flex items-center space-x-2">
-                            <Car className="h-4 w-4" />
+                            <Users className="h-4 w-4" />
                             <span>
-                              {listing.brand} {listing.model} - {listing.year}
+                              {listing.seller?.fullName ||
+                                listing.seller?.full_name ||
+                                listing.seller?.name ||
+                                listing.seller?.email?.split("@")[0] ||
+                                "Không xác định"}
                             </span>
                           </div>
                           <div className="flex items-center space-x-2">
-                            <MapPin className="h-4 w-4" />
-                            <span>{listing.location || "Chưa cập nhật"}</span>
+                            <Car className="h-4 w-4" />
+                            <span>
+                              {listing.licensePlate ||
+                                listing.license_plate ||
+                                "Chưa cập nhật"}
+                            </span>
                           </div>
                           <div className="flex items-center space-x-2">
                             <Calendar className="h-4 w-4" />
-                            <span>{formatDate(listing.created_at)}</span>
+                            <span>
+                              {new Date(
+                                listing.createdAt ||
+                                  listing.created_at ||
+                                  listing.createdDate
+                              ).toLocaleString("vi-VN", {
+                                year: "numeric",
+                                month: "2-digit",
+                                day: "2-digit",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </span>
                           </div>
                         </div>
                         <div className="mt-3">
@@ -874,64 +926,125 @@ export const AdminDashboard = () => {
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-gray-500">Thương hiệu</p>
-                      <p className="font-medium">
-                        {selectedListing.brand || "Chưa cập nhật"}
-                      </p>
+                  {/* Product Info with Expandable Details */}
+                  <div className="bg-gray-50 rounded-lg p-6 space-y-4">
+                    {/* Basic Info - Always Visible */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">
+                          Thương hiệu
+                        </p>
+                        <p className="font-medium text-base">
+                          {selectedListing.brand || "Chưa cập nhật"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Model</p>
+                        <p className="font-medium text-base">
+                          {selectedListing.model || "Chưa cập nhật"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Biển số</p>
+                        <p className="font-medium text-base">
+                          {selectedListing.licensePlate ||
+                            selectedListing.license_plate ||
+                            "Chưa cập nhật"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Đăng lúc</p>
+                        <p className="font-medium text-base">
+                          {new Date(
+                            selectedListing.createdAt ||
+                              selectedListing.created_at ||
+                              selectedListing.createdDate
+                          ).toLocaleString("vi-VN", {
+                            year: "numeric",
+                            month: "2-digit",
+                            day: "2-digit",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Model</p>
-                      <p className="font-medium">
-                        {selectedListing.model || "Chưa cập nhật"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Năm sản xuất</p>
-                      <p className="font-medium">
-                        {selectedListing.year || "Chưa cập nhật"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Biển số</p>
-                      <p className="font-medium">
-                        {selectedListing.licensePlate || "Chưa cập nhật"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Số km</p>
-                      <p className="font-medium">
-                        {selectedListing.mileage || "Chưa cập nhật"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Tình trạng</p>
-                      <p className="font-medium">
-                        {selectedListing.condition || "Chưa cập nhật"}
-                      </p>
-                    </div>
-                  </div>
 
-                  <div>
-                    <p className="text-sm text-gray-500 mb-2">Mô tả</p>
-                    <p className="text-gray-700">
-                      {selectedListing.description || "Chưa có mô tả"}
-                    </p>
-                  </div>
+                    {/* Expand/Collapse Button */}
+                    <button
+                      onClick={() => setExpandedDetails(!expandedDetails)}
+                      className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 transition-colors"
+                    >
+                      <span className="text-sm font-medium">
+                        {expandedDetails ? "Thu gọn" : "Xem thêm thông tin"}
+                      </span>
+                      <svg
+                        className={`w-4 h-4 transition-transform duration-200 ${
+                          expandedDetails ? "rotate-180" : ""
+                        }`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
+                      </svg>
+                    </button>
 
-                  <div>
-                    <p className="text-sm text-gray-500 mb-2">Địa chỉ</p>
-                    <p className="text-gray-700">
-                      {selectedListing.location || "Chưa cập nhật"}
-                    </p>
-                  </div>
+                    {/* Expanded Details */}
+                    {expandedDetails && (
+                      <div className="space-y-4 pt-4 border-t border-gray-200 animate-fadeIn">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-sm text-gray-500 mb-1">
+                              Năm sản xuất
+                            </p>
+                            <p className="font-medium">
+                              {selectedListing.year || "Chưa cập nhật"}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500 mb-1">Số km</p>
+                            <p className="font-medium">
+                              {selectedListing.mileage || "Chưa cập nhật"}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500 mb-1">
+                              Tình trạng
+                            </p>
+                            <p className="font-medium">
+                              {selectedListing.condition || "Chưa cập nhật"}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500 mb-1">
+                              Địa chỉ
+                            </p>
+                            <p className="font-medium">
+                              {selectedListing.location || "Chưa cập nhật"}
+                            </p>
+                          </div>
+                        </div>
 
-                  <div className="flex items-center space-x-2 text-sm text-gray-500">
-                    <Calendar className="h-4 w-4" />
-                    <span>
-                      Đăng lúc: {formatDate(selectedListing.created_at)}
-                    </span>
+                        {/* Description */}
+                        {selectedListing.description &&
+                          selectedListing.description !== "Chưa có mô tả" && (
+                            <div>
+                              <p className="text-sm text-gray-500 mb-2">
+                                Mô tả
+                              </p>
+                              <p className="text-gray-700 bg-white p-3 rounded-lg border">
+                                {selectedListing.description}
+                              </p>
+                            </div>
+                          )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

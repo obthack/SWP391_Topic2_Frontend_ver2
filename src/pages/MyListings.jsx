@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Edit, Trash2, Eye, Plus, Search, Filter } from "lucide-react";
+import { Edit, Trash2, Eye, Plus, Search, Filter, Package } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { apiRequest } from "../lib/api";
 import { formatPrice, formatDate } from "../utils/formatters";
@@ -59,21 +59,12 @@ export const MyListings = () => {
           const s = norm(l?.status || l?.Status || "");
           return s !== "deleted" && s !== "inactive";
         })
-        .map(async (l) => {
-          // Skip the problematic endpoint for now and check product object directly
+        .map(async (l, index) => {
           let images = [];
-
-          console.log(
-            `Checking images for product: ${l.id || l.productId || l.Id}`
-          );
 
           // Check if images are stored directly in the product object first
           if (l.images && Array.isArray(l.images)) {
             images = l.images;
-            console.log(
-              `Using images from product object for ${l.id}:`,
-              images
-            );
           } else {
             // Check other possible image fields
             const possibleImageFields = [
@@ -99,10 +90,6 @@ export const MyListings = () => {
                 } else if (typeof l[field] === "string") {
                   images = [l[field]];
                 }
-                console.log(
-                  `Found images in field '${field}' for product ${l.id}:`,
-                  images
-                );
                 break;
               }
             }
@@ -111,15 +98,16 @@ export const MyListings = () => {
           // Only try the API endpoint if no images found in product object
           if (images.length === 0) {
             try {
-              console.log(
-                `Trying API endpoint for product: ${
-                  l.id || l.productId || l.Id
-                }`
-              );
+              // Add delay between API calls to prevent DbContext conflicts
+              if (index > 0) {
+                await new Promise((resolve) =>
+                  setTimeout(resolve, 100 * index)
+                );
+              }
+
               const imagesData = await apiRequest(
                 `/api/ProductImage/product/${l.id || l.productId || l.Id}`
               );
-              console.log(`Images data for product ${l.id}:`, imagesData);
 
               const imagesArray = Array.isArray(imagesData)
                 ? imagesData
@@ -134,13 +122,8 @@ export const MyListings = () => {
                   img.ImageUrl ||
                   img.Url
               );
-
-              console.log(`Processed images for product ${l.id}:`, images);
             } catch (error) {
-              console.log(
-                `Error loading images from ProductImage endpoint for product ${l.id}:`,
-                error
-              );
+              console.warn(`Failed to load images for product ${l.id}:`, error);
             }
           }
 
@@ -153,7 +136,19 @@ export const MyListings = () => {
 
       // Wait for all image loading to complete
       const listingsWithImages = await Promise.all(filtered);
-      setListings(listingsWithImages);
+
+      // Sort listings to show newest first (by createdDate or createdAt)
+      const sortedListings = listingsWithImages.sort((a, b) => {
+        const dateA = new Date(
+          a.createdDate || a.createdAt || a.created_date || 0
+        );
+        const dateB = new Date(
+          b.createdDate || b.createdAt || b.created_date || 0
+        );
+        return dateB - dateA; // Newest first
+      });
+
+      setListings(sortedListings);
     } catch (error) {
       console.error("Error loading listings:", error);
     } finally {
@@ -208,21 +203,17 @@ export const MyListings = () => {
         className: "mylistings-status-badge mylistings-status-approved",
         label: "Đã duyệt",
       },
-      rejected: { 
-        className: "mylistings-status-badge mylistings-status-rejected", 
-        label: "Từ chối" 
+      rejected: {
+        className: "mylistings-status-badge mylistings-status-rejected",
+        label: "Từ chối",
       },
-      sold: { 
-        className: "mylistings-status-badge mylistings-status-sold", 
-        label: "Đã bán" 
+      sold: {
+        className: "mylistings-status-badge mylistings-status-sold",
+        label: "Đã bán",
       },
     };
     const config = statusConfig[s] || statusConfig.pending;
-    return (
-      <span className={config.className}>
-        {config.label}
-      </span>
-    );
+    return <span className={config.className}>{config.label}</span>;
   };
 
   const filteredListings = listings.filter((listing) => {
@@ -252,24 +243,16 @@ export const MyListings = () => {
         <div className="mylistings-header">
           <div className="mylistings-header-content">
             <div className="mylistings-title-section">
-              <h1 className="mylistings-title">
-                Quản lý tin đăng
-              </h1>
+              <h1 className="mylistings-title">Quản lý tin đăng</h1>
               <p className="mylistings-subtitle">
                 Quản lý và theo dõi các bài đăng của bạn
               </p>
             </div>
             <div className="mylistings-actions">
-              <Link
-                to="/trash"
-                className="mylistings-trash-button"
-              >
+              <Link to="/trash" className="mylistings-trash-button">
                 Thùng rác
               </Link>
-              <Link
-                to="/create-listing"
-                className="mylistings-create-button"
-              >
+              <Link to="/create-listing" className="mylistings-create-button">
                 <Plus className="mylistings-create-icon" />
                 Đăng tin mới
               </Link>
@@ -324,10 +307,7 @@ export const MyListings = () => {
                 : "Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc"}
             </p>
             {listings.length === 0 && (
-              <Link
-                to="/create-listing"
-                className="mylistings-empty-button"
-              >
+              <Link to="/create-listing" className="mylistings-empty-button">
                 <Plus className="mylistings-empty-button-icon" />
                 Tạo tin đăng đầu tiên
               </Link>
@@ -340,47 +320,39 @@ export const MyListings = () => {
               console.log("Listing object:", listing);
               console.log("Listing ID:", idVal, "Type:", typeof idVal);
               return (
-                <div
-                  key={idVal}
-                  className="mylistings-card"
-                >
+                <div key={idVal} className="mylistings-card">
                   <div className="mylistings-image-container">
-                    <img
-                      src={
+                    {listing.images && listing.images.length > 0 ? (
+                      <img
+                        src={listing.images[0]}
+                        alt={listing.title}
+                        className="mylistings-image"
+                        onError={(e) => {
+                          e.target.style.display = "none";
+                          // Show fallback icon when image fails to load
+                          const fallback = e.target.nextElementSibling;
+                          if (fallback) {
+                            fallback.style.display = "flex";
+                          }
+                        }}
+                      />
+                    ) : null}
+                    <div
+                      className={`mylistings-image-placeholder ${
                         listing.images && listing.images.length > 0
-                          ? listing.images[0]
-                          : "https://images.pexels.com/photos/110844/pexels-photo-110844.jpeg?auto=compress&cs=tinysrgb&w=400"
-                      }
-                      alt={listing.title}
-                      className="mylistings-image"
-                      onError={(e) => {
-                        console.log(
-                          `Image failed to load for listing ${
-                            listing.id || listing.title
-                          }:`,
-                          e.target.src
-                        );
-                        e.target.src =
-                          "https://images.pexels.com/photos/110844/pexels-photo-110844.jpeg?auto=compress&cs=tinysrgb&w=400";
-                      }}
-                      onLoad={(e) => {
-                        console.log(
-                          `Image loaded successfully for listing ${
-                            listing.id || listing.title
-                          }:`,
-                          e.target.src
-                        );
-                      }}
-                    />
+                          ? "mylistings-image-placeholder-hidden"
+                          : ""
+                      }`}
+                    >
+                      <Package className="mylistings-image-placeholder-icon" />
+                    </div>
                     <div className="mylistings-status-badge-container">
                       {getStatusBadge(getStatus(listing))}
                     </div>
                   </div>
 
                   <div className="mylistings-card-content">
-                    <h3 className="mylistings-card-title">
-                      {listing.title}
-                    </h3>
+                    <h3 className="mylistings-card-title">{listing.title}</h3>
                     <p className="mylistings-card-subtitle">
                       {listing.licensePlate || listing.license_plate || ""}
                     </p>
@@ -389,17 +361,18 @@ export const MyListings = () => {
                     </p>
 
                     <div className="mylistings-card-meta">
-                      <span className="mylistings-card-views">
-                        <Eye className="mylistings-card-views-icon" />
-                        {listing.viewsCount || listing.views_count || 0} lượt
-                        xem
-                      </span>
                       <span>
-                        {formatDate(
+                        {new Date(
                           listing.createdAt ||
                             listing.created_at ||
                             listing.createdDate
-                        )}
+                        ).toLocaleString("vi-VN", {
+                          year: "numeric",
+                          month: "2-digit",
+                          day: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
                       </span>
                     </div>
 
@@ -435,14 +408,10 @@ export const MyListings = () => {
         {/* Stats */}
         {listings.length > 0 && (
           <div className="mylistings-stats">
-            <h3 className="mylistings-stats-title">
-              Thống kê
-            </h3>
+            <h3 className="mylistings-stats-title">Thống kê</h3>
             <div className="mylistings-stats-grid">
               <div className="mylistings-stat-item">
-                <p className="mylistings-stat-value">
-                  {listings.length}
-                </p>
+                <p className="mylistings-stat-value">{listings.length}</p>
                 <p className="mylistings-stat-label">Tổng tin đăng</p>
               </div>
               <div className="mylistings-stat-item">
