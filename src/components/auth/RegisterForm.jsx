@@ -1,7 +1,21 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Mail, Lock, User, Phone, AlertCircle } from "lucide-react";
+import {
+  Mail,
+  Lock,
+  User,
+  Phone,
+  AlertCircle,
+  Eye,
+  EyeOff,
+  Car,
+  Zap,
+  Shield,
+  Star,
+  CheckCircle,
+} from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
+import "../../styles/auth.css";
 
 export const RegisterForm = () => {
   const [formData, setFormData] = useState({
@@ -11,6 +25,8 @@ export const RegisterForm = () => {
     confirmPassword: "",
     phone: "",
   });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const { signUp } = useAuth();
@@ -49,282 +65,406 @@ export const RegisterForm = () => {
         formData.fullName,
         formData.phone
       );
-      const rawId = session?.user?.roleId ?? session?.profile?.roleId ?? session?.user?.role;
-      const rid = typeof rawId === 'string' ? Number(rawId) : rawId;
-      const roleName = (session?.user?.roleName || session?.profile?.role || '').toString().toLowerCase();
-      const isAdmin = rid === 1 || roleName === 'admin';
+      const rawId =
+        session?.user?.roleId ??
+        session?.profile?.roleId ??
+        session?.user?.role;
+      const rid = typeof rawId === "string" ? Number(rawId) : rawId;
+      const roleName = (session?.user?.roleName || session?.profile?.role || "")
+        .toString()
+        .toLowerCase();
+      const isAdmin = rid === 1 || roleName === "admin";
       navigate(isAdmin ? "/admin" : "/dashboard");
     } catch (err) {
-      setError(err.message || "Đã có lỗi xảy ra. Vui lòng thử lại.");
+      console.error("Register form error:", err);
+
+      // Handle specific error cases
+      let errorMessage = "Đã có lỗi xảy ra. Vui lòng thử lại.";
+
+      if (err.status === 400) {
+        if (err.data && typeof err.data === "object") {
+          // Try to extract meaningful error message
+          errorMessage =
+            err.data.message ||
+            err.data.error ||
+            "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại thông tin.";
+        } else if (err.message && err.message.includes("400")) {
+          errorMessage =
+            "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại thông tin.";
+        } else {
+          errorMessage =
+            "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại thông tin.";
+        }
+      } else if (err.status === 409) {
+        errorMessage = "Email này đã được sử dụng. Vui lòng chọn email khác.";
+      } else if (err.status === 500) {
+        if (err.message && err.message.includes("SQL Server")) {
+          errorMessage = "Lỗi kết nối cơ sở dữ liệu. Vui lòng thử lại sau.";
+        } else {
+          errorMessage = "Lỗi máy chủ. Vui lòng thử lại sau.";
+        }
+      } else if (err.message) {
+        // Handle specific error messages
+        if (err.message.includes("All data formats rejected")) {
+          errorMessage =
+            "Định dạng dữ liệu không được hỗ trợ. Vui lòng liên hệ quản trị viên.";
+        } else if (
+          err.message.includes("Registration completed but auto-login failed")
+        ) {
+          errorMessage =
+            "Đăng ký thành công nhưng không thể đăng nhập tự động. Vui lòng đăng nhập thủ công.";
+        } else {
+          errorMessage = err.message;
+        }
+      }
+
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left side - Background Image */}
-      <div className="hidden lg:flex lg:w-1/2 relative">
-        <div
-          className="absolute inset-0 bg-gradient-to-br from-green-600 via-blue-600 to-purple-700"
-          style={{
-            backgroundImage: `url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000"><defs><linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:%23059669;stop-opacity:0.9" /><stop offset="50%" style="stop-color:%232563eb;stop-opacity:0.8" /><stop offset="100%" style="stop-color:%237c3aed;stop-opacity:0.9" /></linearGradient></defs><rect width="1000" height="1000" fill="url(%23grad2)"/><g fill="white" opacity="0.15"><circle cx="150" cy="150" r="80"/><circle cx="850" cy="200" r="60"/><circle cx="200" cy="800" r="100"/><circle cx="750" cy="750" r="70"/><circle cx="500" cy="400" r="40"/></g></svg>')`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-          }}
-        >
-          <div className="absolute inset-0 bg-black bg-opacity-10"></div>
+    <div className="min-h-screen relative overflow-hidden auth-bg">
+      {/* Animated Background Elements */}
+      <div className="absolute inset-0">
+        {/* Electric car silhouettes - more variety */}
+        <div className="absolute top-16 right-16 w-40 h-20 opacity-15 car-silhouette-1">
+          <svg viewBox="0 0 200 100" className="w-full h-full text-cyan-400">
+            <path
+              d="M15 65 L40 45 L170 45 L190 65 L190 85 L170 85 L150 65 L110 65 L90 85 L70 85 L50 65 L15 65 Z"
+              fill="currentColor"
+              opacity="0.3"
+            />
+            <circle cx="30" cy="85" r="8" fill="currentColor" opacity="0.4" />
+            <circle cx="170" cy="85" r="8" fill="currentColor" opacity="0.4" />
+            <rect
+              x="80"
+              y="50"
+              width="40"
+              height="15"
+              fill="currentColor"
+              opacity="0.2"
+            />
+            <rect
+              x="85"
+              y="35"
+              width="30"
+              height="10"
+              fill="currentColor"
+              opacity="0.1"
+            />
+          </svg>
         </div>
 
-        <div className="relative z-10 flex flex-col justify-center items-center text-white p-12">
-          <div className="max-w-md text-center">
-            <div className="mb-8">
-              <div className="w-24 h-24 mx-auto mb-6 bg-white bg-opacity-20 rounded-full flex items-center justify-center backdrop-blur-sm">
-                <svg
-                  className="w-12 h-12"
-                  fill="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2Z" />
-                </svg>
-              </div>
-              <h1 className="text-4xl font-bold mb-4">Tham gia EV Market!</h1>
-              <p className="text-xl text-blue-100 mb-8">
-                Bắt đầu hành trình xe điện của bạn ngay hôm nay
-              </p>
-            </div>
-
-            <div className="bg-white bg-opacity-10 backdrop-blur-sm rounded-2xl p-6 border border-white border-opacity-20">
-              <h3 className="text-lg font-semibold mb-4">Lợi ích khi tham gia</h3>
-              <div className="space-y-3 text-sm text-blue-100">
-                <div className="flex items-center space-x-2">
-                  <span>🚗</span>
-                  <span>Tiếp cận hàng nghìn xe điện</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span>💰</span>
-                  <span>Giá cả cạnh tranh nhất</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span>🔒</span>
-                  <span>Giao dịch an toàn tuyệt đối</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span>⚡</span>
-                  <span>Hỗ trợ 24/7</span>
-                </div>
-              </div>
-            </div>
-          </div>
+        <div className="absolute top-32 left-12 w-36 h-18 opacity-20 car-silhouette-2">
+          <svg viewBox="0 0 200 100" className="w-full h-full text-emerald-400">
+            <path
+              d="M25 62 L50 42 L180 42 L200 62 L200 82 L180 82 L160 62 L120 62 L100 82 L80 82 L60 62 L25 62 Z"
+              fill="currentColor"
+              opacity="0.3"
+            />
+            <circle cx="40" cy="82" r="8" fill="currentColor" opacity="0.4" />
+            <circle cx="160" cy="82" r="8" fill="currentColor" opacity="0.4" />
+            <rect
+              x="90"
+              y="47"
+              width="20"
+              height="15"
+              fill="currentColor"
+              opacity="0.2"
+            />
+            <rect
+              x="95"
+              y="32"
+              width="10"
+              height="10"
+              fill="currentColor"
+              opacity="0.1"
+            />
+          </svg>
         </div>
+
+        <div className="absolute bottom-40 left-20 w-44 h-22 opacity-10 car-silhouette-3">
+          <svg viewBox="0 0 200 100" className="w-full h-full text-blue-400">
+            <path
+              d="M20 60 L55 40 L185 40 L205 60 L205 80 L185 80 L165 60 L125 60 L105 80 L85 80 L65 60 L20 60 Z"
+              fill="currentColor"
+              opacity="0.3"
+            />
+            <circle cx="45" cy="80" r="8" fill="currentColor" opacity="0.4" />
+            <circle cx="165" cy="80" r="8" fill="currentColor" opacity="0.4" />
+            <rect
+              x="95"
+              y="45"
+              width="10"
+              height="15"
+              fill="currentColor"
+              opacity="0.2"
+            />
+            <rect
+              x="100"
+              y="30"
+              width="20"
+              height="10"
+              fill="currentColor"
+              opacity="0.1"
+            />
+          </svg>
+        </div>
+
+        {/* Tech elements */}
+        <div className="absolute top-1/4 left-1/4 w-6 h-6 border-2 border-cyan-400 border-dashed opacity-30 tech-element-1"></div>
+        <div className="absolute bottom-1/3 right-1/4 w-4 h-4 border border-emerald-400 opacity-40 tech-element-2"></div>
+        <div className="absolute top-1/2 left-1/3 w-3 h-3 bg-blue-400 opacity-20 rounded-full tech-element-3"></div>
+        <div className="absolute bottom-1/4 left-1/2 w-5 h-5 border border-indigo-400 opacity-25 tech-element-4"></div>
+
+        {/* Circuit patterns */}
+        <div className="absolute inset-0 opacity-5">
+          <svg viewBox="0 0 1000 1000" className="w-full h-full">
+            <defs>
+              <pattern
+                id="circuit2"
+                x="0"
+                y="0"
+                width="80"
+                height="80"
+                patternUnits="userSpaceOnUse"
+              >
+                <path
+                  d="M0 40 L80 40 M40 0 L40 80 M20 20 L60 60 M60 20 L20 60"
+                  stroke="currentColor"
+                  strokeWidth="1"
+                  fill="none"
+                />
+                <circle cx="40" cy="40" r="3" fill="currentColor" />
+              </pattern>
+            </defs>
+            <rect
+              width="100%"
+              height="100%"
+              fill="url(#circuit2)"
+              className="text-cyan-400"
+            />
+          </svg>
+        </div>
+
+        {/* Floating particles */}
+        <div className="absolute top-24 right-1/4 w-2 h-2 bg-cyan-400 rounded-full opacity-60 particle-1"></div>
+        <div className="absolute top-1/2 left-1/5 w-1 h-1 bg-emerald-400 rounded-full opacity-80 particle-2"></div>
+        <div className="absolute bottom-1/4 right-1/5 w-3 h-3 bg-blue-400 rounded-full opacity-40 particle-3"></div>
+        <div className="absolute bottom-24 left-1/4 w-1.5 h-1.5 bg-indigo-400 rounded-full opacity-70 particle-4"></div>
+        <div className="absolute top-1/3 right-1/5 w-2 h-2 bg-purple-400 rounded-full opacity-50 particle-5"></div>
       </div>
 
-      {/* Right side - Register Form */}
-      <div
-        className="w-full lg:w-1/2 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden"
-        style={{
-          background: `
-            linear-gradient(45deg, 
-              rgba(16, 185, 129, 0.1) 0%, 
-              rgba(59, 130, 246, 0.1) 25%, 
-              rgba(139, 92, 246, 0.1) 50%, 
-              rgba(236, 72, 153, 0.1) 75%, 
-              rgba(251, 146, 60, 0.1) 100%
-            ),
-            url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000"><defs><linearGradient id="lg1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:%23ecfdf5;stop-opacity:0.9" /><stop offset="100%" style="stop-color:%23f0f9ff;stop-opacity:0.8" /></linearGradient></defs><rect width="100%" height="100%" fill="url(%23lg1)"/><g fill="%2310b981" opacity="0.12"><polygon points="100,50 150,100 100,150 50,100" /><polygon points="900,150 950,200 900,250 850,200" /><polygon points="200,850 250,900 200,950 150,900" /><polygon points="800,750 850,800 800,850 750,800" /></g><g fill="%233b82f6" opacity="0.1"><circle cx="300" cy="200" r="35" /><circle cx="700" cy="400" r="25" /><circle cx="500" cy="700" r="40" /><circle cx="150" cy="600" r="30" /></g></svg>')
-          `,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }}
-      >
-        {/* Animated floating elements */}
-        <div className="absolute inset-0">
-          <div className="absolute top-16 right-24 w-18 h-18 bg-emerald-400 bg-opacity-25 rounded-lg animate-pulse transform rotate-45"></div>
-          <div
-            className="absolute top-32 left-28 w-14 h-14 bg-blue-400 bg-opacity-25 rounded-full animate-bounce"
-            style={{ animationDelay: "0.8s" }}
-          ></div>
-          <div
-            className="absolute bottom-28 right-16 w-16 h-16 bg-violet-400 bg-opacity-25 rounded-lg animate-pulse transform rotate-12"
-            style={{ animationDelay: "1.5s" }}
-          ></div>
-          <div
-            className="absolute bottom-16 left-24 w-12 h-12 bg-orange-400 bg-opacity-25 rounded-full animate-bounce"
-            style={{ animationDelay: "0.3s" }}
-          ></div>
-        </div>
-        <div className="max-w-md w-full relative z-10">
-          <div
-            className="bg-white bg-opacity-95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white border-opacity-70 p-8 transform hover:scale-105 transition-all duration-300 hover:shadow-3xl"
-            style={{
-              boxShadow:
-                "0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.5)",
-            }}
-          >
+      {/* Main Content */}
+      <div className="relative z-10 auth-form-container">
+        <div className="auth-center-wrapper">
+          {/* Glassmorphism Register Card */}
+          <div className="auth-card p-8">
+            {/* Header */}
             <div className="text-center mb-8">
-              <h2 className="text-3xl font-bold text-gray-900">Đăng ký</h2>
-              <p className="mt-2 text-gray-600">Tạo tài khoản mới của bạn</p>
+              <div className="auth-header-icon">
+                <Car />
+              </div>
+              <h2 className="auth-title">EV Market</h2>
+              <p className="auth-subtitle">Tạo tài khoản mới</p>
             </div>
 
+            {/* Error Message */}
             {error && (
-              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center text-red-700">
-                <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0" />
-                <span>{error}</span>
+              <div className="error-message">
+                <AlertCircle className="error-icon" />
+                <span className="error-text">{error}</span>
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <label
-                  htmlFor="fullName"
-                  className="block text-sm font-medium text-gray-700 mb-2"
-                >
+            {/* Register Form */}
+            <form onSubmit={handleSubmit} className="auth-form">
+              {/* Full Name Field */}
+              <div className="auth-field">
+                <label htmlFor="fullName" className="auth-label">
                   Họ và tên
                 </label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <div className="auth-input-container">
+                  <User className="auth-input-icon" />
                   <input
                     id="fullName"
                     name="fullName"
                     type="text"
                     value={formData.fullName}
                     onChange={handleChange}
-                    className="pl-10 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:border-blue-400 focus:scale-105"
+                    className="auth-input"
                     placeholder="Nguyễn Văn A"
                     required
                   />
                 </div>
               </div>
 
-              <div>
-                <label
-                  htmlFor="email"
-                  className="block text-sm font-medium text-gray-700 mb-2"
-                >
+              {/* Email Field */}
+              <div className="auth-field">
+                <label htmlFor="email" className="auth-label">
                   Email
                 </label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <div className="auth-input-container">
+                  <Mail className="auth-input-icon" />
                   <input
                     id="email"
                     name="email"
                     type="email"
                     value={formData.email}
                     onChange={handleChange}
-                    className="pl-10 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:border-blue-400 focus:scale-105"
+                    className="auth-input"
                     placeholder="your@email.com"
                     required
                   />
                 </div>
               </div>
 
-              <div>
-                <label
-                  htmlFor="phone"
-                  className="block text_sm font-medium text-gray-700 mb-2"
-                >
+              {/* Phone Field */}
+              <div className="auth-field">
+                <label htmlFor="phone" className="auth-label">
                   Số điện thoại
                 </label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <div className="auth-input-container">
+                  <Phone className="auth-input-icon" />
                   <input
                     id="phone"
                     name="phone"
-                    type="text"
+                    type="tel"
                     value={formData.phone}
                     onChange={handleChange}
-                    className="pl-10 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:border-blue-400 focus:scale-105"
+                    className="auth-input"
                     placeholder="0123456789"
                     required
                   />
                 </div>
               </div>
 
-              <div>
-                <label
-                  htmlFor="password"
-                  className="block text-sm font-medium text-gray-700 mb-2"
-                >
+              {/* Password Field */}
+              <div className="auth-field">
+                <label htmlFor="password" className="auth-label">
                   Mật khẩu
                 </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <div className="auth-input-container">
+                  <Lock className="auth-input-icon" />
                   <input
                     id="password"
                     name="password"
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     value={formData.password}
                     onChange={handleChange}
-                    className="pl-10 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:border-blue-400 focus:scale-105"
+                    className="auth-input"
                     placeholder="••••••••"
                     required
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="auth-password-toggle"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
+                  </button>
                 </div>
               </div>
 
-              <div>
-                <label
-                  htmlFor="confirmPassword"
-                  className="block text-sm font-medium text-gray-700 mb-2"
-                >
+              {/* Confirm Password Field */}
+              <div className="auth-field">
+                <label htmlFor="confirmPassword" className="auth-label">
                   Xác nhận mật khẩu
                 </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <div className="auth-input-container">
+                  <Lock className="auth-input-icon" />
                   <input
                     id="confirmPassword"
                     name="confirmPassword"
-                    type="password"
+                    type={showConfirmPassword ? "text" : "password"}
                     value={formData.confirmPassword}
                     onChange={handleChange}
-                    className="pl-10 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:border-blue-400 focus:scale-105"
+                    className="auth-input"
                     placeholder="••••••••"
                     required
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="auth-password-toggle"
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
+                  </button>
                 </div>
               </div>
 
-              <div className="flex items-center">
+              {/* Terms Agreement */}
+              <div className="flex items-start space-x-3">
                 <input
                   id="terms"
                   type="checkbox"
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  className="auth-checkbox"
                   required
                 />
-                <label
-                  htmlFor="terms"
-                  className="ml-2 block text-sm text-gray-700"
-                >
+                <label htmlFor="terms" className="auth-checkbox-label">
                   Tôi đồng ý với{" "}
-                  <Link to="/terms" className="text-blue-600 hover:text-blue-700">
+                  <Link
+                    to="/terms"
+                    className="text-emerald-300 hover:text-white transition-colors"
+                  >
                     Điều khoản sử dụng
                   </Link>{" "}
                   và{" "}
-                  <Link to="/privacy" className="text-blue-600 hover:text-blue-700">
+                  <Link
+                    to="/privacy"
+                    className="text-emerald-300 hover:text-white transition-colors"
+                  >
                     Chính sách bảo mật
                   </Link>
                 </label>
               </div>
 
+              {/* Register Button */}
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 px-4 rounded-lg font-medium hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-105 hover:shadow-lg"
+                className="w-full py-3 px-4 register-button"
               >
                 {loading ? "Đang đăng ký..." : "Đăng ký"}
               </button>
             </form>
 
-            <div className="mt-6 text-center">
-              <p className="text-gray-600">
+            {/* Login Link */}
+            <div className="auth-link-container">
+              <p className="auth-link-text">
                 Đã có tài khoản?{" "}
-                <Link
-                  to="/login"
-                  className="text-blue-600 hover:text-blue-700 font-medium"
-                >
+                <Link to="/login" className="auth-link">
                   Đăng nhập ngay
                 </Link>
               </p>
+            </div>
+          </div>
+
+          {/* Benefits Cards */}
+          <div className="mt-8 flex justify-center">
+            <div className="register-features">
+              <div className="auth-feature-card">
+                <Car className="auth-feature-icon text-emerald-400" />
+                <p className="auth-feature-text">Hàng nghìn xe điện</p>
+              </div>
+              <div className="auth-feature-card">
+                <Zap className="auth-feature-icon text-yellow-400" />
+                <p className="auth-feature-text">Giá cạnh tranh</p>
+              </div>
+              <div className="auth-feature-card">
+                <Shield className="auth-feature-icon text-blue-400" />
+                <p className="auth-feature-text">Giao dịch an toàn</p>
+              </div>
             </div>
           </div>
         </div>

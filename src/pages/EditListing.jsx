@@ -13,6 +13,11 @@ export const EditListing = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [images, setImages] = useState([]);
+  const [documentImages, setDocumentImages] = useState([]);
+  const [existingImages, setExistingImages] = useState([]);
+  const [existingDocumentImages, setExistingDocumentImages] = useState([]);
+  const [imagesToDelete, setImagesToDelete] = useState([]);
+  const [documentImagesToDelete, setDocumentImagesToDelete] = useState([]);
   const [formData, setFormData] = useState({
     title: "",
     licensePlate: "",
@@ -26,9 +31,6 @@ export const EditListing = () => {
     fuelType: "",
     transmission: "",
     condition: "excellent",
-    location: "",
-    contactPhone: "",
-    contactEmail: user?.email || "",
     productType: "vehicle",
   });
 
@@ -58,19 +60,27 @@ export const EditListing = () => {
         fuelType: data.fuelType ?? data.FuelType ?? "",
         transmission: data.transmission ?? data.Transmission ?? "",
         condition: data.condition ?? data.Condition ?? "excellent",
-        location: data.location ?? data.city ?? data.City ?? data.address ?? "",
-        contactPhone:
-          data.contactPhone ??
-          data.phone ??
-          data.phoneNumber ??
-          data.PhoneNumber ??
-          "",
-        contactEmail:
-          data.contactEmail ?? data.email ?? data.Email ?? user?.email ?? "",
         productType:
           data.productType ?? data.product_type ?? data.Type ?? "vehicle",
       };
       setFormData(mapped);
+
+      // Load existing product images
+      try {
+        const imageData = await apiRequest(`/api/ProductImage/product/${id}`);
+        const productImages = (imageData || []).filter(
+          (img) => !img.imageType || img.imageType !== "document"
+        );
+        const docImages = (imageData || []).filter(
+          (img) => img.imageType === "document"
+        );
+        setExistingImages(productImages);
+        setExistingDocumentImages(docImages);
+      } catch (imageError) {
+        console.warn("Could not load existing images:", imageError);
+        setExistingImages([]);
+        setExistingDocumentImages([]);
+      }
     } catch (error) {
       console.error("Error loading listing:", error);
       setError("Không thể tải thông tin bài đăng");
@@ -86,13 +96,45 @@ export const EditListing = () => {
 
   const handleImageUpload = (e) => {
     const files = Array.from(e.target.files);
-    const newImages = files.slice(0, 5 - images.length);
+    const maxNewImages = 5 - existingImages.length;
+    const newImages = files.slice(0, maxNewImages);
     setImages([...images, ...newImages]);
+  };
+
+  const handleDocumentImageUpload = (e) => {
+    const files = Array.from(e.target.files);
+    const maxNewImages = 3 - existingDocumentImages.length;
+    const newImages = files.slice(0, maxNewImages);
+    setDocumentImages([...documentImages, ...newImages]);
   };
 
   const removeImage = (index) => {
     setImages(images.filter((_, i) => i !== index));
   };
+
+  const removeDocumentImage = (index) => {
+    setDocumentImages(documentImages.filter((_, i) => i !== index));
+  };
+
+  const removeExistingImage = (imageId) => {
+    setExistingImages(existingImages.filter((img) => img.id !== imageId));
+    setImagesToDelete([...imagesToDelete, imageId]);
+  };
+
+  const removeExistingDocumentImage = (imageId) => {
+    setExistingDocumentImages(
+      existingDocumentImages.filter((img) => img.id !== imageId)
+    );
+    setDocumentImagesToDelete([...documentImagesToDelete, imageId]);
+  };
+
+  const fileToBase64 = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -106,21 +148,23 @@ export const EditListing = () => {
         description: formData.description,
         brand: formData.brand,
         model: formData.model,
-        year: formData.year ? parseInt(formData.year) : undefined,
+        manufactureYear: formData.year ? parseInt(formData.year) : undefined,
         price: formData.price ? parseFloat(formData.price) : undefined,
         mileage: formData.mileage ? parseInt(formData.mileage) : undefined,
-        color: formData.color || undefined,
-        fuelType: formData.fuelType || undefined,
-        transmission: formData.transmission || undefined,
+        vehicleType: formData.color || undefined, // Màu sắc có thể map với VehicleType
         condition: formData.condition || undefined,
-        location: formData.location || undefined,
-        contactPhone: formData.contactPhone || undefined,
-        contactEmail: formData.contactEmail || undefined,
         productType: formData.productType,
-        sellerId: user?.id || user?.accountId || user?.userId || 1,
-        isActive: true,
-        updatedAt: new Date().toISOString(),
       };
+
+      // Validate license plate format
+      if (formData.licensePlate) {
+        const licensePlateRegex = /^[0-9]{2}[A-Z]-[0-9]{5}$/;
+        if (!licensePlateRegex.test(formData.licensePlate)) {
+          throw new Error(
+            "Biển số xe không đúng định dạng. Vui lòng nhập theo định dạng: 30A-12345 (2 số + 1 chữ cái + 5 số)"
+          );
+        }
+      }
 
       console.log("Updating product data:", productData);
 
@@ -130,51 +174,155 @@ export const EditListing = () => {
       });
       const pid = updated?.id || updated?.productId || updated?.Id || id;
 
-      // Upload new images if any
+      // Delete product images that user marked for deletion
+      if (imagesToDelete.length > 0) {
+        for (const imageId of imagesToDelete) {
+          try {
+            await apiRequest(`/api/ProductImage/${imageId}`, {
+              method: "DELETE",
+            });
+            console.log(`Deleted product image ${imageId}`);
+          } catch (deleteError) {
+            console.warn(
+              `Failed to delete product image ${imageId}:`,
+              deleteError
+            );
+          }
+        }
+      }
+
+      // Delete document images that user marked for deletion
+      if (documentImagesToDelete.length > 0) {
+        for (const imageId of documentImagesToDelete) {
+          try {
+            await apiRequest(`/api/ProductImage/${imageId}`, {
+              method: "DELETE",
+            });
+            console.log(`Deleted document image ${imageId}`);
+          } catch (deleteError) {
+            console.warn(
+              `Failed to delete document image ${imageId}:`,
+              deleteError
+            );
+          }
+        }
+      }
+
+      // Upload new product images if any
       if (images.length > 0) {
         try {
-          const imageDataArray = [];
-          for (let i = 0; i < images.length; i++) {
-            const img = images[i];
-            const dataUrl = await fileToBase64(img);
-            imageDataArray.push({
-              productId: pid,
-              imageData: dataUrl,
-              isPrimary: i === 0,
-            });
-          }
+          // Try multiple upload first
+          const formData = new FormData();
+          formData.append("productId", pid);
+
+          // Add all product images to FormData
+          images.forEach((image, index) => {
+            formData.append("images", image);
+          });
 
           console.log(
-            "Uploading images with multiple endpoint:",
-            imageDataArray
+            "Uploading product images with multiple endpoint:",
+            images.length,
+            "images"
           );
-          await apiRequest(`/api/ProductImage/multiple`, {
-            method: "POST",
-            body: imageDataArray,
-          });
-          console.log("Multiple images uploaded successfully");
+          const uploadedImages = await apiRequest(
+            `/api/ProductImage/multiple`,
+            {
+              method: "POST",
+              body: formData,
+            }
+          );
+          console.log(
+            "Multiple product images uploaded successfully:",
+            uploadedImages
+          );
         } catch (e) {
-          console.warn("Multiple upload failed, trying individual uploads:", e);
+          console.warn(
+            "Multiple product image upload failed, trying individual uploads:",
+            e
+          );
 
           // Fallback to individual uploads
           for (let i = 0; i < images.length; i++) {
             const img = images[i];
-            const dataUrl = await fileToBase64(img);
             try {
+              const formData = new FormData();
+              formData.append("productId", pid);
+              formData.append("imageFile", img);
+
               console.log(
-                `Uploading image ${i + 1}/${images.length} for product ${pid}`
+                `Uploading product image ${i + 1}/${
+                  images.length
+                } for product ${pid}`
               );
               await apiRequest(`/api/ProductImage`, {
                 method: "POST",
-                body: {
-                  productId: pid,
-                  imageData: dataUrl,
-                  isPrimary: i === 0,
-                },
+                body: formData,
               });
-              console.log(`Image ${i + 1} uploaded successfully`);
+              console.log(`Product image ${i + 1} uploaded successfully`);
             } catch (e) {
-              console.warn(`Image ${i + 1} upload failed:`, e);
+              console.warn(`Product image ${i + 1} upload failed:`, e);
+            }
+          }
+        }
+      }
+
+      // Upload new document images if any
+      if (documentImages.length > 0) {
+        try {
+          // Try multiple upload first for documents
+          const formData = new FormData();
+          formData.append("productId", pid);
+          formData.append("imageType", "document");
+
+          // Add all document images to FormData
+          documentImages.forEach((image, index) => {
+            formData.append("images", image);
+          });
+
+          console.log(
+            "Uploading document images with multiple endpoint:",
+            documentImages.length,
+            "images"
+          );
+          const uploadedDocumentImages = await apiRequest(
+            `/api/ProductImage/multiple`,
+            {
+              method: "POST",
+              body: formData,
+            }
+          );
+          console.log(
+            "Multiple document images uploaded successfully:",
+            uploadedDocumentImages
+          );
+        } catch (e) {
+          console.warn(
+            "Multiple document image upload failed, trying individual uploads:",
+            e
+          );
+
+          // Fallback to individual uploads for documents
+          for (let i = 0; i < documentImages.length; i++) {
+            const img = documentImages[i];
+            try {
+              const formData = new FormData();
+              formData.append("productId", pid);
+              formData.append("imageFile", img);
+              formData.append("imageType", "document");
+
+              console.log(
+                `Uploading document image ${i + 1}/${
+                  documentImages.length
+                } for product ${pid}`
+              );
+              await apiRequest(`/api/ProductImage`, {
+                method: "POST",
+                body: formData,
+              });
+              console.log(`Document image ${i + 1} uploaded successfully`);
+            } catch (e) {
+              console.warn(`Document image ${i + 1} upload failed:`, e);
             }
           }
         }
@@ -286,9 +434,14 @@ export const EditListing = () => {
                     value={formData.licensePlate}
                     onChange={handleChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="VD: 30A-123.45"
+                    placeholder="VD: 30A-12345 (5 số cuối)"
+                    pattern="[0-9]{2}[A-Z]-[0-9]{5}"
+                    title="Định dạng: 30A-12345 (2 số + 1 chữ cái + 5 số)"
                     required
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Định dạng: 30A-12345 (2 số + 1 chữ cái + 5 số)
+                  </p>
                 </div>
 
                 <div>
@@ -466,69 +619,88 @@ export const EditListing = () => {
             </div>
           </div>
 
-          {/* Contact Information */}
-          <div className="bg-white rounded-xl shadow-sm p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">
-              Thông tin liên hệ
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Địa điểm *
-                </label>
-                <input
-                  type="text"
-                  name="location"
-                  value={formData.location}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Ví dụ: Hà Nội, TP.HCM"
-                  required
-                />
+          {/* Existing Product Images */}
+          {existingImages.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-6">
+                Hình ảnh sản phẩm hiện tại
+              </h2>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                {existingImages.map((image, index) => (
+                  <div key={image.id || index} className="relative group">
+                    <img
+                      src={image.imageUrl || image.imageData || image.url}
+                      alt={`Existing ${index + 1}`}
+                      className="w-full h-24 object-cover rounded-lg"
+                      onError={(e) => {
+                        e.target.style.display = "none";
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeExistingImage(image.id)}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Xóa ảnh này"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Số điện thoại *
-                </label>
-                <input
-                  type="tel"
-                  name="contactPhone"
-                  value={formData.contactPhone}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Ví dụ: 0123456789"
-                  required
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email liên hệ
-                </label>
-                <input
-                  type="email"
-                  name="contactEmail"
-                  value={formData.contactEmail}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="your@email.com"
-                />
-              </div>
+              <p className="text-sm text-gray-500 mt-4">
+                Nhấn vào nút X để xóa ảnh. Ảnh sẽ được xóa khi bạn lưu bài đăng.
+              </p>
             </div>
-          </div>
+          )}
 
-          {/* Image Upload */}
+          {/* Existing Document Images */}
+          {existingDocumentImages.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-6">
+                Hình ảnh giấy tờ hiện tại
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {existingDocumentImages.map((image, index) => (
+                  <div key={image.id || index} className="relative group">
+                    <img
+                      src={image.imageUrl || image.imageData || image.url}
+                      alt={`Document ${index + 1}`}
+                      className="w-full h-32 object-cover rounded-lg border-2 border-green-200"
+                      onError={(e) => {
+                        e.target.style.display = "none";
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeExistingDocumentImage(image.id)}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Xóa ảnh giấy tờ này"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                    <div className="absolute bottom-2 left-2 bg-green-600 text-white px-2 py-1 rounded text-xs">
+                      Giấy tờ {index + 1}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-sm text-gray-500 mt-4">
+                Nhấn vào nút X để xóa ảnh giấy tờ. Ảnh sẽ được xóa khi bạn lưu
+                bài đăng.
+              </p>
+            </div>
+          )}
+
+          {/* Product Image Upload */}
           <div className="bg-white rounded-xl shadow-sm p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-6">
-              Hình ảnh mới (Tối đa 5 ảnh)
+              Thêm hình ảnh sản phẩm mới (Tối đa {5 - existingImages.length}{" "}
+              ảnh)
             </h2>
             <div className="space-y-4">
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                 <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600 mb-4">
-                  Kéo thả ảnh vào đây hoặc click để chọn
-                </p>
+                <p className="text-gray-600 mb-4">Upload hình ảnh xe của bạn</p>
                 <input
                   type="file"
                   multiple
@@ -541,7 +713,7 @@ export const EditListing = () => {
                   htmlFor="image-upload-edit"
                   className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 cursor-pointer"
                 >
-                  Chọn ảnh
+                  Chọn ảnh xe
                 </label>
               </div>
 
@@ -561,6 +733,65 @@ export const EditListing = () => {
                       >
                         <X className="h-4 w-4" />
                       </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Document Image Upload */}
+          <div className="bg-white rounded-xl shadow-sm p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">
+              Thêm hình ảnh giấy tờ mới (Tối đa{" "}
+              {3 - existingDocumentImages.length} ảnh)
+            </h2>
+            <div className="space-y-4">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                <p className="text-sm text-yellow-800">
+                  <strong>Lưu ý:</strong> Upload các giấy tờ quan trọng như:
+                  Đăng ký xe, Bảo hiểm, Giấy tờ sở hữu, v.v.
+                </p>
+              </div>
+
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600 mb-4">Upload hình ảnh giấy tờ xe</p>
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={handleDocumentImageUpload}
+                  className="hidden"
+                  id="document-upload-edit"
+                />
+                <label
+                  htmlFor="document-upload-edit"
+                  className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 cursor-pointer"
+                >
+                  Chọn ảnh giấy tờ
+                </label>
+              </div>
+
+              {documentImages.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {documentImages.map((image, index) => (
+                    <div key={index} className="relative">
+                      <img
+                        src={URL.createObjectURL(image)}
+                        alt={`Document Preview ${index + 1}`}
+                        className="w-full h-32 object-cover rounded-lg border-2 border-green-200"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeDocumentImage(index)}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                      <div className="absolute bottom-2 left-2 bg-green-600 text-white px-2 py-1 rounded text-xs">
+                        Giấy tờ {index + 1}
+                      </div>
                     </div>
                   ))}
                 </div>

@@ -1,6 +1,14 @@
-import { Link, useNavigate } from 'react-router-dom';
-import { Zap, Search, Heart, User, LogOut, LayoutDashboard } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
+import { Link, useNavigate } from "react-router-dom";
+import {
+  Zap,
+  Search,
+  Heart,
+  User,
+  LogOut,
+  LayoutDashboard,
+} from "lucide-react";
+import { useAuth } from "../../contexts/AuthContext";
+import { NotificationBell } from "../common/NotificationBell";
 
 export const Header = () => {
   const { user, profile, signOut, isAdmin } = useAuth();
@@ -9,9 +17,9 @@ export const Header = () => {
   const handleSignOut = async () => {
     try {
       await signOut();
-      navigate('/');
+      navigate("/");
     } catch (error) {
-      console.error('Error signing out:', error);
+      console.error("Error signing out:", error);
     }
   };
 
@@ -27,33 +35,47 @@ export const Header = () => {
           </Link>
 
           <nav className="hidden md:flex items-center space-x-8">
-            <Link to="/vehicles" className="text-gray-700 hover:text-blue-600 transition-colors">
-              Xe điện
+            <Link
+              to="/"
+              className="text-gray-700 hover:text-blue-600 transition-colors"
+            >
+              Trang chủ
             </Link>
-            <Link to="/batteries" className="text-gray-700 hover:text-blue-600 transition-colors">
-              Pin
-            </Link>
-            <Link to="/search" className="text-gray-700 hover:text-blue-600 transition-colors">
-              Đăng tin bán
-            </Link>
-            <Link to="/about" className="text-gray-700 hover:text-blue-600 transition-colors">
+            {!isAdmin && (
+              <Link
+                to="/search"
+                className="text-gray-700 hover:text-blue-600 transition-colors"
+              >
+                Đăng tin bán
+              </Link>
+            )}
+            <Link
+              to="/about"
+              className="text-gray-700 hover:text-blue-600 transition-colors"
+            >
               Cách thức hoạt động
             </Link>
           </nav>
 
           <div className="flex items-center space-x-4">
-            <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+            <button
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              title="Tìm kiếm"
+            >
               <Search className="h-5 w-5 text-gray-600" />
             </button>
 
             {user ? (
               <>
                 <Link
-                  to="/wishlist"
+                  to="/favorites"
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Yêu thích"
                 >
                   <Heart className="h-5 w-5 text-gray-600" />
                 </Link>
+
+                <NotificationBell />
 
                 <div className="relative group">
                   <button className="flex items-center space-x-2 p-2 hover:bg-gray-100 rounded-lg transition-colors">
@@ -73,20 +95,24 @@ export const Header = () => {
                         Admin Dashboard
                       </Link>
                     )}
-                    <Link
-                      to="/dashboard"
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      <User className="h-4 w-4 mr-2" />
-                      Trang cá nhân
-                    </Link>
-                    <Link
-                      to="/profile"
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      <User className="h-4 w-4 mr-2" />
-                      Hồ sơ cá nhân
-                    </Link>
+                    {!isAdmin && (
+                      <Link
+                        to="/dashboard"
+                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        <User className="h-4 w-4 mr-2" />
+                        Trang cá nhân
+                      </Link>
+                    )}
+                    {!isAdmin && (
+                      <Link
+                        to="/profile"
+                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        <User className="h-4 w-4 mr-2" />
+                        Hồ sơ cá nhân
+                      </Link>
+                    )}
                     <button
                       onClick={handleSignOut}
                       className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-100"

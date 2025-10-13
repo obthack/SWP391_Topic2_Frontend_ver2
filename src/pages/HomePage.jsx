@@ -3,18 +3,29 @@ import { Link } from "react-router-dom";
 import { Search, Zap, Shield, TrendingUp, CheckCircle } from "lucide-react";
 import { apiRequest } from "../lib/api";
 import { ProductCard } from "../components/molecules/ProductCard";
+import { useAuth } from "../contexts/AuthContext";
+import { useToast } from "../contexts/ToastContext";
+import { toggleFavorite, isProductFavorited } from "../lib/favoriteApi";
+import "../styles/homepage.css";
 
 export const HomePage = () => {
+  const { user } = useAuth();
+  const { show: showToast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [productType, setProductType] = useState("");
   const [location, setLocation] = useState("");
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [featuredError, setFeaturedError] = useState("");
+  const [favorites, setFavorites] = useState(new Set());
+  const [showAllProducts, setShowAllProducts] = useState(false);
 
   useEffect(() => {
     loadFeaturedProducts();
-  }, []);
+    if (user) {
+      loadFavorites();
+    }
+  }, [user]);
 
   const loadFeaturedProducts = async () => {
     try {
@@ -41,10 +52,15 @@ export const HomePage = () => {
           .slice(0, 8);
       }
 
-      // Load images for each approved product
+      // Load images for each approved product with delay to avoid DbContext conflicts
       const productsWithImages = await Promise.all(
-        approvedProducts.map(async (product) => {
+        approvedProducts.map(async (product, index) => {
           try {
+            // Add delay to avoid DbContext conflicts
+            if (index > 0) {
+              await new Promise((resolve) => setTimeout(resolve, 100 * index));
+            }
+
             const imagesData = await apiRequest(
               `/api/ProductImage/product/${
                 product.id || product.productId || product.Id
@@ -59,14 +75,34 @@ export const HomePage = () => {
                 (img) => img.imageData || img.imageUrl || img.url
               ),
             };
-          } catch {
+          } catch (error) {
+            console.warn(
+              `Failed to load images for product ${
+                product.id || product.productId
+              }:`,
+              error
+            );
             return { ...product, images: [] };
           }
         })
       );
 
-      console.log("Loaded approved products for homepage:", productsWithImages);
-      setFeaturedProducts(productsWithImages);
+      // Sort products by approval date (newest approved first)
+      const sortedProducts = productsWithImages.sort((a, b) => {
+        // Get approval date or created date
+        const aDate = new Date(
+          a.approvedDate || a.createdDate || a.created_date || 0
+        );
+        const bDate = new Date(
+          b.approvedDate || b.createdDate || b.created_date || 0
+        );
+
+        // Sort by date descending (newest first)
+        return bDate - aDate;
+      });
+
+      console.log("Loaded approved products for homepage:", sortedProducts);
+      setFeaturedProducts(sortedProducts);
     } catch (err) {
       console.error("Error loading featured products:", err);
       setFeaturedProducts([]);
@@ -78,69 +114,109 @@ export const HomePage = () => {
           message: err.message || String(err),
           stack: err.stack || null,
         };
-      } catch (e) {
-        // ignore
+      } catch (debugErr) {
+        console.warn("Could not set debug error object:", debugErr);
       }
     } finally {
       setLoading(false);
     }
   };
 
+  const loadFavorites = async () => {
+    if (!user) return;
+
+    try {
+      const userId = user.id || user.userId || user.accountId;
+      const favoritesData = await apiRequest(`/api/Favorite/user/${userId}`);
+      const favoriteIds = Array.isArray(favoritesData)
+        ? favoritesData.map((fav) => fav.productId)
+        : [];
+      setFavorites(new Set(favoriteIds));
+    } catch (error) {
+      console.warn("Could not load favorites:", error);
+    }
+  };
+
+  const handleToggleFavorite = async (productId) => {
+    if (!user) {
+      showToast({
+        title: "⚠️ Cần đăng nhập",
+        description: "Vui lòng đăng nhập để thêm vào yêu thích",
+        type: "warning",
+      });
+      return;
+    }
+
+    try {
+      const result = await toggleFavorite(
+        user.id || user.userId || user.accountId,
+        productId
+      );
+
+      // Only update UI if we got a valid result
+      if (result && typeof result.isFavorited === "boolean") {
+        setFavorites((prev) => {
+          const newFavorites = new Set(prev);
+          if (result.isFavorited) {
+            newFavorites.add(productId);
+          } else {
+            newFavorites.delete(productId);
+          }
+          return newFavorites;
+        });
+
+        showToast({
+          title: result.isFavorited
+            ? "❤️ Đã thêm vào yêu thích"
+            : "💔 Đã xóa khỏi yêu thích",
+          description: result.isFavorited
+            ? "Sản phẩm đã được thêm vào danh sách yêu thích"
+            : "Sản phẩm đã được xóa khỏi danh sách yêu thích",
+          type: "success",
+        });
+      } else {
+        // If API is not available, show warning but don't crash
+        showToast({
+          title: "⚠️ Tính năng yêu thích tạm thời không khả dụng",
+          description:
+            "Backend chưa hỗ trợ tính năng yêu thích. Vui lòng thử lại sau.",
+          type: "warning",
+        });
+      }
+    } catch (error) {
+      console.error("Error toggling favorite:", error);
+      showToast({
+        title: "⚠️ Tính năng yêu thích tạm thời không khả dụng",
+        description:
+          "Backend chưa hỗ trợ tính năng yêu thích. Vui lòng thử lại sau.",
+        type: "warning",
+      });
+    }
+  };
+
   const handleSearch = (e) => {
     e.preventDefault();
+    // TODO: implement search functionality
+    console.log("search clicked:", { searchQuery, productType, location });
   };
 
   return (
     <div className="min-h-screen">
-      <section
-        className="text-white py-20 relative overflow-hidden"
-        style={{
-          background: `
-            linear-gradient(135deg, 
-              rgba(15, 23, 42, 0.7) 0%, 
-              rgba(30, 58, 138, 0.6) 25%, 
-              rgba(30, 64, 175, 0.5) 50%, 
-              rgba(15, 23, 42, 0.7) 100%
-            ),
-            url('/ev-charging-hero.jpg')
-          `,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          backgroundAttachment: "fixed",
-        }}
-      >
+      <section className="text-white py-20 relative overflow-hidden hero-bg">
         {/* Electric charging effects */}
         <div className="absolute inset-0 overflow-hidden">
           {/* Charging energy effects */}
           <div className="absolute top-1/3 left-1/4 w-16 h-16 bg-blue-400 bg-opacity-30 rounded-full animate-pulse"></div>
-          <div
-            className="absolute top-1/2 right-1/3 w-12 h-12 bg-cyan-400 bg-opacity-25 rounded-full animate-bounce"
-            style={{ animationDelay: "1s" }}
-          ></div>
-          <div
-            className="absolute bottom-1/3 left-1/3 w-14 h-14 bg-blue-300 bg-opacity-20 rounded-full animate-pulse"
-            style={{ animationDelay: "2s" }}
-          ></div>
-          <div
-            className="absolute bottom-1/4 right-1/4 w-10 h-10 bg-white bg-opacity-30 rounded-full animate-bounce"
-            style={{ animationDelay: "0.5s" }}
-          ></div>
+          <div className="absolute top-1/2 right-1/3 w-12 h-12 bg-cyan-400 bg-opacity-25 rounded-full animate-bounce energy-effect-1"></div>
+          <div className="absolute bottom-1/3 left-1/3 w-14 h-14 bg-blue-300 bg-opacity-20 rounded-full animate-pulse energy-effect-2"></div>
+          <div className="absolute bottom-1/4 right-1/4 w-10 h-10 bg-white bg-opacity-30 rounded-full animate-bounce energy-effect-3"></div>
 
           {/* Electric spark effects */}
           <div className="absolute inset-0">
             <div className="absolute top-1/4 left-1/5 w-2 h-8 bg-yellow-400 rounded-full animate-pulse opacity-80"></div>
-            <div
-              className="absolute top-1/3 right-1/4 w-2 h-6 bg-yellow-300 rounded-full animate-pulse opacity-70"
-              style={{ animationDelay: "0.3s" }}
-            ></div>
-            <div
-              className="absolute top-1/2 left-1/6 w-2 h-10 bg-yellow-400 rounded-full animate-pulse opacity-60"
-              style={{ animationDelay: "0.6s" }}
-            ></div>
-            <div
-              className="absolute bottom-1/3 right-1/5 w-2 h-7 bg-yellow-300 rounded-full animate-pulse opacity-75"
-              style={{ animationDelay: "0.9s" }}
-            ></div>
+            <div className="absolute top-1/3 right-1/4 w-2 h-6 bg-yellow-300 rounded-full animate-pulse opacity-70 spark-effect-1"></div>
+            <div className="absolute top-1/2 left-1/6 w-2 h-10 bg-yellow-400 rounded-full animate-pulse opacity-60 spark-effect-2"></div>
+            <div className="absolute bottom-1/3 right-1/5 w-2 h-7 bg-yellow-300 rounded-full animate-pulse opacity-75 spark-effect-3"></div>
           </div>
 
           {/* Charging cable glow effect */}
@@ -152,9 +228,9 @@ export const HomePage = () => {
             {/* Electric car charging icon */}
             <div className="mb-8 flex justify-center">
               <div className="relative">
-                <div className="w-28 h-28 bg-white bg-opacity-15 rounded-full flex items-center justify-center backdrop-blur-sm border border-white border-opacity-30 shadow-2xl">
+                <div className="hero-icon-container">
                   <svg
-                    className="w-16 h-16 text-white"
+                    className="hero-icon"
                     fill="currentColor"
                     viewBox="0 0 24 24"
                   >
@@ -172,9 +248,9 @@ export const HomePage = () => {
                   </svg>
                 </div>
                 {/* Charging cable effect */}
-                <div className="absolute -top-1 -right-1 w-10 h-10 bg-blue-400 rounded-full flex items-center justify-center animate-pulse shadow-lg">
+                <div className="charging-cable-effect">
                   <svg
-                    className="w-6 h-6 text-white"
+                    className="charging-cable-icon"
                     fill="currentColor"
                     viewBox="0 0 24 24"
                   >
@@ -182,18 +258,12 @@ export const HomePage = () => {
                   </svg>
                 </div>
                 {/* Energy sparks */}
-                <div
-                  className="absolute -top-3 -left-3 w-4 h-4 bg-yellow-400 rounded-full animate-bounce opacity-80"
-                  style={{ animationDelay: "0.2s" }}
-                ></div>
-                <div
-                  className="absolute -bottom-2 -right-3 w-3 h-3 bg-yellow-300 rounded-full animate-bounce opacity-70"
-                  style={{ animationDelay: "0.5s" }}
-                ></div>
+                <div className="energy-spark-1"></div>
+                <div className="energy-spark-2"></div>
               </div>
             </div>
 
-            <h1 className="text-4xl md:text-5xl font-bold mb-8 bg-gradient-to-r from-white via-blue-100 to-cyan-100 bg-clip-text text-transparent">
+            <h1 className="text-4xl md:text-5xl font-bold mb-8 bg-gradient-to-r from-white via-blue-100 to-cyan-100 bg-clip-text text-transparent leading-relaxed">
               Nền tảng giao dịch xe điện & pin số 1 Việt Nam
             </h1>
             <p className="text-xl text-blue-100 max-w-3xl mx-auto">
@@ -201,16 +271,13 @@ export const HomePage = () => {
             </p>
           </div>
 
-          <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-2xl p-6">
-            <form
-              onSubmit={handleSearch}
-              className="grid grid-cols-1 md:grid-cols-4 gap-4"
-            >
+          <div className="search-form-container">
+            <form onSubmit={handleSearch} className="search-form">
               <div className="md:col-span-1">
                 <select
                   value={productType}
                   onChange={(e) => setProductType(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
+                  className="search-input"
                 >
                   <option value="">Tất cả</option>
                   <option value="vehicle">Xe điện</option>
@@ -224,7 +291,7 @@ export const HomePage = () => {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Hãng xe, mẫu xe..."
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
+                  className="search-input"
                 />
               </div>
 
@@ -234,15 +301,12 @@ export const HomePage = () => {
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
                   placeholder="Địa điểm (VD: HN)"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
+                  className="search-input"
                 />
               </div>
 
               <div className="md:col-span-1">
-                <button
-                  type="submit"
-                  className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center"
-                >
+                <button type="submit" className="search-button">
                   <Search className="h-5 w-5 mr-2" />
                   Tìm kiếm
                 </button>
@@ -250,27 +314,27 @@ export const HomePage = () => {
             </form>
           </div>
 
-          <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
-            <div className="flex flex-col items-center">
-              <Zap className="h-12 w-12 mb-3" />
-              <h3 className="text-xl font-semibold mb-2">
-                1000+ xe đã giao dịch
-              </h3>
-              <p className="text-blue-100">Hàng nghìn giao dịch thành công</p>
+          <div className="mt-12 features-grid">
+            <div className="feature-item">
+              <Zap className="feature-icon" />
+              <h3 className="feature-title">1000+ xe đã giao dịch</h3>
+              <p className="feature-description">
+                Hàng nghìn giao dịch thành công
+              </p>
             </div>
-            <div className="flex flex-col items-center">
-              <Shield className="h-12 w-12 mb-3" />
-              <h3 className="text-xl font-semibold mb-2">
-                Kiểm định chính hãng
-              </h3>
-              <p className="text-blue-100">Đảm bảo chất lượng từng sản phẩm</p>
+            <div className="feature-item">
+              <Shield className="feature-icon" />
+              <h3 className="feature-title">Kiểm định chính hãng</h3>
+              <p className="feature-description">
+                Đảm bảo chất lượng từng sản phẩm
+              </p>
             </div>
-            <div className="flex flex-col items-center">
-              <TrendingUp className="h-12 w-12 mb-3" />
-              <h3 className="text-xl font-semibold mb-2">
-                Giá minh bạch, cộng khai
-              </h3>
-              <p className="text-blue-100">Hỗ trợ AI gợi ý giá tốt nhất</p>
+            <div className="feature-item">
+              <TrendingUp className="feature-icon" />
+              <h3 className="feature-title">Giá minh bạch, cộng khai</h3>
+              <p className="feature-description">
+                Hỗ trợ AI gợi ý giá tốt nhất
+              </p>
             </div>
           </div>
         </div>
@@ -309,19 +373,65 @@ export const HomePage = () => {
           </div>
 
           {loading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {[...Array(4)].map((_, i) => (
-                <div
-                  key={i}
-                  className="bg-white rounded-xl h-80 animate-pulse"
-                ></div>
+            <div className="products-grid">
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="skeleton-card"></div>
               ))}
             </div>
+          ) : featuredProducts.length > 0 ? (
+            <>
+              <div className="products-grid">
+                {(showAllProducts
+                  ? featuredProducts
+                  : featuredProducts.slice(0, 8)
+                ).map((product, index) => (
+                  <ProductCard
+                    key={
+                      product.id ||
+                      product.productId ||
+                      product.Id ||
+                      `product-${index}`
+                    }
+                    product={product}
+                    onToggleFavorite={handleToggleFavorite}
+                    isFavorite={favorites.has(product.id || product.productId)}
+                  />
+                ))}
+              </div>
+
+              {featuredProducts.length > 8 && (
+                <div className="text-center mt-8">
+                  <button
+                    onClick={() => setShowAllProducts(!showAllProducts)}
+                    className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center mx-auto space-x-2"
+                  >
+                    <span>
+                      {showAllProducts
+                        ? "Thu gọn"
+                        : `Xem tất cả (${featuredProducts.length} sản phẩm)`}
+                    </span>
+                    <svg
+                      className={`w-5 h-5 transition-transform duration-200 ${
+                        showAllProducts ? "rotate-180" : ""
+                      }`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              )}
+            </>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {featuredProducts.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
+            <div className="text-center py-8">
+              <p className="text-gray-500">Không có sản phẩm nào</p>
             </div>
           )}
         </div>
@@ -338,44 +448,42 @@ export const HomePage = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            <div className="text-center">
-              <div className="bg-blue-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle className="h-8 w-8 text-blue-600" />
+          <div className="benefits-grid">
+            <div className="benefit-item">
+              <div className="benefit-icon-container">
+                <CheckCircle className="benefit-icon" />
               </div>
-              <h3 className="text-lg font-semibold mb-2">
-                Kiểm duyệt kỹ lưỡng
-              </h3>
-              <p className="text-gray-600">
+              <h3 className="benefit-title">Kiểm duyệt kỹ lưỡng</h3>
+              <p className="benefit-description">
                 Mỗi tin đăng đều được admin kiểm tra và phê duyệt
               </p>
             </div>
 
-            <div className="text-center">
-              <div className="bg-blue-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Shield className="h-8 w-8 text-blue-600" />
+            <div className="benefit-item">
+              <div className="benefit-icon-container">
+                <Shield className="benefit-icon" />
               </div>
-              <h3 className="text-lg font-semibold mb-2">Thanh toán an toàn</h3>
-              <p className="text-gray-600">
+              <h3 className="benefit-title">Thanh toán an toàn</h3>
+              <p className="benefit-description">
                 Hỗ trợ nhiều phương thức thanh toán bảo mật
               </p>
             </div>
 
-            <div className="text-center">
-              <div className="bg-blue-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <TrendingUp className="h-8 w-8 text-blue-600" />
+            <div className="benefit-item">
+              <div className="benefit-icon-container">
+                <TrendingUp className="benefit-icon" />
               </div>
-              <h3 className="text-lg font-semibold mb-2">AI gợi ý giá</h3>
-              <p className="text-gray-600">
+              <h3 className="benefit-title">AI gợi ý giá</h3>
+              <p className="benefit-description">
                 Công nghệ AI giúp định giá chính xác nhất
               </p>
             </div>
 
-            <div className="text-center">
-              <div className="bg-blue-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Zap className="h-8 w-8 text-blue-600" />
+            <div className="benefit-item">
+              <div className="benefit-icon-container">
+                <Zap className="benefit-icon" />
               </div>
-              <h3 className="text-lg font-semibold mb-2">Hỗ trợ 24/7</h3>
+              <h3 className="benefit-title">Hỗ trợ 24/7</h3>
               <p className="text-gray-600">
                 Đội ngũ hỗ trợ sẵn sàng giải ��áp mọi thắc mắc
               </p>

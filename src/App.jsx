@@ -20,6 +20,11 @@ import { RegisterForm } from "./components/organisms/auth/RegisterForm";
 import { ForgotPassword } from "./pages/ForgotPassword";
 import { ResetPassword } from "./pages/ResetPassword";
 import { AuthCallback } from "./pages/AuthCallback";
+import { ProductDetail } from "./pages/ProductDetail";
+import { SellerProfile } from "./pages/SellerProfile";
+import { SellerProducts } from "./pages/SellerProducts";
+import { Favorites } from "./pages/Favorites";
+import { Notifications } from "./pages/Notifications";
 import { ToastProvider } from "./contexts/ToastContext";
 import { About } from "./pages/footer/About";
 import { HowItWorks } from "./pages/footer/HowItWorks";
@@ -30,7 +35,7 @@ import { Terms } from "./pages/footer/Terms";
 import { Privacy } from "./pages/footer/Privacy";
 import { HelpCenter } from "./pages/footer/HelpCenter";
 
-const ProtectedRoute = ({ children, adminOnly = false }) => {
+const ProtectedRoute = ({ children, adminOnly = false, userOnly = false }) => {
   const { user, profile, loading } = useAuth();
 
   if (loading) {
@@ -45,24 +50,33 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
     return <Navigate to="/login" />;
   }
 
-  if (adminOnly) {
-    // Check admin status using roleId or role
-    const roleId =
-      user?.roleId || profile?.roleId || user?.role || profile?.role;
-    const roleName = (
-      user?.roleName ||
-      profile?.roleName ||
-      user?.role ||
-      profile?.role ||
-      ""
-    )
-      .toString()
-      .toLowerCase();
-    const isAdmin = roleId === 1 || roleId === "1" || roleName === "admin";
+  // Check admin status using roleId or role
+  const roleId = user?.roleId || profile?.roleId || user?.role || profile?.role;
+  const roleName = (
+    user?.roleName ||
+    profile?.roleName ||
+    user?.role ||
+    profile?.role ||
+    ""
+  )
+    .toString()
+    .toLowerCase();
+  const isAdmin = roleId === 1 || roleId === "1" || roleName === "admin";
 
-    if (!isAdmin) {
-      return <Navigate to="/dashboard" />;
-    }
+  console.log("=== ROLE CHECK DEBUG ===");
+  console.log("User object:", user);
+  console.log("Profile object:", profile);
+  console.log("RoleId:", roleId);
+  console.log("RoleName:", roleName);
+  console.log("IsAdmin:", isAdmin);
+  console.log("========================");
+
+  if (adminOnly && !isAdmin) {
+    return <Navigate to="/dashboard" />;
+  }
+
+  if (userOnly && isAdmin) {
+    return <Navigate to="/admin" />;
   }
 
   return children;
@@ -71,6 +85,7 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
 const AppContent = () => {
   const { loading } = useAuth();
 
+  // show loading spinner while checking auth
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -90,6 +105,7 @@ const AppContent = () => {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="/product/:id" element={<ProductDetail />} />
 
           {/* Footer informational pages */}
           <Route path="/about" element={<About />} />
@@ -104,7 +120,7 @@ const AppContent = () => {
           <Route
             path="/dashboard"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute userOnly={true}>
                 <Dashboard />
               </ProtectedRoute>
             }
@@ -122,7 +138,7 @@ const AppContent = () => {
           <Route
             path="/create-listing"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute userOnly={true}>
                 <CreateListing />
               </ProtectedRoute>
             }
@@ -131,7 +147,7 @@ const AppContent = () => {
           <Route
             path="/my-listings"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute userOnly={true}>
                 <MyListings />
               </ProtectedRoute>
             }
@@ -139,7 +155,7 @@ const AppContent = () => {
           <Route
             path="/trash"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute userOnly={true}>
                 <Trash />
               </ProtectedRoute>
             }
@@ -148,7 +164,7 @@ const AppContent = () => {
           <Route
             path="/listing/:id/edit"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute userOnly={true}>
                 <EditListing />
               </ProtectedRoute>
             }
@@ -159,6 +175,30 @@ const AppContent = () => {
             element={
               <ProtectedRoute adminOnly>
                 <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Seller Routes */}
+          <Route path="/seller/:id" element={<SellerProfile />} />
+          <Route path="/seller/:id/products" element={<SellerProducts />} />
+
+          {/* Favorites Route */}
+          <Route
+            path="/favorites"
+            element={
+              <ProtectedRoute>
+                <Favorites />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Notifications Route */}
+          <Route
+            path="/notifications"
+            element={
+              <ProtectedRoute>
+                <Notifications />
               </ProtectedRoute>
             }
           />

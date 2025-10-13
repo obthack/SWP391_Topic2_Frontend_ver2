@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Edit, Trash2, Eye, Plus, Search, Filter } from "lucide-react";
+import { Edit, Trash2, Eye, Plus, Search, Filter, Package } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { apiRequest } from "../lib/api";
 import { formatPrice, formatDate } from "../utils/formatters";
 import { useToast } from "../contexts/ToastContext";
+import "../styles/mylistings.css";
 
 export const MyListings = () => {
   const { user } = useAuth();
@@ -58,21 +59,12 @@ export const MyListings = () => {
           const s = norm(l?.status || l?.Status || "");
           return s !== "deleted" && s !== "inactive";
         })
-        .map(async (l) => {
-          // Skip the problematic endpoint for now and check product object directly
+        .map(async (l, index) => {
           let images = [];
-
-          console.log(
-            `Checking images for product: ${l.id || l.productId || l.Id}`
-          );
 
           // Check if images are stored directly in the product object first
           if (l.images && Array.isArray(l.images)) {
             images = l.images;
-            console.log(
-              `Using images from product object for ${l.id}:`,
-              images
-            );
           } else {
             // Check other possible image fields
             const possibleImageFields = [
@@ -98,10 +90,6 @@ export const MyListings = () => {
                 } else if (typeof l[field] === "string") {
                   images = [l[field]];
                 }
-                console.log(
-                  `Found images in field '${field}' for product ${l.id}:`,
-                  images
-                );
                 break;
               }
             }
@@ -110,15 +98,16 @@ export const MyListings = () => {
           // Only try the API endpoint if no images found in product object
           if (images.length === 0) {
             try {
-              console.log(
-                `Trying API endpoint for product: ${
-                  l.id || l.productId || l.Id
-                }`
-              );
+              // Add delay between API calls to prevent DbContext conflicts
+              if (index > 0) {
+                await new Promise((resolve) =>
+                  setTimeout(resolve, 100 * index)
+                );
+              }
+
               const imagesData = await apiRequest(
                 `/api/ProductImage/product/${l.id || l.productId || l.Id}`
               );
-              console.log(`Images data for product ${l.id}:`, imagesData);
 
               const imagesArray = Array.isArray(imagesData)
                 ? imagesData
@@ -133,13 +122,8 @@ export const MyListings = () => {
                   img.ImageUrl ||
                   img.Url
               );
-
-              console.log(`Processed images for product ${l.id}:`, images);
             } catch (error) {
-              console.log(
-                `Error loading images from ProductImage endpoint for product ${l.id}:`,
-                error
-              );
+              console.warn(`Failed to load images for product ${l.id}:`, error);
             }
           }
 
@@ -152,7 +136,19 @@ export const MyListings = () => {
 
       // Wait for all image loading to complete
       const listingsWithImages = await Promise.all(filtered);
-      setListings(listingsWithImages);
+
+      // Sort listings to show newest first (by createdDate or createdAt)
+      const sortedListings = listingsWithImages.sort((a, b) => {
+        const dateA = new Date(
+          a.createdDate || a.createdAt || a.created_date || 0
+        );
+        const dateB = new Date(
+          b.createdDate || b.createdAt || b.created_date || 0
+        );
+        return dateB - dateA; // Newest first
+      });
+
+      setListings(sortedListings);
     } catch (error) {
       console.error("Error loading listings:", error);
     } finally {
@@ -200,26 +196,24 @@ export const MyListings = () => {
     const s = status ? status : "pending";
     const statusConfig = {
       pending: {
-        bg: "bg-yellow-100",
-        text: "text-yellow-700",
+        className: "mylistings-status-badge mylistings-status-pending",
         label: "Chờ duyệt",
       },
       approved: {
-        bg: "bg-green-100",
-        text: "text-green-700",
+        className: "mylistings-status-badge mylistings-status-approved",
         label: "Đã duyệt",
       },
-      rejected: { bg: "bg-red-100", text: "text-red-700", label: "Từ chối" },
-      sold: { bg: "bg-gray-100", text: "text-gray-700", label: "Đã bán" },
+      rejected: {
+        className: "mylistings-status-badge mylistings-status-rejected",
+        label: "Từ chối",
+      },
+      sold: {
+        className: "mylistings-status-badge mylistings-status-sold",
+        label: "Đã bán",
+      },
     };
     const config = statusConfig[s] || statusConfig.pending;
-    return (
-      <span
-        className={`px-2 py-1 rounded-full text-xs font-medium ${config.bg} ${config.text}`}
-      >
-        {config.label}
-      </span>
-    );
+    return <span className={config.className}>{config.label}</span>;
   };
 
   const filteredListings = listings.filter((listing) => {
@@ -234,40 +228,32 @@ export const MyListings = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Đang tải dữ liệu...</p>
+      <div className="mylistings-loading">
+        <div className="mylistings-loading-content">
+          <div className="mylistings-spinner"></div>
+          <p className="mylistings-loading-text">Đang tải dữ liệu...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="mylistings-container">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                Quản lý tin đăng
-              </h1>
-              <p className="text-gray-600 mt-2">
+        <div className="mylistings-header">
+          <div className="mylistings-header-content">
+            <div className="mylistings-title-section">
+              <h1 className="mylistings-title">Quản lý tin đăng</h1>
+              <p className="mylistings-subtitle">
                 Quản lý và theo dõi các bài đăng của bạn
               </p>
             </div>
-            <div className="flex items-center gap-3">
-              <Link
-                to="/trash"
-                className="px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-              >
+            <div className="mylistings-actions">
+              <Link to="/trash" className="mylistings-trash-button">
                 Thùng rác
               </Link>
-              <Link
-                to="/create-listing"
-                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center"
-              >
-                <Plus className="h-5 w-5 mr-2" />
+              <Link to="/create-listing" className="mylistings-create-button">
+                <Plus className="mylistings-create-icon" />
                 Đăng tin mới
               </Link>
             </div>
@@ -275,24 +261,24 @@ export const MyListings = () => {
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+        <div className="mylistings-filters">
+          <div className="mylistings-filters-grid">
+            <div className="mylistings-search-container">
+              <Search className="mylistings-search-icon" />
               <input
                 type="text"
                 placeholder="Tìm kiếm theo tiêu đề, hãng xe, model..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="mylistings-search-input"
               />
             </div>
-            <div className="relative">
-              <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <div className="mylistings-filter-container">
+              <Filter className="mylistings-filter-icon" />
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="mylistings-filter-select"
               >
                 <option value="all">Tất cả trạng thái</option>
                 <option value="pending">Chờ duyệt</option>
@@ -306,106 +292,96 @@ export const MyListings = () => {
 
         {/* Listings Grid */}
         {filteredListings.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-sm p-12 text-center">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Eye className="h-8 w-8 text-gray-400" />
+          <div className="mylistings-empty-state">
+            <div className="mylistings-empty-icon-container">
+              <Eye className="mylistings-empty-icon" />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
+            <h3 className="mylistings-empty-title">
               {listings.length === 0
                 ? "Chưa có tin đăng nào"
                 : "Không tìm thấy tin đăng phù hợp"}
             </h3>
-            <p className="text-gray-600 mb-6">
+            <p className="mylistings-empty-description">
               {listings.length === 0
                 ? "Hãy tạo bài đăng đầu tiên của bạn"
                 : "Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc"}
             </p>
             {listings.length === 0 && (
-              <Link
-                to="/create-listing"
-                className="inline-flex items-center bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <Plus className="h-5 w-5 mr-2" />
+              <Link to="/create-listing" className="mylistings-empty-button">
+                <Plus className="mylistings-empty-button-icon" />
                 Tạo tin đăng đầu tiên
               </Link>
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          <div className="mylistings-grid">
             {filteredListings.map((listing) => {
               const idVal = getListingId(listing);
               console.log("Listing object:", listing);
               console.log("Listing ID:", idVal, "Type:", typeof idVal);
               return (
-                <div
-                  key={idVal}
-                  className="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-shadow"
-                >
-                  <div className="relative">
-                    <img
-                      src={
+                <div key={idVal} className="mylistings-card">
+                  <div className="mylistings-image-container">
+                    {listing.images && listing.images.length > 0 ? (
+                      <img
+                        src={listing.images[0]}
+                        alt={listing.title}
+                        className="mylistings-image"
+                        onError={(e) => {
+                          e.target.style.display = "none";
+                          // Show fallback icon when image fails to load
+                          const fallback = e.target.nextElementSibling;
+                          if (fallback) {
+                            fallback.style.display = "flex";
+                          }
+                        }}
+                      />
+                    ) : null}
+                    <div
+                      className={`mylistings-image-placeholder ${
                         listing.images && listing.images.length > 0
-                          ? listing.images[0]
-                          : "https://images.pexels.com/photos/110844/pexels-photo-110844.jpeg?auto=compress&cs=tinysrgb&w=400"
-                      }
-                      alt={listing.title}
-                      className="w-full h-48 object-cover"
-                      onError={(e) => {
-                        console.log(
-                          `Image failed to load for listing ${
-                            listing.id || listing.title
-                          }:`,
-                          e.target.src
-                        );
-                        e.target.src =
-                          "https://images.pexels.com/photos/110844/pexels-photo-110844.jpeg?auto=compress&cs=tinysrgb&w=400";
-                      }}
-                      onLoad={(e) => {
-                        console.log(
-                          `Image loaded successfully for listing ${
-                            listing.id || listing.title
-                          }:`,
-                          e.target.src
-                        );
-                      }}
-                    />
-                    <div className="absolute top-4 right-4">
+                          ? "mylistings-image-placeholder-hidden"
+                          : ""
+                      }`}
+                    >
+                      <Package className="mylistings-image-placeholder-icon" />
+                    </div>
+                    <div className="mylistings-status-badge-container">
                       {getStatusBadge(getStatus(listing))}
                     </div>
                   </div>
 
-                  <div className="p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
-                      {listing.title}
-                    </h3>
-                    <p className="text-sm text-gray-600 mb-2">
+                  <div className="mylistings-card-content">
+                    <h3 className="mylistings-card-title">{listing.title}</h3>
+                    <p className="mylistings-card-subtitle">
                       {listing.licensePlate || listing.license_plate || ""}
                     </p>
-                    <p className="text-lg font-bold text-blue-600 mb-4">
+                    <p className="mylistings-card-price">
                       {formatPrice(listing.price)}
                     </p>
 
-                    <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
-                      <span className="flex items-center">
-                        <Eye className="h-4 w-4 mr-1" />
-                        {listing.viewsCount || listing.views_count || 0} lượt
-                        xem
-                      </span>
+                    <div className="mylistings-card-meta">
                       <span>
-                        {formatDate(
+                        {new Date(
                           listing.createdAt ||
                             listing.created_at ||
                             listing.createdDate
-                        )}
+                        ).toLocaleString("vi-VN", {
+                          year: "numeric",
+                          month: "2-digit",
+                          day: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
                       </span>
                     </div>
 
-                    <div className="flex items-center space-x-2">
+                    <div className="mylistings-card-actions">
                       <Link
                         to={`/listing/${getListingId(listing)}/edit`}
-                        className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
+                        className="mylistings-edit-button"
                       >
-                        <Edit className="h-4 w-4 mr-2" />
+                        <Edit className="mylistings-edit-icon" />
                         Chỉnh sửa
                       </Link>
                       <button
@@ -417,9 +393,9 @@ export const MyListings = () => {
                           console.log("Trying to delete with ID:", listingId);
                           handleDelete(listingId);
                         }}
-                        className="px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors flex items-center justify-center"
+                        className="mylistings-delete-button"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="mylistings-delete-icon" />
                       </button>
                     </div>
                   </div>
@@ -431,34 +407,30 @@ export const MyListings = () => {
 
         {/* Stats */}
         {listings.length > 0 && (
-          <div className="mt-8 bg-white rounded-xl shadow-sm p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Thống kê
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center">
-                <p className="text-2xl font-bold text-gray-900">
-                  {listings.length}
-                </p>
-                <p className="text-sm text-gray-600">Tổng tin đăng</p>
+          <div className="mylistings-stats">
+            <h3 className="mylistings-stats-title">Thống kê</h3>
+            <div className="mylistings-stats-grid">
+              <div className="mylistings-stat-item">
+                <p className="mylistings-stat-value">{listings.length}</p>
+                <p className="mylistings-stat-label">Tổng tin đăng</p>
               </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-green-600">
+              <div className="mylistings-stat-item">
+                <p className="mylistings-stat-value mylistings-stat-value-green">
                   {listings.filter((l) => getStatus(l) === "approved").length}
                 </p>
-                <p className="text-sm text-gray-600">Đã duyệt</p>
+                <p className="mylistings-stat-label">Đã duyệt</p>
               </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-yellow-600">
+              <div className="mylistings-stat-item">
+                <p className="mylistings-stat-value mylistings-stat-value-yellow">
                   {listings.filter((l) => getStatus(l) === "pending").length}
                 </p>
-                <p className="text-sm text-gray-600">Chờ duyệt</p>
+                <p className="mylistings-stat-label">Chờ duyệt</p>
               </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-gray-600">
+              <div className="mylistings-stat-item">
+                <p className="mylistings-stat-value mylistings-stat-value-gray">
                   {listings.filter((l) => getStatus(l) === "sold").length}
                 </p>
-                <p className="text-sm text-gray-600">Đã bán</p>
+                <p className="mylistings-stat-label">Đã bán</p>
               </div>
             </div>
           </div>
