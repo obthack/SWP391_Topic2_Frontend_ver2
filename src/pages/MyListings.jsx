@@ -14,6 +14,7 @@ export const MyListings = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [productTypeFilter, setProductTypeFilter] = useState("all"); // all, vehicle, battery
 
   useEffect(() => {
     if (user) {
@@ -41,19 +42,142 @@ export const MyListings = () => {
 
   const loadListings = async () => {
     try {
-      const data = await apiRequest(
-        `/api/Product/seller/${
-          user?.id || user?.accountId || user?.userId || 1
-        }`
-      );
-      console.log("Loaded listings data:", data);
-      const items = Array.isArray(data) ? data : data?.items || [];
+      // Load vehicles and batteries separately for the seller
+      const sellerId = user?.id || user?.accountId || user?.userId || 1;
+      console.log("🔍 MyListings loading for sellerId:", sellerId);
 
-      // Debug: log the first item to see its structure
-      if (items.length > 0) {
-        console.log("First listing item structure:", items[0]);
-        console.log("Available keys in first item:", Object.keys(items[0]));
+      // Use seller-specific API (now has productType field)
+      console.log("🔄 Using seller-specific API (has productType)");
+      const sellerData = await apiRequest(`/api/Product/seller/${sellerId}`);
+      console.log("✅ Seller API successful:", sellerData.length, "items");
+
+      const sellerItems = Array.isArray(sellerData)
+        ? sellerData
+        : sellerData?.items || [];
+
+      console.log("🔍 Seller data loaded:", sellerItems.length, "items");
+
+      // Classify products - use single pass to avoid duplicates
+      const vehiclesData = [];
+      const batteriesData = [];
+
+      sellerItems.forEach((item) => {
+        // PRIORITY 1: Check productType field first (most reliable)
+        if (item.productType === "vehicle" || item.productType === "Vehicle") {
+          console.log(
+            `✅ Product ${item.productId} → VEHICLE (productType field)`
+          );
+          vehiclesData.push(item);
+          return;
+        }
+
+        if (item.productType === "battery" || item.productType === "Battery") {
+          console.log(
+            `✅ Product ${item.productId} → BATTERY (productType field)`
+          );
+          batteriesData.push(item);
+          return;
+        }
+
+        // If no productType, default to vehicle
+        console.log(
+          `✅ Product ${item.productId} → VEHICLE (default - no productType)`
+        );
+        vehiclesData.push(item);
+      });
+
+      // Remove duplicates from vehicles and batteries
+      const uniqueVehicles = vehiclesData.filter(
+        (item, index, self) =>
+          index === self.findIndex((t) => t.productId === item.productId)
+      );
+      const uniqueBatteries = batteriesData.filter(
+        (item, index, self) =>
+          index === self.findIndex((t) => t.productId === item.productId)
+      );
+
+      // Remove products that appear in both categories
+      const vehicleIds = new Set(uniqueVehicles.map((v) => v.productId));
+      const finalBatteries = uniqueBatteries.filter(
+        (b) => !vehicleIds.has(b.productId)
+      );
+
+      console.log(
+        "🔍 After removing cross-category duplicates - Vehicles:",
+        uniqueVehicles.length,
+        "Batteries:",
+        finalBatteries.length
+      );
+
+      console.log(
+        "🔍 After deduplication - Vehicles:",
+        uniqueVehicles.length,
+        "Batteries:",
+        uniqueBatteries.length
+      );
+
+      // Debug: Log final classification results
+      console.log("🔍 FINAL CLASSIFICATION RESULTS:");
+      console.log(
+        "🚗 VEHICLES:",
+        uniqueVehicles.map((v) => ({
+          id: v.productId,
+          title: v.title,
+          productType: v.productType,
+        }))
+      );
+      console.log(
+        "🔋 BATTERIES:",
+        finalBatteries.map((b) => ({
+          id: b.productId,
+          title: b.title,
+          productType: b.productType,
+        }))
+      );
+
+      // Data is already separated by API endpoints
+      // No need for complex classification logic
+
+      // Debug: Show classification details
+      if (vehiclesData.length > 0) {
+        console.log(
+          "🚗 Vehicle products:",
+          vehiclesData.map((item) => ({
+            id: item.productId || item.id,
+            title: item.title,
+            brand: item.brand,
+            classification: "vehicle",
+          }))
+        );
       }
+
+      if (batteriesData.length > 0) {
+        console.log(
+          "🔋 Battery products:",
+          batteriesData.map((item) => ({
+            id: item.productId || item.id,
+            title: item.title,
+            brand: item.brand,
+            classification: "battery",
+          }))
+        );
+      }
+
+      // Keep original productType from database, only add if missing
+      const vehicles = uniqueVehicles.map((x) => ({
+        ...x,
+        productType: x.productType || "vehicle", // Keep original productType from DB
+      }));
+      const batteries = finalBatteries.map((x) => ({
+        ...x,
+        productType: x.productType || "battery", // Keep original productType from DB
+      }));
+
+      // Combine all data
+      const data = [...vehicles, ...batteries];
+
+      const items = data;
+
       const filtered = items
         .filter((l) => {
           const s = norm(l?.status || l?.Status || "");
@@ -123,7 +247,24 @@ export const MyListings = () => {
                   img.Url
               );
             } catch (error) {
-              console.warn(`Failed to load images for product ${l.id}:`, error);
+              // Use fallback placeholder images based on product type
+              const isVehicle =
+                l.productType === "vehicle" ||
+                (l.title && l.title.toLowerCase().includes("xe")) ||
+                (l.brand &&
+                  ["toyota", "honda", "ford", "bmw", "mercedes"].some((b) =>
+                    l.brand.toLowerCase().includes(b)
+                  ));
+
+              images = isVehicle
+                ? [
+                    "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=400&h=300&fit=crop&auto=format",
+                    "https://images.unsplash.com/photo-1549317336-206569e8475c?w=400&h=300&fit=crop&auto=format",
+                  ]
+                : [
+                    "https://images.unsplash.com/photo-1609592807902-4a3a4a4a4a4a?w=400&h=300&fit=crop&auto=format",
+                    "https://images.unsplash.com/photo-1609592807902-4a3a4a4a4a4b?w=400&h=300&fit=crop&auto=format",
+                  ];
             }
           }
 
@@ -223,7 +364,24 @@ export const MyListings = () => {
       (listing.model || "").toLowerCase().includes(searchTerm.toLowerCase());
     const s = getStatus(listing);
     const matchesStatus = statusFilter === "all" || s === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesProductType =
+      productTypeFilter === "all" ||
+      (listing.productType &&
+        listing.productType.toLowerCase() === productTypeFilter.toLowerCase());
+
+    // Debug: Log filtering details
+    if (productTypeFilter !== "all") {
+      console.log(
+        `🔍 Filtering product ${listing.productId} (${listing.title}):`,
+        {
+          productType: listing.productType,
+          filter: productTypeFilter,
+          matches: matchesProductType,
+        }
+      );
+    }
+
+    return matchesSearch && matchesStatus && matchesProductType;
   });
 
   if (loading) {
@@ -287,6 +445,18 @@ export const MyListings = () => {
                 <option value="sold">Đã bán</option>
               </select>
             </div>
+            <div className="mylistings-filter-container">
+              <Package className="mylistings-filter-icon" />
+              <select
+                value={productTypeFilter}
+                onChange={(e) => setProductTypeFilter(e.target.value)}
+                className="mylistings-filter-select"
+              >
+                <option value="all">Tất cả loại</option>
+                <option value="vehicle">🚗 Xe điện</option>
+                <option value="battery">🔋 Pin</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -317,8 +487,6 @@ export const MyListings = () => {
           <div className="mylistings-grid">
             {filteredListings.map((listing) => {
               const idVal = getListingId(listing);
-              console.log("Listing object:", listing);
-              console.log("Listing ID:", idVal, "Type:", typeof idVal);
               return (
                 <div key={idVal} className="mylistings-card">
                   <div className="mylistings-image-container">

@@ -51,6 +51,7 @@ export const Dashboard = () => {
   const [myListings, setMyListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [recentActivity, setRecentActivity] = useState([]);
+  const [productTypeFilter, setProductTypeFilter] = useState("all"); // all, vehicle, battery
 
   useEffect(() => {
     if (user) {
@@ -75,11 +76,146 @@ export const Dashboard = () => {
 
   const loadDashboardData = async () => {
     try {
-      const data = await apiRequest(
-        `/api/Product/seller/${
-          user?.id || user?.accountId || user?.userId || 1
-        }`
+      // Load vehicles and batteries separately for the seller
+      const sellerId = user?.id || user?.accountId || user?.userId || 1;
+      console.log("🔍 Dashboard loading for sellerId:", sellerId);
+
+      // Use seller-specific API (now has productType field)
+      console.log("🔄 Using seller-specific API (has productType)");
+      const sellerData = await apiRequest(`/api/Product/seller/${sellerId}`);
+      console.log("✅ Seller API successful:", sellerData.length, "items");
+
+      const sellerItems = Array.isArray(sellerData)
+        ? sellerData
+        : sellerData?.items || [];
+
+      console.log("🔍 Seller data loaded:", sellerItems.length, "items");
+
+      // Debug: Check if products belong to the current seller
+      if (sellerItems.length > 0) {
+        console.log("🔍 First item seller info:", {
+          sellerId: sellerItems[0].sellerId,
+          SellerId: sellerItems[0].SellerId,
+          seller_id: sellerItems[0].seller_id,
+          currentSellerId: sellerId,
+        });
+        console.log(
+          "🔍 All seller IDs in data:",
+          sellerItems.map(
+            (item) => item.sellerId || item.SellerId || item.seller_id
+          )
+        );
+
+        // Debug: Check all products for classification fields
+        console.log("🔍 All products classification fields:");
+        sellerItems.forEach((item, index) => {
+          console.log(`Product ${index + 1} (ID: ${item.productId}):`, {
+            title: item.title,
+            productType: item.productType,
+            vehicleType: item.vehicleType,
+            batteryType: item.batteryType,
+            licensePlate: item.licensePlate,
+            capacity: item.capacity,
+            voltage: item.voltage,
+            cycleCount: item.cycleCount,
+            allKeys: Object.keys(item),
+          });
+        });
+      }
+
+      // Classify products - use single pass to avoid duplicates
+      const vehiclesData = [];
+      const batteriesData = [];
+
+      sellerItems.forEach((item) => {
+        // PRIORITY 1: Check productType field first (most reliable)
+        if (item.productType === "vehicle" || item.productType === "Vehicle") {
+          console.log(
+            `✅ Product ${item.productId} → VEHICLE (productType field)`
+          );
+          vehiclesData.push(item);
+          return;
+        }
+
+        if (item.productType === "battery" || item.productType === "Battery") {
+          console.log(
+            `✅ Product ${item.productId} → BATTERY (productType field)`
+          );
+          batteriesData.push(item);
+          return;
+        }
+
+        // If no productType, default to vehicle
+        console.log(
+          `✅ Product ${item.productId} → VEHICLE (default - no productType)`
+        );
+        vehiclesData.push(item);
+      });
+
+      // Unclassified products go to vehicles by default
+      const unclassifiedProducts = sellerItems.filter(
+        (item) => !vehiclesData.includes(item) && !batteriesData.includes(item)
       );
+
+      if (unclassifiedProducts.length > 0) {
+        console.log(
+          "🔍 Adding unclassified products to vehicles:",
+          unclassifiedProducts.length
+        );
+        vehiclesData.push(...unclassifiedProducts);
+      }
+
+      console.log("🚗 Vehicles classified:", vehiclesData.length);
+      console.log("🔋 Batteries classified:", batteriesData.length);
+
+      console.log("🔍 Final vehicles:", vehiclesData.length);
+      console.log("🔍 Final batteries:", batteriesData.length);
+
+      // Data is already separated by API endpoints
+      // No need for complex classification logic
+
+      // Debug: Show classification details
+      if (vehiclesData.length > 0) {
+        console.log(
+          "🚗 Vehicle products:",
+          vehiclesData.map((item) => ({
+            id: item.productId || item.id,
+            title: item.title,
+            brand: item.brand,
+            classification: "vehicle",
+          }))
+        );
+      }
+
+      if (batteriesData.length > 0) {
+        console.log(
+          "🔋 Battery products:",
+          batteriesData.map((item) => ({
+            id: item.productId || item.id,
+            title: item.title,
+            brand: item.brand,
+            classification: "battery",
+          }))
+        );
+      }
+
+      // Keep original productType from database, only add if missing
+      const vehicles = vehiclesData.map((x) => ({
+        ...x,
+        productType: x.productType || "vehicle", // Keep original productType from DB
+      }));
+      const batteries = batteriesData.map((x) => ({
+        ...x,
+        productType: x.productType || "battery", // Keep original productType from DB
+      }));
+
+      console.log("🔍 Vehicles processed:", vehicles.length);
+      console.log("🔍 Batteries processed:", batteries.length);
+
+      // Combine all data
+      const data = [...vehicles, ...batteries];
+
+      console.log("🔍 Combined data:", data.length, "items");
       const norm = (v) => String(v || "").toLowerCase();
       const mapStatus = (l) => {
         const raw = norm(l?.status || l?.Status);
@@ -115,12 +251,20 @@ export const Dashboard = () => {
               await new Promise((resolve) => setTimeout(resolve, 100 * index));
             }
 
+            const productId = l.id || l.productId || l.Id;
+            console.log(`🖼️ Loading images for product ${productId}...`);
+
             const imagesData = await apiRequest(
-              `/api/ProductImage/product/${l.id || l.productId || l.Id}`
+              `/api/ProductImage/product/${productId}`
             );
             const images = Array.isArray(imagesData)
               ? imagesData
               : imagesData?.items || [];
+
+            console.log(
+              `✅ Images loaded for product ${productId}:`,
+              images.length
+            );
             return {
               ...l,
               status: mapStatus(l),
@@ -129,8 +273,38 @@ export const Dashboard = () => {
               ),
             };
           } catch (error) {
-            console.warn(`Failed to load images for product ${l.id}:`, error);
-            return { ...l, status: mapStatus(l), images: [] };
+            console.warn(
+              `⚠️ Failed to load images for product ${
+                l.id || l.productId || l.Id
+              }:`,
+              error.message
+            );
+
+            // Use fallback placeholder images based on product type
+            const isVehicle =
+              l.productType === "vehicle" ||
+              (l.title && l.title.toLowerCase().includes("xe")) ||
+              (l.brand &&
+                ["toyota", "honda", "ford", "bmw", "mercedes"].some((b) =>
+                  l.brand.toLowerCase().includes(b)
+                ));
+
+            const fallbackImages = isVehicle
+              ? [
+                  "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=400&h=300&fit=crop&auto=format",
+                  "https://images.unsplash.com/photo-1549317336-206569e8475c?w=400&h=300&fit=crop&auto=format",
+                ]
+              : [
+                  "https://images.unsplash.com/photo-1609592807902-4a3a4a4a4a4a?w=400&h=300&fit=crop&auto=format",
+                  "https://images.unsplash.com/photo-1609592807902-4a3a4a4a4a4b?w=400&h=300&fit=crop&auto=format",
+                ];
+
+            return {
+              ...l,
+              status: mapStatus(l),
+              images: fallbackImages,
+              imageError: true, // Flag to indicate fallback images
+            };
           }
         })
       );
@@ -343,7 +517,7 @@ export const Dashboard = () => {
           <div className="lg:col-span-2">
             <div className="bg-white rounded-xl shadow-lg overflow-hidden">
               <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mb-4">
                   <h2 className="text-xl font-semibold text-gray-900 flex items-center">
                     <Package className="h-5 w-5 mr-2 text-blue-600" />
                     Tin đăng gần đây
@@ -355,6 +529,38 @@ export const Dashboard = () => {
                     Xem tất cả
                     <ArrowUpRight className="h-4 w-4 ml-1" />
                   </Link>
+                </div>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setProductTypeFilter("all")}
+                    className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                      productTypeFilter === "all"
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                    }`}
+                  >
+                    Tất cả
+                  </button>
+                  <button
+                    onClick={() => setProductTypeFilter("vehicle")}
+                    className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                      productTypeFilter === "vehicle"
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                    }`}
+                  >
+                    🚗 Xe điện
+                  </button>
+                  <button
+                    onClick={() => setProductTypeFilter("battery")}
+                    className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                      productTypeFilter === "battery"
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                    }`}
+                  >
+                    🔋 Pin
+                  </button>
                 </div>
               </div>
 
@@ -395,94 +601,103 @@ export const Dashboard = () => {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {myListings.slice(0, 5).map((listing, idx) => (
-                      <div
-                        key={
-                          getListingId(listing) ??
-                          `${listing.title || "listing"}_${idx}`
-                        }
-                        className="flex items-center space-x-4 p-4 rounded-lg hover:bg-gray-50 transition-colors duration-200 group"
-                      >
-                        <div className="relative">
-                          {listing.images && listing.images.length > 0 ? (
-                            <img
-                              src={listing.images[0]}
-                              alt={listing.title}
-                              className="w-16 h-16 object-cover rounded-lg"
-                              onError={(e) => {
-                                e.target.style.display = "none";
-                                // Show fallback icon when image fails to load
-                                const fallback = e.target.nextElementSibling;
-                                if (fallback) {
-                                  fallback.style.display = "flex";
-                                }
-                              }}
-                            />
-                          ) : null}
-                          <div
-                            className={`w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center ${
-                              listing.images && listing.images.length > 0
-                                ? "hidden"
-                                : ""
-                            }`}
-                          >
-                            <Package className="h-6 w-6 text-gray-400" />
-                          </div>
-                          <span
-                            className={`absolute -top-1 -right-1 px-2 py-1 text-xs font-medium rounded-full ${
-                              listing.status === "approved"
-                                ? "bg-green-100 text-green-800"
-                                : listing.status === "pending"
-                                ? "bg-yellow-100 text-yellow-800"
-                                : listing.status === "sold"
-                                ? "bg-gray-100 text-gray-800"
-                                : "bg-red-100 text-red-800"
-                            }`}
-                          >
-                            {listing.status === "approved" && "Đã duyệt"}
-                            {listing.status === "pending" && "Chờ duyệt"}
-                            {listing.status === "sold" && "Đã bán"}
-                            {listing.status === "rejected" && "Từ chối"}
-                          </span>
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-lg font-medium text-gray-900 truncate">
-                            {listing.title}
-                          </h3>
-                          <p className="text-sm text-gray-500">
-                            {listing.licensePlate ||
-                              listing.license_plate ||
-                              ""}
-                          </p>
-                          <div className="flex items-center justify-between mt-1">
-                            <span className="text-sm font-medium text-blue-600">
-                              {formatPrice(listing.price)}
-                            </span>
-                            <span className="text-sm text-gray-500">
-                              {new Date(
-                                listing.createdAt ||
-                                  listing.created_at ||
-                                  listing.createdDate
-                              ).toLocaleString("vi-VN", {
-                                year: "numeric",
-                                month: "2-digit",
-                                day: "2-digit",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
-                            </span>
-                          </div>
-                        </div>
-
-                        <Link
-                          to={`/listing/${getListingId(listing) || ""}/edit`}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-2 text-gray-400 hover:text-blue-600"
+                    {myListings
+                      .filter(
+                        (listing) =>
+                          productTypeFilter === "all" ||
+                          (listing.productType &&
+                            listing.productType.toLowerCase() ===
+                              productTypeFilter.toLowerCase())
+                      )
+                      .slice(0, 5)
+                      .map((listing, idx) => (
+                        <div
+                          key={
+                            getListingId(listing) ??
+                            `${listing.title || "listing"}_${idx}`
+                          }
+                          className="flex items-center space-x-4 p-4 rounded-lg hover:bg-gray-50 transition-colors duration-200 group"
                         >
-                          <Settings className="h-5 w-5" />
-                        </Link>
-                      </div>
-                    ))}
+                          <div className="relative">
+                            {listing.images && listing.images.length > 0 ? (
+                              <img
+                                src={listing.images[0]}
+                                alt={listing.title}
+                                className="w-16 h-16 object-cover rounded-lg"
+                                onError={(e) => {
+                                  e.target.style.display = "none";
+                                  // Show fallback icon when image fails to load
+                                  const fallback = e.target.nextElementSibling;
+                                  if (fallback) {
+                                    fallback.style.display = "flex";
+                                  }
+                                }}
+                              />
+                            ) : null}
+                            <div
+                              className={`w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center ${
+                                listing.images && listing.images.length > 0
+                                  ? "hidden"
+                                  : ""
+                              }`}
+                            >
+                              <Package className="h-6 w-6 text-gray-400" />
+                            </div>
+                            <span
+                              className={`absolute -top-1 -right-1 px-2 py-1 text-xs font-medium rounded-full ${
+                                listing.status === "approved"
+                                  ? "bg-green-100 text-green-800"
+                                  : listing.status === "pending"
+                                  ? "bg-yellow-100 text-yellow-800"
+                                  : listing.status === "sold"
+                                  ? "bg-gray-100 text-gray-800"
+                                  : "bg-red-100 text-red-800"
+                              }`}
+                            >
+                              {listing.status === "approved" && "Đã duyệt"}
+                              {listing.status === "pending" && "Chờ duyệt"}
+                              {listing.status === "sold" && "Đã bán"}
+                              {listing.status === "rejected" && "Từ chối"}
+                            </span>
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-lg font-medium text-gray-900 truncate">
+                              {listing.title}
+                            </h3>
+                            <p className="text-sm text-gray-500">
+                              {listing.licensePlate ||
+                                listing.license_plate ||
+                                ""}
+                            </p>
+                            <div className="flex items-center justify-between mt-1">
+                              <span className="text-sm font-medium text-blue-600">
+                                {formatPrice(listing.price)}
+                              </span>
+                              <span className="text-sm text-gray-500">
+                                {new Date(
+                                  listing.createdAt ||
+                                    listing.created_at ||
+                                    listing.createdDate
+                                ).toLocaleString("vi-VN", {
+                                  year: "numeric",
+                                  month: "2-digit",
+                                  day: "2-digit",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </span>
+                            </div>
+                          </div>
+
+                          <Link
+                            to={`/listing/${getListingId(listing) || ""}/edit`}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-2 text-gray-400 hover:text-blue-600"
+                          >
+                            <Settings className="h-5 w-5" />
+                          </Link>
+                        </div>
+                      ))}
                   </div>
                 )}
               </div>

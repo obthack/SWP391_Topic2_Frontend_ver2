@@ -36,6 +36,7 @@ export const AdminDashboard = () => {
   });
   const [allListings, setAllListings] = useState([]);
   const [filteredListings, setFilteredListings] = useState([]);
+  const [productTypeFilter, setProductTypeFilter] = useState("all"); // all, vehicle, battery
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
@@ -53,7 +54,7 @@ export const AdminDashboard = () => {
 
   useEffect(() => {
     filterListings();
-  }, [allListings, searchTerm, statusFilter, dateFilter]);
+  }, [allListings, searchTerm, statusFilter, dateFilter, productTypeFilter]);
 
   const loadAdminData = async () => {
     try {
@@ -70,7 +71,11 @@ export const AdminDashboard = () => {
       }
 
       try {
-        listings = await apiRequest("/api/Product");
+        // Load all products from unified API (has productType field)
+        const allProducts = await apiRequest("/api/Product");
+        listings = Array.isArray(allProducts)
+          ? allProducts
+          : allProducts?.items || [];
         console.log("✅ Products loaded:", listings);
       } catch (error) {
         console.warn("⚠️ Failed to load products:", error.message);
@@ -249,6 +254,11 @@ export const AdminDashboard = () => {
     // Status filter
     if (statusFilter !== "all") {
       filtered = filtered.filter((l) => l.status === statusFilter);
+    }
+
+    // Product type filter
+    if (productTypeFilter !== "all") {
+      filtered = filtered.filter((l) => l.productType === productTypeFilter);
     }
 
     // Date filter
@@ -663,6 +673,15 @@ export const AdminDashboard = () => {
                 <option value="today">Hôm nay</option>
                 <option value="week">Tuần này</option>
                 <option value="month">Tháng này</option>
+              </select>
+              <select
+                className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                value={productTypeFilter}
+                onChange={(e) => setProductTypeFilter(e.target.value)}
+              >
+                <option value="all">Tất cả loại</option>
+                <option value="vehicle">🚗 Xe điện</option>
+                <option value="battery">🔋 Pin</option>
               </select>
             </div>
           </div>

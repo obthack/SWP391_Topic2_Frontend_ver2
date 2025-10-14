@@ -14,6 +14,7 @@ export const HomePage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [productType, setProductType] = useState("");
   const [location, setLocation] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all"); // all, vehicle, battery
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [featuredError, setFeaturedError] = useState("");
@@ -32,15 +33,37 @@ export const HomePage = () => {
       let approvedProducts = [];
 
       try {
-        // Try to get approved products directly
-        const data = await apiRequest("/api/Product?status=approved&take=8");
-        const list = Array.isArray(data) ? data : data?.items || [];
-        approvedProducts = list.filter((x) => {
-          const status = String(x.status || x.Status).toLowerCase();
-          return status === "approved" || status === "active";
-        });
+        // Load vehicles and batteries separately
+        const [vehiclesData, batteriesData] = await Promise.all([
+          apiRequest("/api/Product/vehicles?status=approved&take=4"),
+          apiRequest("/api/Product/batteries?status=approved&take=4"),
+        ]);
+
+        const vehicles = Array.isArray(vehiclesData)
+          ? vehiclesData
+          : vehiclesData?.items || [];
+        const batteries = Array.isArray(batteriesData)
+          ? batteriesData
+          : batteriesData?.items || [];
+
+        // Filter approved products and add productType
+        const approvedVehicles = vehicles
+          .filter((x) => {
+            const status = String(x.status || x.Status).toLowerCase();
+            return status === "approved" || status === "active";
+          })
+          .map((x) => ({ ...x, productType: "vehicle" }));
+
+        const approvedBatteries = batteries
+          .filter((x) => {
+            const status = String(x.status || x.Status).toLowerCase();
+            return status === "approved" || status === "active";
+          })
+          .map((x) => ({ ...x, productType: "battery" }));
+
+        approvedProducts = [...approvedVehicles, ...approvedBatteries];
       } catch (e1) {
-        console.log("Direct approved query failed, trying all products:", e1);
+        console.log("Separate API calls failed, trying fallback:", e1);
         // Fallback: get all products and filter
         const data2 = await apiRequest("/api/Product");
         const list2 = Array.isArray(data2) ? data2 : data2?.items || [];
@@ -382,8 +405,16 @@ export const HomePage = () => {
             <>
               <div className="products-grid">
                 {(showAllProducts
-                  ? featuredProducts
-                  : featuredProducts.slice(0, 8)
+                  ? featuredProducts.filter(
+                      (product) =>
+                        !productType || product.productType === productType
+                    )
+                  : featuredProducts
+                      .filter(
+                        (product) =>
+                          !productType || product.productType === productType
+                      )
+                      .slice(0, 8)
                 ).map((product, index) => (
                   <ProductCard
                     key={

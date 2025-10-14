@@ -2,13 +2,16 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { apiRequest } from "../lib/api";
-import { RotateCcw, Trash2 } from "lucide-react";
+import { RotateCcw, Trash2, Package, AlertTriangle } from "lucide-react";
+import { useToast } from "../contexts/ToastContext";
 
 export const Trash = () => {
   const { user } = useAuth();
+  const { show } = useToast();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [actionLoading, setActionLoading] = useState({});
 
   const getListingId = (l) =>
     l?.id ?? l?.productId ?? l?.Id ?? l?.listingId ?? l?.product_id ?? null;
@@ -18,11 +21,34 @@ export const Trash = () => {
   useEffect(() => {
     (async () => {
       try {
-        const data = await apiRequest(
-          `/api/Product/seller/${user?.id || user?.accountId || user?.userId}`
-        );
-        const list = Array.isArray(data) ? data : data?.items || [];
-        const deletedItems = list.filter(isDeleted);
+        console.log("🔄 Loading trash items from drafts endpoint...");
+
+        // Try the drafts endpoint first
+        let deletedItems = [];
+        try {
+          const draftsData = await apiRequest(`/api/Product/drafts`);
+          console.log("📋 Drafts response:", draftsData);
+          deletedItems = Array.isArray(draftsData)
+            ? draftsData
+            : draftsData?.items || [];
+          console.log("📋 Found drafts items:", deletedItems.length);
+        } catch (draftsError) {
+          console.log(
+            "❌ Drafts endpoint failed, trying seller endpoint:",
+            draftsError.message
+          );
+
+          // Fallback to seller endpoint and filter
+          const data = await apiRequest(
+            `/api/Product/seller/${user?.id || user?.accountId || user?.userId}`
+          );
+          const list = Array.isArray(data) ? data : data?.items || [];
+          deletedItems = list.filter(isDeleted);
+          console.log(
+            "📋 Found deleted items from seller:",
+            deletedItems.length
+          );
+        }
 
         // Load images for deleted items
         const itemsWithImages = await Promise.all(
@@ -46,8 +72,10 @@ export const Trash = () => {
           })
         );
 
+        console.log("✅ Loaded trash items:", itemsWithImages.length);
         setItems(itemsWithImages);
       } catch (e) {
+        console.error("❌ Error loading trash:", e);
         setError(e.message || "Không thể tải thùng rác");
       } finally {
         setLoading(false);
@@ -56,35 +84,153 @@ export const Trash = () => {
   }, [user]);
 
   const restore = async (id) => {
+    setActionLoading((prev) => ({ ...prev, [id]: "restore" }));
     try {
-      await apiRequest(`/api/Product/${id}`, {
-        method: "PUT",
-        body: { status: "pending" },
-      });
+      console.log("🔄 Attempting to restore product:", id);
+
+      // Try different approaches to restore the product
+      let response;
+
+      // Approach 1: Update status to pending
+      try {
+        console.log("🔄 Trying approach 1: Update status to pending");
+        response = await apiRequest(`/api/Product/${id}`, {
+          method: "PUT",
+          body: { status: "pending" },
+        });
+        console.log("✅ Approach 1 success:", response);
+      } catch (e1) {
+        console.log("❌ Approach 1 failed:", e1.message);
+
+        // Approach 2: Try with different field names
+        try {
+          console.log("🔄 Trying approach 2: Update with Status field");
+          response = await apiRequest(`/api/Product/${id}`, {
+            method: "PUT",
+            body: { Status: "pending" },
+          });
+          console.log("✅ Approach 2 success:", response);
+        } catch (e2) {
+          console.log("❌ Approach 2 failed:", e2.message);
+
+          // Approach 3: Try with isActive field
+          try {
+            console.log("🔄 Trying approach 3: Update with isActive field");
+            response = await apiRequest(`/api/Product/${id}`, {
+              method: "PUT",
+              body: {
+                status: "pending",
+                isActive: true,
+                IsActive: true,
+              },
+            });
+            console.log("✅ Approach 3 success:", response);
+          } catch (e3) {
+            console.log("❌ Approach 3 failed:", e3.message);
+            throw e1; // Throw the original error
+          }
+        }
+      }
+
       setItems((prev) => prev.filter((x) => getListingId(x) !== id));
-      alert("Khôi phục thành công!");
+      show({
+        title: "✅ Khôi phục thành công",
+        description:
+          "Sản phẩm đã được khôi phục và chuyển về trạng thái chờ duyệt",
+        type: "success",
+      });
     } catch (e) {
-      console.error("Restore error:", e);
-      alert(e.message || "Không thể khôi phục");
+      console.error("❌ All restore approaches failed:", e);
+      console.error("Error details:", {
+        message: e.message,
+        status: e.status,
+        response: e.response,
+      });
+      show({
+        title: "❌ Không thể khôi phục",
+        description: e.message || "Có lỗi xảy ra khi khôi phục sản phẩm",
+        type: "error",
+      });
+    } finally {
+      setActionLoading((prev) => ({ ...prev, [id]: null }));
     }
   };
 
   const hardDelete = async (id) => {
     if (!confirm("Xóa vĩnh viễn? Hành động này không thể hoàn tác!")) return;
+    setActionLoading((prev) => ({ ...prev, [id]: "delete" }));
     try {
-      await apiRequest(`/api/Product/${id}`, { method: "DELETE" });
+      console.log("🗑️ Attempting to hard delete product:", id);
+
+      // Try different approaches for hard delete
+      let response;
+
+      // Approach 1: Standard DELETE
+      try {
+        console.log("🗑️ Trying approach 1: Standard DELETE");
+        response = await apiRequest(`/api/Product/${id}`, {
+          method: "DELETE",
+        });
+        console.log("✅ Approach 1 success:", response);
+      } catch (e1) {
+        console.log("❌ Approach 1 failed:", e1.message);
+
+        // Approach 2: Try with force parameter
+        try {
+          console.log("🗑️ Trying approach 2: DELETE with force parameter");
+          response = await apiRequest(`/api/Product/${id}?force=true`, {
+            method: "DELETE",
+          });
+          console.log("✅ Approach 2 success:", response);
+        } catch (e2) {
+          console.log("❌ Approach 2 failed:", e2.message);
+
+          // Approach 3: Try with hardDelete parameter
+          try {
+            console.log(
+              "🗑️ Trying approach 3: DELETE with hardDelete parameter"
+            );
+            response = await apiRequest(`/api/Product/${id}?hardDelete=true`, {
+              method: "DELETE",
+            });
+            console.log("✅ Approach 3 success:", response);
+          } catch (e3) {
+            console.log("❌ Approach 3 failed:", e3.message);
+            throw e1; // Throw the original error
+          }
+        }
+      }
+
       setItems((prev) => prev.filter((x) => getListingId(x) !== id));
-      alert("Xóa vĩnh viễn thành công!");
+      show({
+        title: "🗑️ Xóa vĩnh viễn thành công",
+        description: "Sản phẩm đã được xóa vĩnh viễn khỏi hệ thống",
+        type: "success",
+      });
     } catch (e) {
-      console.error("Hard delete error:", e);
-      alert(e.message || "Không thể xóa vĩnh viễn");
+      console.error("❌ All hard delete approaches failed:", e);
+      console.error("Error details:", {
+        message: e.message,
+        status: e.status,
+        response: e.response,
+      });
+      show({
+        title: "❌ Không thể xóa vĩnh viễn",
+        description: e.message || "Có lỗi xảy ra khi xóa sản phẩm",
+        type: "error",
+      });
+    } finally {
+      setActionLoading((prev) => ({ ...prev, [id]: null }));
     }
   };
 
   if (loading)
     return (
       <div className="min-h-screen flex items-center justify-center">
-        Đang tải...
+        <div className="flex items-center space-x-2">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+          <span className="text-gray-600">Đang tải thùng rác...</span>
+        </div>
       </div>
     );
 
@@ -92,61 +238,117 @@ export const Trash = () => {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold">Thùng rác</h1>
-          <Link to="/my-listings" className="text-blue-600">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">🗑️ Thùng rác</h1>
+            <p className="text-gray-600 mt-1">Quản lý các sản phẩm đã bị xóa</p>
+          </div>
+          <Link
+            to="/my-listings"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
+          >
+            <Package className="w-4 h-4" />
             Quay lại danh sách
           </Link>
         </div>
         {error && (
-          <div className="mb-4 p-3 rounded bg-red-50 text-red-700">{error}</div>
+          <div className="mb-4 p-4 rounded-lg bg-red-50 border border-red-200 text-red-700 flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5" />
+            {error}
+          </div>
         )}
         {items.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-sm p-12 text-center text-gray-600">
-            Không có mục nào
+          <div className="bg-white rounded-xl shadow-sm p-12 text-center">
+            <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              Thùng rác trống
+            </h3>
+            <p className="text-gray-600">
+              Không có sản phẩm nào trong thùng rác
+            </p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {items.map((l) => {
               const id = getListingId(l);
+              const isLoading = actionLoading[id];
               return (
                 <div
                   key={id}
-                  className="bg-white rounded-lg shadow-sm p-4 flex items-center justify-between"
+                  className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
                 >
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={
-                        l.images && l.images.length > 0
-                          ? l.images[0]
-                          : "https://images.pexels.com/photos/110844/pexels-photo-110844.jpeg?auto=compress&cs=tinysrgb&w=100"
-                      }
-                      alt="thumb"
-                      className="w-16 h-16 rounded object-cover"
-                      onError={(e) => {
-                        e.target.src =
-                          "https://images.pexels.com/photos/110844/pexels-photo-110844.jpeg?auto=compress&cs=tinysrgb&w=100";
-                      }}
-                    />
-                    <div>
-                      <div className="font-semibold">{l.title}</div>
-                      <div className="text-sm text-gray-500">
-                        {l.licensePlate || l.license_plate || ""}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="relative">
+                        <img
+                          src={
+                            l.images && l.images.length > 0
+                              ? l.images[0]
+                              : "https://images.pexels.com/photos/110844/pexels-photo-110844.jpeg?auto=compress&cs=tinysrgb&w=100"
+                          }
+                          alt="thumb"
+                          className="w-20 h-20 rounded-lg object-cover"
+                          onError={(e) => {
+                            e.target.src =
+                              "https://images.pexels.com/photos/110844/pexels-photo-110844.jpeg?auto=compress&cs=tinysrgb&w=100";
+                          }}
+                        />
+                        <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+                          Đã xóa
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-lg text-gray-900 mb-1">
+                          {l.title}
+                        </h3>
+                        <div className="text-sm text-gray-600 space-y-1">
+                          <div>
+                            <span className="font-medium">Biển số:</span>{" "}
+                            {l.licensePlate ||
+                              l.license_plate ||
+                              "Chưa cập nhật"}
+                          </div>
+                          <div>
+                            <span className="font-medium">Giá:</span>{" "}
+                            {l.price
+                              ? new Intl.NumberFormat("vi-VN", {
+                                  style: "currency",
+                                  currency: "VND",
+                                }).format(l.price)
+                              : "Chưa cập nhật"}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => restore(id)}
-                      className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 inline-flex items-center gap-1"
-                    >
-                      <RotateCcw className="w-4 h-4" /> Khôi phục
-                    </button>
-                    <button
-                      onClick={() => hardDelete(id)}
-                      className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 inline-flex items-center gap-1"
-                    >
-                      <Trash2 className="w-4 h-4" /> Xóa vĩnh viễn
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => restore(id)}
+                        disabled={isLoading}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2 transition-colors"
+                      >
+                        {isLoading === "restore" ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        ) : (
+                          <RotateCcw className="w-4 h-4" />
+                        )}
+                        {isLoading === "restore"
+                          ? "Đang khôi phục..."
+                          : "Khôi phục"}
+                      </button>
+                      <button
+                        onClick={() => hardDelete(id)}
+                        disabled={isLoading}
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2 transition-colors"
+                      >
+                        {isLoading === "delete" ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
+                        {isLoading === "delete"
+                          ? "Đang xóa..."
+                          : "Xóa vĩnh viễn"}
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
