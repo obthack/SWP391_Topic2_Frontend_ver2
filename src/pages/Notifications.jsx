@@ -83,6 +83,10 @@ export const Notifications = () => {
       setNotifications((prev) =>
         prev.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n))
       );
+
+      // Dispatch event to update notification bell
+      window.dispatchEvent(new CustomEvent("notificationRead"));
+
       showToast({
         title: "Đã đánh dấu đã đọc",
         description: "Thông báo đã được đánh dấu là đã đọc",
@@ -97,6 +101,10 @@ export const Notifications = () => {
     try {
       await markAllAsRead(user.id || user.userId || user.accountId);
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+
+      // Dispatch event to update notification bell
+      window.dispatchEvent(new CustomEvent("allNotificationsRead"));
+
       showToast({
         title: "Đã đánh dấu tất cả đã đọc",
         description: "Tất cả thông báo đã được đánh dấu là đã đọc",
@@ -111,6 +119,10 @@ export const Notifications = () => {
     try {
       await deleteNotification(notificationId);
       setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
+
+      // Dispatch event to update notification bell
+      window.dispatchEvent(new CustomEvent("notificationDeleted"));
+
       showToast({
         title: "Đã xóa thông báo",
         description: "Thông báo đã được xóa khỏi danh sách",
@@ -197,18 +209,25 @@ export const Notifications = () => {
     }
   };
 
-  const filteredNotifications = notifications.filter((notification) => {
-    const matchesSearch =
-      notification.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      notification.content.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredNotifications = notifications
+    .filter((notification) => {
+      const matchesSearch =
+        notification.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        notification.content.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesFilter =
-      filterType === "all" || notification.notificationType === filterType;
+      const matchesFilter =
+        filterType === "all" || notification.notificationType === filterType;
 
-    const matchesReadStatus = showRead || !notification.isRead;
+      const matchesReadStatus = showRead || !notification.isRead;
 
-    return matchesSearch && matchesFilter && matchesReadStatus;
-  });
+      return matchesSearch && matchesFilter && matchesReadStatus;
+    })
+    .sort((a, b) => {
+      // Sort by creation date (newest first)
+      const dateA = new Date(a.createdAt || a.createdDate || 0);
+      const dateB = new Date(b.createdAt || b.createdDate || 0);
+      return dateB - dateA;
+    });
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
@@ -227,7 +246,7 @@ export const Notifications = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 vietnamese-text notifications-page">
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
@@ -237,8 +256,10 @@ export const Notifications = () => {
                 <Bell className="h-8 w-8 text-blue-600" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">Thông báo</h1>
-                <p className="text-gray-600">
+                <h1 className="text-3xl font-bold text-gray-900 vietnamese-text notification-text">
+                  Thông báo
+                </h1>
+                <p className="text-gray-600 vietnamese-text notification-text">
                   {unreadCount > 0
                     ? `Bạn có ${unreadCount} thông báo chưa đọc`
                     : "Bạn đã đọc tất cả thông báo"}
@@ -266,7 +287,7 @@ export const Notifications = () => {
                 placeholder="Tìm kiếm thông báo..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent vietnamese-text notification-text"
               />
             </div>
 
@@ -334,9 +355,9 @@ export const Notifications = () => {
               </p>
             </div>
           ) : (
-            filteredNotifications.map((notification) => (
+            filteredNotifications.map((notification, index) => (
               <div
-                key={notification.id}
+                key={notification.notificationId || notification.id || index}
                 className={`bg-white rounded-2xl shadow-lg border-l-4 p-6 transition-all duration-300 hover:shadow-xl hover:scale-[1.01] ${
                   notification.isRead
                     ? "opacity-75 border-l-gray-300"
@@ -361,7 +382,7 @@ export const Notifications = () => {
                       <div className="flex-1">
                         <div className="flex items-center space-x-3 mb-2">
                           <h3
-                            className={`text-lg font-semibold ${
+                            className={`text-lg font-semibold vietnamese-text notification-title ${
                               notification.isRead
                                 ? "text-gray-700"
                                 : "text-gray-900"
@@ -376,7 +397,7 @@ export const Notifications = () => {
                           )}
                         </div>
 
-                        <p className="text-gray-600 mb-4 leading-relaxed">
+                        <p className="text-gray-600 mb-4 leading-relaxed vietnamese-text notification-content">
                           {notification.content}
                         </p>
 

@@ -35,7 +35,6 @@ export const EditListing = () => {
     // Vehicle specific fields
     vehicleType: "",
     manufactureYear: "",
-    seatCount: "",
     // Battery specific fields
     batteryType: "",
     batteryHealth: "",
@@ -483,29 +482,32 @@ export const EditListing = () => {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Biển số xe *
-                  </label>
-                  <input
-                    type="text"
-                    name="licensePlate"
-                    value={formData.licensePlate}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="VD: 30A-12345 (5 số cuối)"
-                    pattern="[0-9]{2}[A-Z]-[0-9]{5}"
-                    title="Định dạng: 30A-12345 (2 số + 1 chữ cái + 5 số)"
-                    required
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Định dạng: 30A-12345 (2 số + 1 chữ cái + 5 số)
-                  </p>
-                </div>
+                {/* Biển số xe - chỉ hiển thị cho xe */}
+                {formData.productType?.toLowerCase() === "vehicle" && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Biển số xe *
+                    </label>
+                    <input
+                      type="text"
+                      name="licensePlate"
+                      value={formData.licensePlate}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="VD: 30A-12345 (5 số cuối)"
+                      pattern="[0-9]{2}[A-Z]-[0-9]{5}"
+                      title="Định dạng: 30A-12345 (2 số + 1 chữ cái + 5 số)"
+                      required
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Định dạng: 30A-12345 (2 số + 1 chữ cái + 5 số)
+                    </p>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {formData.productType === "vehicle"
+                    {formData.productType?.toLowerCase() === "vehicle"
                       ? "Hãng xe"
                       : "Hãng pin"}{" "}
                     *
@@ -518,11 +520,11 @@ export const EditListing = () => {
                     required
                   >
                     <option value="">
-                      {formData.productType === "vehicle"
+                      {formData.productType?.toLowerCase() === "vehicle"
                         ? "Chọn hãng xe"
                         : "Chọn hãng pin"}
                     </option>
-                    {formData.productType === "vehicle" ? (
+                    {formData.productType?.toLowerCase() === "vehicle" ? (
                       <>
                         <option value="VinFast">VinFast</option>
                         <option value="Tesla">Tesla</option>
@@ -610,19 +612,22 @@ export const EditListing = () => {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Số km đã đi
-                </label>
-                <input
-                  type="number"
-                  name="mileage"
-                  value={formData.mileage}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Ví dụ: 15000"
-                />
-              </div>
+              {/* Số km đã đi - chỉ hiển thị cho xe */}
+              {formData.productType?.toLowerCase() === "vehicle" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Số km đã đi
+                  </label>
+                  <input
+                    type="number"
+                    name="mileage"
+                    value={formData.mileage}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Ví dụ: 15000"
+                  />
+                </div>
+              )}
             </div>
 
             <div className="mt-6">
@@ -645,84 +650,30 @@ export const EditListing = () => {
             </div>
           </div>
 
-          {/* Technical Specifications */}
-          <div className="bg-white rounded-xl shadow-sm p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">
-              Thông số kỹ thuật
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Màu sắc
-                </label>
-                <input
-                  type="text"
-                  name="color"
-                  value={formData.color}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Ví dụ: Trắng, Đen, Xám"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Loại nhiên liệu
-                </label>
-                <select
-                  name="fuelType"
-                  value={formData.fuelType}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">Chọn loại</option>
-                  <option value="electric">Điện</option>
-                  <option value="hybrid">Hybrid</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Hộp số
-                </label>
-                <select
-                  name="transmission"
-                  value={formData.transmission}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">Chọn loại</option>
-                  <option value="automatic">Tự động</option>
-                  <option value="manual">Số sàn</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tình trạng
-                </label>
-                <select
-                  name="condition"
-                  value={formData.condition}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="excellent">Xuất sắc</option>
-                  <option value="good">Tốt</option>
-                  <option value="fair">Khá</option>
-                  <option value="poor">Kém</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
           {/* Vehicle Specific Fields */}
-          {formData.productType === "vehicle" && (
+          {formData.productType?.toLowerCase() === "vehicle" && (
             <div className="bg-white rounded-xl shadow-sm p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">
                 🚗 Thông số kỹ thuật xe điện
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Tình trạng
+                  </label>
+                  <select
+                    name="condition"
+                    value={formData.condition}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="excellent">Xuất sắc</option>
+                    <option value="good">Tốt</option>
+                    <option value="fair">Khá</option>
+                    <option value="poor">Kém</option>
+                  </select>
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Loại xe
@@ -764,21 +715,6 @@ export const EditListing = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Số km đã đi
-                  </label>
-                  <input
-                    type="number"
-                    name="mileage"
-                    value={formData.mileage}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="VD: 50000"
-                    min="0"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Hộp số
                   </label>
                   <select
@@ -794,47 +730,12 @@ export const EditListing = () => {
                     <option value="semi-automatic">Bán tự động</option>
                   </select>
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Số chỗ ngồi
-                  </label>
-                  <input
-                    type="number"
-                    name="seatCount"
-                    value={formData.seatCount}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="VD: 5"
-                    min="1"
-                    max="9"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Biển số xe
-                  </label>
-                  <input
-                    type="text"
-                    name="licensePlate"
-                    value={formData.licensePlate}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="VD: 30A-12345"
-                    pattern="^[0-9]{2}[A-Z]-[0-9]{5}$"
-                    title="Định dạng: 30A-12345 (2 số + 1 chữ cái + 5 số)"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Định dạng: 30A-12345 (2 số + 1 chữ cái + 5 số)
-                  </p>
-                </div>
               </div>
             </div>
           )}
 
           {/* Battery Specific Fields */}
-          {formData.productType === "battery" && (
+          {formData.productType?.toLowerCase() === "battery" && (
             <div className="bg-white rounded-xl shadow-sm p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">
                 🔋 Thông số kỹ thuật pin
@@ -849,18 +750,12 @@ export const EditListing = () => {
                     value={formData.batteryType}
                     onChange={handleChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
                   >
                     <option value="">Chọn loại pin</option>
-                    <option value="lithium-ion">Lithium-ion</option>
-                    <option value="lithium-polymer">Lithium-polymer</option>
-                    <option value="lithium-iron-phosphate">
-                      Lithium Iron Phosphate (LFP)
-                    </option>
-                    <option value="nickel-metal-hydride">
-                      Nickel Metal Hydride
-                    </option>
-                    <option value="lead-acid">Lead Acid</option>
-                    <option value="other">Khác</option>
+                    <option value="CarBattery">Pin ô tô</option>
+                    <option value="MotorcycleBattery">Pin xe máy</option>
+                    <option value="BikeBattery">Pin xe đạp điện</option>
                   </select>
                 </div>
 

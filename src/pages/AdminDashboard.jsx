@@ -23,6 +23,8 @@ import { apiRequest } from "../lib/api";
 import { formatPrice, formatDate } from "../utils/formatters";
 import { useToast } from "../contexts/ToastContext";
 import { notifyPostApproved, notifyPostRejected } from "../lib/notificationApi";
+import { rejectProduct } from "../lib/productApi";
+import { RejectProductModal } from "../components/admin/RejectProductModal";
 
 export const AdminDashboard = () => {
   const { show: showToast } = useToast();
@@ -45,6 +47,12 @@ export const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [expandedDetails, setExpandedDetails] = useState(false);
+
+  // Reject modal state
+  const [rejectModal, setRejectModal] = useState({
+    isOpen: false,
+    product: null,
+  });
 
   const getId = (x) => x?.id || x?.productId || x?.Id || x?.listingId;
 
@@ -113,6 +121,12 @@ export const AdminDashboard = () => {
         if (raw.includes("reject") || raw.includes("từ chối"))
           return "rejected";
         if (raw.includes("sold") || raw.includes("đã bán")) return "sold";
+        if (
+          raw.includes("deleted") ||
+          raw.includes("xóa") ||
+          raw.includes("đã xóa")
+        )
+          return "deleted";
         const result = raw || "pending";
         console.log(`Mapped status: "${result}"`);
         return result;
@@ -182,8 +196,18 @@ export const AdminDashboard = () => {
         })
       );
 
+      // Filter out deleted products
+      const nonDeletedListings = processedListings.filter(
+        (l) => l.status !== "deleted"
+      );
+      console.log(
+        `Filtered out ${
+          processedListings.length - nonDeletedListings.length
+        } deleted products`
+      );
+
       // Sort listings to show newest first (by createdDate or createdAt)
-      const sortedListings = processedListings.sort((a, b) => {
+      const sortedListings = nonDeletedListings.sort((a, b) => {
         const dateA = new Date(
           a.createdDate || a.createdAt || a.created_date || 0
         );
@@ -193,9 +217,13 @@ export const AdminDashboard = () => {
         return dateB - dateA; // Newest first
       });
 
-      const pending = processedListings.filter((l) => l.status === "pending");
-      const approved = processedListings.filter((l) => l.status === "approved");
-      const rejected = processedListings.filter((l) => l.status === "rejected");
+      const pending = nonDeletedListings.filter((l) => l.status === "pending");
+      const approved = nonDeletedListings.filter(
+        (l) => l.status === "approved"
+      );
+      const rejected = nonDeletedListings.filter(
+        (l) => l.status === "rejected"
+      );
 
       const revenue = Array.isArray(transactions)
         ? transactions
@@ -208,7 +236,7 @@ export const AdminDashboard = () => {
 
       setStats({
         totalUsers: Array.isArray(users) ? users.length : 0,
-        totalListings: processedListings.length,
+        totalListings: nonDeletedListings.length,
         pendingListings: pending.length,
         approvedListings: approved.length,
         rejectedListings: rejected.length,
@@ -348,88 +376,56 @@ export const AdminDashboard = () => {
     }
   };
 
-  const handleReject = async (listingId) => {
+  const handleReject = async (productId, rejectionReason) => {
     try {
-      console.log("Rejecting listing with ID:", listingId);
+      console.log("Rejecting product:", productId, "Reason:", rejectionReason);
 
-      // Try different reject API endpoints
-      const rejectEndpoints = [
-        // Try dedicated reject endpoint first
-        `/api/Product/reject/${listingId}`,
-        // Fallback to update endpoint
-        `/api/Product/${listingId}`,
-      ];
+      await rejectProduct(productId, rejectionReason);
 
-      let rejected = false;
-      for (const endpoint of rejectEndpoints) {
-        try {
-          if (endpoint.includes("/reject/")) {
-            // Try PUT to reject endpoint
-            await apiRequest(endpoint, {
-              method: "PUT",
-            });
-          } else {
-            // Try PUT to update status
-            await apiRequest(endpoint, {
-              method: "PUT",
-              body: { status: "rejected" },
-            });
-          }
-          console.log(`Product rejected successfully using ${endpoint}!`);
-          rejected = true;
-          break;
-        } catch (endpointError) {
-          console.log(
-            `Reject endpoint ${endpoint} failed:`,
-            endpointError.message
-          );
-        }
-      }
+      // Update local state
+      setAllListings((prev) =>
+        prev.map((item) =>
+          getId(item) === productId
+            ? {
+                ...item,
+                status: "rejected",
+                verificationStatus: "rejected",
+                rejectionReason,
+              }
+            : item
+        )
+      );
 
-      if (!rejected) {
-        throw new Error("Tất cả API reject đều thất bại");
-      }
-
-      // Send notification to the seller
-      try {
-        // Get listing details to find seller info
-        const listing = allListings.find((l) => getId(l) === listingId);
-        if (listing && listing.sellerId) {
-          const notificationSent = await notifyPostRejected(
-            listing.sellerId,
-            listing.title || "Bài đăng của bạn"
-          );
-
-          if (notificationSent) {
-            console.log("✅ Rejection notification sent to seller");
-          } else {
-            console.log("⚠️ Notification API not available");
-          }
-        }
-      } catch (notificationError) {
-        console.warn(
-          "Could not send rejection notification:",
-          notificationError
-        );
-        // Don't block the reject process
+      // Send notification
+      const product = allListings.find((item) => getId(item) === productId);
+      const sellerId = product?.sellerId || product?.userId;
+      if (sellerId) {
+        await notifyPostRejected(sellerId, product?.title || product?.name);
       }
 
       showToast({
-        title: "✅ Từ chối bài đăng thành công!",
-        description:
-          "Bài đăng đã được từ chối và không hiển thị trên trang chủ.",
+        title: "Từ chối thành công",
+        description: `Sản phẩm đã bị từ chối và thông báo đã được gửi`,
         type: "success",
       });
-      setShowModal(false);
-      loadAdminData();
     } catch (error) {
-      console.error("Error rejecting listing:", error);
-      showToast({
-        title: "❌ Lỗi khi từ chối bài đăng",
-        description: error.message || "Unknown error",
-        type: "error",
-      });
+      console.error("Error rejecting product:", error);
+      throw error;
     }
+  };
+
+  const openRejectModal = (product) => {
+    setRejectModal({
+      isOpen: true,
+      product,
+    });
+  };
+
+  const closeRejectModal = () => {
+    setRejectModal({
+      isOpen: false,
+      product: null,
+    });
   };
 
   const openListingModal = (listing) => {
@@ -808,7 +804,7 @@ export const AdminDashboard = () => {
                             Duyệt
                           </button>
                           <button
-                            onClick={() => handleReject(getId(listing))}
+                            onClick={() => openRejectModal(listing)}
                             className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center text-sm font-medium"
                           >
                             <XCircle className="h-4 w-4 mr-2" />
@@ -963,14 +959,38 @@ export const AdminDashboard = () => {
                           {selectedListing.model || "Chưa cập nhật"}
                         </p>
                       </div>
-                      <div>
-                        <p className="text-sm text-gray-500 mb-1">Biển số</p>
-                        <p className="font-medium text-base">
-                          {selectedListing.licensePlate ||
+                      {/* Only show license plate for vehicles */}
+                      {(selectedListing.productType?.toLowerCase() ===
+                        "vehicle" ||
+                        (!selectedListing.productType &&
+                          (selectedListing.licensePlate ||
                             selectedListing.license_plate ||
-                            "Chưa cập nhật"}
-                        </p>
-                      </div>
+                            selectedListing.mileage ||
+                            selectedListing.vehicleType))) && (
+                        <div>
+                          <p className="text-sm text-gray-500 mb-1">Biển số</p>
+                          <p className="font-medium text-base">
+                            {selectedListing.licensePlate ||
+                              selectedListing.license_plate ||
+                              "Chưa cập nhật"}
+                          </p>
+                        </div>
+                      )}
+                      {/* Show battery type for batteries */}
+                      {(selectedListing.productType?.toLowerCase() ===
+                        "battery" ||
+                        (!selectedListing.productType &&
+                          (selectedListing.batteryType ||
+                            selectedListing.batteryHealth ||
+                            selectedListing.capacity ||
+                            selectedListing.voltage))) && (
+                        <div>
+                          <p className="text-sm text-gray-500 mb-1">Loại pin</p>
+                          <p className="font-medium text-base">
+                            {selectedListing.batteryType || "Chưa cập nhật"}
+                          </p>
+                        </div>
+                      )}
                       <div>
                         <p className="text-sm text-gray-500 mb-1">Đăng lúc</p>
                         <p className="font-medium text-base">
@@ -1017,36 +1037,282 @@ export const AdminDashboard = () => {
                     {/* Expanded Details */}
                     {expandedDetails && (
                       <div className="space-y-4 pt-4 border-t border-gray-200 animate-fadeIn">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-sm text-gray-500 mb-1">
-                              Năm sản xuất
-                            </p>
-                            <p className="font-medium">
-                              {selectedListing.year || "Chưa cập nhật"}
-                            </p>
+                        {/* Debug log for product type */}
+                        {console.log("🔍 AdminDashboard Product Debug:", {
+                          id: selectedListing.id || selectedListing.productId,
+                          title: selectedListing.title,
+                          productType: selectedListing.productType,
+                          productTypeLower:
+                            selectedListing.productType?.toLowerCase(),
+                          isVehicle:
+                            selectedListing.productType?.toLowerCase() ===
+                            "vehicle",
+                          isBattery:
+                            selectedListing.productType?.toLowerCase() ===
+                            "battery",
+                        })}
+
+                        {/* Vehicle Details */}
+                        {(selectedListing.productType?.toLowerCase() ===
+                          "vehicle" ||
+                          (!selectedListing.productType &&
+                            (selectedListing.licensePlate ||
+                              selectedListing.license_plate ||
+                              selectedListing.mileage ||
+                              selectedListing.vehicleType) &&
+                            !(
+                              selectedListing.batteryType ||
+                              selectedListing.batteryHealth ||
+                              selectedListing.capacity ||
+                              selectedListing.voltage
+                            ))) && (
+                          <div className="space-y-4">
+                            <h5 className="text-lg font-semibold text-gray-900 flex items-center">
+                              <Car className="h-5 w-5 mr-2 text-blue-600" />
+                              Thông tin xe điện
+                            </h5>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <p className="text-sm text-gray-500 mb-1">
+                                  Năm sản xuất
+                                </p>
+                                <p className="font-medium">
+                                  {selectedListing.year ||
+                                    selectedListing.manufactureYear ||
+                                    "Chưa cập nhật"}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-500 mb-1">
+                                  Số km đã đi
+                                </p>
+                                <p className="font-medium">
+                                  {selectedListing.mileage
+                                    ? `${selectedListing.mileage.toLocaleString()} km`
+                                    : "Chưa cập nhật"}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-500 mb-1">
+                                  Loại xe
+                                </p>
+                                <p className="font-medium">
+                                  {selectedListing.vehicleType ||
+                                    "Chưa cập nhật"}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-500 mb-1">
+                                  Hộp số
+                                </p>
+                                <p className="font-medium">
+                                  {selectedListing.transmission ||
+                                    "Chưa cập nhật"}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-500 mb-1">
+                                  Dung lượng pin
+                                </p>
+                                <p className="font-medium">
+                                  {selectedListing.battery_capacity
+                                    ? `${selectedListing.battery_capacity} kWh`
+                                    : "Chưa cập nhật"}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-500 mb-1">
+                                  Tình trạng
+                                </p>
+                                <p className="font-medium">
+                                  {selectedListing.condition || "Chưa cập nhật"}
+                                </p>
+                              </div>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-sm text-gray-500 mb-1">Số km</p>
-                            <p className="font-medium">
-                              {selectedListing.mileage || "Chưa cập nhật"}
-                            </p>
+                        )}
+
+                        {/* Battery Details */}
+                        {(selectedListing.productType?.toLowerCase() ===
+                          "battery" ||
+                          (!selectedListing.productType &&
+                            (selectedListing.batteryType ||
+                              selectedListing.batteryHealth ||
+                              selectedListing.capacity ||
+                              selectedListing.voltage) &&
+                            !(
+                              selectedListing.licensePlate ||
+                              selectedListing.license_plate ||
+                              selectedListing.mileage ||
+                              selectedListing.vehicleType
+                            ))) && (
+                          <div className="space-y-4">
+                            <h5 className="text-lg font-semibold text-gray-900 flex items-center">
+                              <Shield className="h-5 w-5 mr-2 text-green-600" />
+                              Thông tin pin
+                            </h5>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <p className="text-sm text-gray-500 mb-1">
+                                  Loại pin
+                                </p>
+                                <p className="font-medium">
+                                  {selectedListing.batteryType ||
+                                    "Chưa cập nhật"}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-500 mb-1">
+                                  Tình trạng pin
+                                </p>
+                                <p className="font-medium">
+                                  {selectedListing.batteryHealth
+                                    ? `${selectedListing.batteryHealth}%`
+                                    : "Chưa cập nhật"}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-500 mb-1">
+                                  Dung lượng
+                                </p>
+                                <p className="font-medium">
+                                  {selectedListing.capacity
+                                    ? `${selectedListing.capacity} Ah`
+                                    : "Chưa cập nhật"}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-500 mb-1">
+                                  Điện áp
+                                </p>
+                                <p className="font-medium">
+                                  {selectedListing.voltage
+                                    ? `${selectedListing.voltage} V`
+                                    : "Chưa cập nhật"}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-500 mb-1">
+                                  BMS
+                                </p>
+                                <p className="font-medium">
+                                  {selectedListing.bms || "Chưa cập nhật"}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-500 mb-1">
+                                  Loại cell
+                                </p>
+                                <p className="font-medium">
+                                  {selectedListing.cellType || "Chưa cập nhật"}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-500 mb-1">
+                                  Số chu kỳ
+                                </p>
+                                <p className="font-medium">
+                                  {selectedListing.cycleCount
+                                    ? `${selectedListing.cycleCount} chu kỳ`
+                                    : "Chưa cập nhật"}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-500 mb-1">
+                                  Tình trạng
+                                </p>
+                                <p className="font-medium">
+                                  {selectedListing.condition || "Chưa cập nhật"}
+                                </p>
+                              </div>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-sm text-gray-500 mb-1">
-                              Tình trạng
-                            </p>
-                            <p className="font-medium">
-                              {selectedListing.condition || "Chưa cập nhật"}
-                            </p>
+                        )}
+
+                        {/* Product Type Detection */}
+                        {!selectedListing.productType && (
+                          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                            <h5 className="text-lg font-semibold text-yellow-900 flex items-center mb-2">
+                              <AlertCircle className="h-5 w-5 mr-2 text-yellow-600" />
+                              Phát hiện loại sản phẩm
+                            </h5>
+                            <div className="text-sm text-yellow-700">
+                              <p>
+                                <strong>Dựa trên dữ liệu có sẵn:</strong>
+                              </p>
+                              <ul className="list-disc list-inside mt-1 space-y-1">
+                                {selectedListing.licensePlate ||
+                                selectedListing.license_plate ? (
+                                  <li>✅ Có biển số xe → Sản phẩm xe điện</li>
+                                ) : null}
+                                {selectedListing.mileage ? (
+                                  <li>✅ Có số km → Sản phẩm xe điện</li>
+                                ) : null}
+                                {selectedListing.vehicleType ? (
+                                  <li>✅ Có loại xe → Sản phẩm xe điện</li>
+                                ) : null}
+                                {selectedListing.batteryType ? (
+                                  <li>✅ Có loại pin → Sản phẩm pin</li>
+                                ) : null}
+                                {selectedListing.batteryHealth ? (
+                                  <li>✅ Có tình trạng pin → Sản phẩm pin</li>
+                                ) : null}
+                                {selectedListing.capacity ? (
+                                  <li>✅ Có dung lượng → Sản phẩm pin</li>
+                                ) : null}
+                                {selectedListing.voltage ? (
+                                  <li>✅ Có điện áp → Sản phẩm pin</li>
+                                ) : null}
+                              </ul>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-sm text-gray-500 mb-1">
-                              Địa chỉ
-                            </p>
-                            <p className="font-medium">
-                              {selectedListing.location || "Chưa cập nhật"}
-                            </p>
+                        )}
+
+                        {/* Common Details */}
+                        <div className="space-y-4">
+                          <h5 className="text-lg font-semibold text-gray-900 flex items-center">
+                            <MapPin className="h-5 w-5 mr-2 text-purple-600" />
+                            Thông tin chung
+                          </h5>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-sm text-gray-500 mb-1">
+                                Địa chỉ
+                              </p>
+                              <p className="font-medium">
+                                {selectedListing.location || "Chưa cập nhật"}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500 mb-1">
+                                Người bán
+                              </p>
+                              <p className="font-medium">
+                                {selectedListing.sellerName ||
+                                  selectedListing.seller?.fullName ||
+                                  "Chưa cập nhật"}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500 mb-1">
+                                Email người bán
+                              </p>
+                              <p className="font-medium">
+                                {selectedListing.sellerEmail ||
+                                  selectedListing.seller?.email ||
+                                  "Chưa cập nhật"}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500 mb-1">
+                                SĐT người bán
+                              </p>
+                              <p className="font-medium">
+                                {selectedListing.sellerPhone ||
+                                  selectedListing.seller?.phone ||
+                                  "Chưa cập nhật"}
+                              </p>
+                            </div>
                           </div>
                         </div>
 
@@ -1054,11 +1320,26 @@ export const AdminDashboard = () => {
                         {selectedListing.description &&
                           selectedListing.description !== "Chưa có mô tả" && (
                             <div>
-                              <p className="text-sm text-gray-500 mb-2">
-                                Mô tả
-                              </p>
-                              <p className="text-gray-700 bg-white p-3 rounded-lg border">
+                              <h5 className="text-lg font-semibold text-gray-900 mb-2 flex items-center">
+                                <Calendar className="h-5 w-5 mr-2 text-orange-600" />
+                                Mô tả chi tiết
+                              </h5>
+                              <p className="text-gray-700 bg-white p-4 rounded-lg border border-gray-200">
                                 {selectedListing.description}
+                              </p>
+                            </div>
+                          )}
+
+                        {/* Rejection Reason (if rejected) */}
+                        {selectedListing.status === "rejected" &&
+                          selectedListing.rejectionReason && (
+                            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                              <h5 className="text-lg font-semibold text-red-900 mb-2 flex items-center">
+                                <XCircle className="h-5 w-5 mr-2 text-red-600" />
+                                Lý do từ chối
+                              </h5>
+                              <p className="text-red-700 bg-red-100 p-3 rounded-lg">
+                                {selectedListing.rejectionReason}
                               </p>
                             </div>
                           )}
@@ -1093,7 +1374,7 @@ export const AdminDashboard = () => {
                         Duyệt tin đăng
                       </button>
                       <button
-                        onClick={() => handleReject(getId(selectedListing))}
+                        onClick={() => openRejectModal(selectedListing)}
                         className="flex-1 bg-red-600 text-white px-6 py-3 rounded-xl hover:bg-red-700 transition-colors flex items-center justify-center font-medium"
                       >
                         <XCircle className="h-5 w-5 mr-2" />
@@ -1140,6 +1421,14 @@ export const AdminDashboard = () => {
           </div>
         </div>
       )}
+
+      {/* Reject Product Modal */}
+      <RejectProductModal
+        isOpen={rejectModal.isOpen}
+        onClose={closeRejectModal}
+        product={rejectModal.product}
+        onReject={handleReject}
+      />
     </div>
   );
 };

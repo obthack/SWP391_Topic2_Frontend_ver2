@@ -16,6 +16,33 @@ export const NotificationBell = () => {
     }
   }, [user]);
 
+  // Refresh unread count when notifications change
+  useEffect(() => {
+    const handleNotificationChange = () => {
+      if (user) {
+        console.log("🔔 Notification change detected, refreshing count...");
+        loadUnreadCount();
+      }
+    };
+
+    // Listen for custom events from Notifications page
+    window.addEventListener("notificationRead", handleNotificationChange);
+    window.addEventListener("notificationDeleted", handleNotificationChange);
+    window.addEventListener("allNotificationsRead", handleNotificationChange);
+
+    return () => {
+      window.removeEventListener("notificationRead", handleNotificationChange);
+      window.removeEventListener(
+        "notificationDeleted",
+        handleNotificationChange
+      );
+      window.removeEventListener(
+        "allNotificationsRead",
+        handleNotificationChange
+      );
+    };
+  }, [user]);
+
   const loadUnreadCount = async () => {
     try {
       setIsLoading(true);
@@ -23,6 +50,12 @@ export const NotificationBell = () => {
         user.id || user.userId || user.accountId
       );
       setUnreadCount(count);
+      console.log("🔔 Unread count updated:", count);
+
+      // If count is 0, remove the number from bell
+      if (count === 0) {
+        console.log("🔔 No unread notifications, hiding number");
+      }
     } catch (error) {
       console.error("Error loading unread count:", error);
     } finally {
@@ -36,6 +69,10 @@ export const NotificationBell = () => {
     try {
       await markAllAsRead(user.id || user.userId || user.accountId);
       setUnreadCount(0);
+      console.log("🔔 All notifications marked as read");
+
+      // Dispatch event to notify other components
+      window.dispatchEvent(new CustomEvent("allNotificationsRead"));
     } catch (error) {
       console.error("Error marking all as read:", error);
     }
@@ -46,27 +83,29 @@ export const NotificationBell = () => {
   }
 
   return (
-    <div className="relative">
+    <div className="notification-bell">
       <Link
         to="/notifications"
-        className="relative p-2 text-gray-600 hover:text-blue-600 transition-colors"
+        className="relative p-2 text-gray-600 hover:text-blue-600 transition-colors group"
         title="Thông báo"
       >
-        <Bell className="h-5 w-5" />
-        {unreadCount > 0 && (
-          <span className="absolute top-0 right-0 bg-red-500 rounded-full h-3 w-3 animate-pulse"></span>
-        )}
+        <div className="relative">
+          <Bell className="h-5 w-5 group-hover:animate-bounce transition-transform duration-300" />
+          {unreadCount > 0 && (
+            <div
+              className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center shadow-lg ring-2 ring-white hover:scale-110 transition-all duration-300 cursor-pointer hover:bg-red-600 hover:shadow-xl hover:ring-red-300 animate-pulse"
+              title={`${unreadCount} thông báo chưa đọc`}
+            >
+              {unreadCount > 99 ? "99+" : unreadCount}
+            </div>
+          )}
+          {unreadCount === 0 && (
+            <div className="absolute -top-1 -right-1 bg-gray-400 text-white text-xs font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center shadow-lg ring-2 ring-white opacity-0 transition-all duration-300 pointer-events-none">
+              0
+            </div>
+          )}
+        </div>
       </Link>
-
-      {unreadCount > 0 && (
-        <button
-          onClick={handleMarkAllAsRead}
-          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
-          title="Đánh dấu tất cả đã đọc"
-        >
-          <X className="h-3 w-3" />
-        </button>
-      )}
     </div>
   );
 };

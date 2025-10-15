@@ -1,10 +1,21 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Edit, Trash2, Eye, Plus, Search, Filter, Package } from "lucide-react";
+import {
+  Edit,
+  Trash2,
+  Eye,
+  Plus,
+  Search,
+  Filter,
+  Package,
+  AlertTriangle,
+} from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { apiRequest } from "../lib/api";
 import { formatPrice, formatDate } from "../utils/formatters";
 import { useToast } from "../contexts/ToastContext";
+import { RejectedProducts } from "../components/user/RejectedProducts";
+import { RejectionReasonModal } from "../components/common/RejectionReasonModal";
 import "../styles/mylistings.css";
 
 export const MyListings = () => {
@@ -15,6 +26,9 @@ export const MyListings = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [productTypeFilter, setProductTypeFilter] = useState("all"); // all, vehicle, battery
+  const [activeTab, setActiveTab] = useState("listings"); // listings, rejected
+  const [showRejectionModal, setShowRejectionModal] = useState(false);
+  const [selectedRejection, setSelectedRejection] = useState(null);
 
   useEffect(() => {
     if (user) {
@@ -29,6 +43,12 @@ export const MyListings = () => {
     const raw = norm(l?.status ?? l?.Status ?? l?.state);
     if (raw.includes("draft") || raw.includes("pending") || raw.includes("chờ"))
       return "pending";
+    if (
+      raw.includes("resubmit") ||
+      raw.includes("gửi lại") ||
+      raw.includes("cần duyệt lại")
+    )
+      return "resubmit";
     if (
       raw.includes("active") ||
       raw.includes("approve") ||
@@ -333,12 +353,26 @@ export const MyListings = () => {
     }
   };
 
+  const handleShowRejectionReason = (listing) => {
+    setSelectedRejection({
+      rejectionReason:
+        listing.rejectionReason || "Không có lý do cụ thể được cung cấp",
+      rejectedAt: listing.rejectedAt || listing.updatedAt || listing.updated_at,
+      rejectedBy: listing.rejectedBy || "Admin",
+    });
+    setShowRejectionModal(true);
+  };
+
   const getStatusBadge = (status) => {
     const s = status ? status : "pending";
     const statusConfig = {
       pending: {
         className: "mylistings-status-badge mylistings-status-pending",
         label: "Chờ duyệt",
+      },
+      resubmit: {
+        className: "mylistings-status-badge mylistings-status-resubmit",
+        label: "Cần duyệt lại",
       },
       approved: {
         className: "mylistings-status-badge mylistings-status-approved",
@@ -418,192 +452,265 @@ export const MyListings = () => {
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="mylistings-filters">
-          <div className="mylistings-filters-grid">
-            <div className="mylistings-search-container">
-              <Search className="mylistings-search-icon" />
-              <input
-                type="text"
-                placeholder="Tìm kiếm theo tiêu đề, hãng xe, model..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="mylistings-search-input"
-              />
-            </div>
-            <div className="mylistings-filter-container">
-              <Filter className="mylistings-filter-icon" />
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="mylistings-filter-select"
-              >
-                <option value="all">Tất cả trạng thái</option>
-                <option value="pending">Chờ duyệt</option>
-                <option value="approved">Đã duyệt</option>
-                <option value="rejected">Từ chối</option>
-                <option value="sold">Đã bán</option>
-              </select>
-            </div>
-            <div className="mylistings-filter-container">
-              <Package className="mylistings-filter-icon" />
-              <select
-                value={productTypeFilter}
-                onChange={(e) => setProductTypeFilter(e.target.value)}
-                className="mylistings-filter-select"
-              >
-                <option value="all">Tất cả loại</option>
-                <option value="vehicle">🚗 Xe điện</option>
-                <option value="battery">🔋 Pin</option>
-              </select>
-            </div>
-          </div>
+        {/* Tabs */}
+        <div className="mylistings-tabs">
+          <button
+            onClick={() => setActiveTab("listings")}
+            className={`mylistings-tab ${
+              activeTab === "listings" ? "mylistings-tab-active" : ""
+            }`}
+          >
+            <Package className="h-4 w-4 mr-2" />
+            Tất cả tin đăng
+          </button>
+          <button
+            onClick={() => setActiveTab("rejected")}
+            className={`mylistings-tab ${
+              activeTab === "rejected" ? "mylistings-tab-active" : ""
+            }`}
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Bị từ chối
+          </button>
         </div>
 
-        {/* Listings Grid */}
-        {filteredListings.length === 0 ? (
-          <div className="mylistings-empty-state">
-            <div className="mylistings-empty-icon-container">
-              <Eye className="mylistings-empty-icon" />
-            </div>
-            <h3 className="mylistings-empty-title">
-              {listings.length === 0
-                ? "Chưa có tin đăng nào"
-                : "Không tìm thấy tin đăng phù hợp"}
-            </h3>
-            <p className="mylistings-empty-description">
-              {listings.length === 0
-                ? "Hãy tạo bài đăng đầu tiên của bạn"
-                : "Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc"}
-            </p>
-            {listings.length === 0 && (
-              <Link to="/create-listing" className="mylistings-empty-button">
-                <Plus className="mylistings-empty-button-icon" />
-                Tạo tin đăng đầu tiên
-              </Link>
-            )}
-          </div>
+        {/* Content based on active tab */}
+        {activeTab === "rejected" ? (
+          <RejectedProducts />
         ) : (
-          <div className="mylistings-grid">
-            {filteredListings.map((listing) => {
-              const idVal = getListingId(listing);
-              return (
-                <div key={idVal} className="mylistings-card">
-                  <div className="mylistings-image-container">
-                    {listing.images && listing.images.length > 0 ? (
-                      <img
-                        src={listing.images[0]}
-                        alt={listing.title}
-                        className="mylistings-image"
-                        onError={(e) => {
-                          e.target.style.display = "none";
-                          // Show fallback icon when image fails to load
-                          const fallback = e.target.nextElementSibling;
-                          if (fallback) {
-                            fallback.style.display = "flex";
-                          }
-                        }}
-                      />
-                    ) : null}
-                    <div
-                      className={`mylistings-image-placeholder ${
-                        listing.images && listing.images.length > 0
-                          ? "mylistings-image-placeholder-hidden"
-                          : ""
-                      }`}
-                    >
-                      <Package className="mylistings-image-placeholder-icon" />
+          <>
+            {/* Filters */}
+            <div className="mylistings-filters">
+              <div className="mylistings-filters-grid">
+                <div className="mylistings-search-container">
+                  <Search className="mylistings-search-icon" />
+                  <input
+                    type="text"
+                    placeholder="Tìm kiếm theo tiêu đề, hãng xe, model..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="mylistings-search-input"
+                  />
+                </div>
+                <div className="mylistings-filter-container">
+                  <Filter className="mylistings-filter-icon" />
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="mylistings-filter-select"
+                  >
+                    <option value="all">Tất cả trạng thái</option>
+                    <option value="pending">Chờ duyệt</option>
+                    <option value="approved">Đã duyệt</option>
+                    <option value="rejected">Từ chối</option>
+                    <option value="sold">Đã bán</option>
+                  </select>
+                </div>
+                <div className="mylistings-filter-container">
+                  <Package className="mylistings-filter-icon" />
+                  <select
+                    value={productTypeFilter}
+                    onChange={(e) => setProductTypeFilter(e.target.value)}
+                    className="mylistings-filter-select"
+                  >
+                    <option value="all">Tất cả loại</option>
+                    <option value="vehicle">🚗 Xe điện</option>
+                    <option value="battery">🔋 Pin</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Listings Grid */}
+            {filteredListings.length === 0 ? (
+              <div className="mylistings-empty-state">
+                <div className="mylistings-empty-icon-container">
+                  <Eye className="mylistings-empty-icon" />
+                </div>
+                <h3 className="mylistings-empty-title">
+                  {listings.length === 0
+                    ? "Chưa có tin đăng nào"
+                    : "Không tìm thấy tin đăng phù hợp"}
+                </h3>
+                <p className="mylistings-empty-description">
+                  {listings.length === 0
+                    ? "Hãy tạo bài đăng đầu tiên của bạn"
+                    : "Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc"}
+                </p>
+                {listings.length === 0 && (
+                  <Link
+                    to="/create-listing"
+                    className="mylistings-empty-button"
+                  >
+                    <Plus className="mylistings-empty-button-icon" />
+                    Tạo tin đăng đầu tiên
+                  </Link>
+                )}
+              </div>
+            ) : (
+              <div className="mylistings-grid">
+                {filteredListings.map((listing) => {
+                  const idVal = getListingId(listing);
+                  return (
+                    <div key={idVal} className="mylistings-card">
+                      <div className="mylistings-image-container">
+                        {listing.images && listing.images.length > 0 ? (
+                          <img
+                            src={listing.images[0]}
+                            alt={listing.title}
+                            className="mylistings-image"
+                            onError={(e) => {
+                              e.target.style.display = "none";
+                              // Show fallback icon when image fails to load
+                              const fallback = e.target.nextElementSibling;
+                              if (fallback) {
+                                fallback.style.display = "flex";
+                              }
+                            }}
+                          />
+                        ) : null}
+                        <div
+                          className={`mylistings-image-placeholder ${
+                            listing.images && listing.images.length > 0
+                              ? "mylistings-image-placeholder-hidden"
+                              : ""
+                          }`}
+                        >
+                          <Package className="mylistings-image-placeholder-icon" />
+                        </div>
+                        <div className="mylistings-status-badge-container">
+                          {getStatusBadge(getStatus(listing))}
+                        </div>
+                      </div>
+
+                      <div className="mylistings-card-content">
+                        <h3 className="mylistings-card-title">
+                          {listing.title}
+                        </h3>
+                        <p className="mylistings-card-subtitle">
+                          {listing.licensePlate || listing.license_plate || ""}
+                        </p>
+                        <p className="mylistings-card-price">
+                          {formatPrice(listing.price)}
+                        </p>
+
+                        <div className="mylistings-card-meta">
+                          <span>
+                            {new Date(
+                              listing.createdAt ||
+                                listing.created_at ||
+                                listing.createdDate
+                            ).toLocaleString("vi-VN", {
+                              year: "numeric",
+                              month: "2-digit",
+                              day: "2-digit",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                        </div>
+
+                        {/* Show rejection reason button if product is rejected */}
+                        {getStatus(listing) === "rejected" && (
+                          <div className="mylistings-rejection-reason">
+                            {/* Debug log */}
+                            {console.log("🔍 Rejected product debug:", {
+                              id: getListingId(listing),
+                              title: listing.title,
+                              status: listing.status,
+                              rejectionReason: listing.rejectionReason,
+                              hasRejectionReason: !!listing.rejectionReason,
+                            })}
+                            <button
+                              onClick={() => handleShowRejectionReason(listing)}
+                              className="mylistings-rejection-button"
+                            >
+                              <AlertTriangle className="mylistings-rejection-icon" />
+                              Xem lý do từ chối
+                            </button>
+                          </div>
+                        )}
+
+                        <div className="mylistings-card-actions">
+                          <Link
+                            to={`/listing/${getListingId(listing)}/edit`}
+                            className="mylistings-edit-button"
+                          >
+                            <Edit className="mylistings-edit-icon" />
+                            Chỉnh sửa
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              // Try different ID field names
+                              const listingId = getListingId(listing);
+                              console.log(
+                                "Trying to delete with ID:",
+                                listingId
+                              );
+                              handleDelete(listingId);
+                            }}
+                            className="mylistings-delete-button"
+                          >
+                            <Trash2 className="mylistings-delete-icon" />
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                    <div className="mylistings-status-badge-container">
-                      {getStatusBadge(getStatus(listing))}
-                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Stats */}
+            {listings.length > 0 && (
+              <div className="mylistings-stats">
+                <h3 className="mylistings-stats-title">Thống kê</h3>
+                <div className="mylistings-stats-grid">
+                  <div className="mylistings-stat-item">
+                    <p className="mylistings-stat-value">{listings.length}</p>
+                    <p className="mylistings-stat-label">Tổng tin đăng</p>
                   </div>
-
-                  <div className="mylistings-card-content">
-                    <h3 className="mylistings-card-title">{listing.title}</h3>
-                    <p className="mylistings-card-subtitle">
-                      {listing.licensePlate || listing.license_plate || ""}
+                  <div className="mylistings-stat-item">
+                    <p className="mylistings-stat-value mylistings-stat-value-green">
+                      {
+                        listings.filter((l) => getStatus(l) === "approved")
+                          .length
+                      }
                     </p>
-                    <p className="mylistings-card-price">
-                      {formatPrice(listing.price)}
+                    <p className="mylistings-stat-label">Đã duyệt</p>
+                  </div>
+                  <div className="mylistings-stat-item">
+                    <p className="mylistings-stat-value mylistings-stat-value-yellow">
+                      {
+                        listings.filter((l) => getStatus(l) === "pending")
+                          .length
+                      }
                     </p>
-
-                    <div className="mylistings-card-meta">
-                      <span>
-                        {new Date(
-                          listing.createdAt ||
-                            listing.created_at ||
-                            listing.createdDate
-                        ).toLocaleString("vi-VN", {
-                          year: "numeric",
-                          month: "2-digit",
-                          day: "2-digit",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
-                    </div>
-
-                    <div className="mylistings-card-actions">
-                      <Link
-                        to={`/listing/${getListingId(listing)}/edit`}
-                        className="mylistings-edit-button"
-                      >
-                        <Edit className="mylistings-edit-icon" />
-                        Chỉnh sửa
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          // Try different ID field names
-                          const listingId = getListingId(listing);
-                          console.log("Trying to delete with ID:", listingId);
-                          handleDelete(listingId);
-                        }}
-                        className="mylistings-delete-button"
-                      >
-                        <Trash2 className="mylistings-delete-icon" />
-                      </button>
-                    </div>
+                    <p className="mylistings-stat-label">Chờ duyệt</p>
+                  </div>
+                  <div className="mylistings-stat-item">
+                    <p className="mylistings-stat-value mylistings-stat-value-gray">
+                      {listings.filter((l) => getStatus(l) === "sold").length}
+                    </p>
+                    <p className="mylistings-stat-label">Đã bán</p>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Stats */}
-        {listings.length > 0 && (
-          <div className="mylistings-stats">
-            <h3 className="mylistings-stats-title">Thống kê</h3>
-            <div className="mylistings-stats-grid">
-              <div className="mylistings-stat-item">
-                <p className="mylistings-stat-value">{listings.length}</p>
-                <p className="mylistings-stat-label">Tổng tin đăng</p>
               </div>
-              <div className="mylistings-stat-item">
-                <p className="mylistings-stat-value mylistings-stat-value-green">
-                  {listings.filter((l) => getStatus(l) === "approved").length}
-                </p>
-                <p className="mylistings-stat-label">Đã duyệt</p>
-              </div>
-              <div className="mylistings-stat-item">
-                <p className="mylistings-stat-value mylistings-stat-value-yellow">
-                  {listings.filter((l) => getStatus(l) === "pending").length}
-                </p>
-                <p className="mylistings-stat-label">Chờ duyệt</p>
-              </div>
-              <div className="mylistings-stat-item">
-                <p className="mylistings-stat-value mylistings-stat-value-gray">
-                  {listings.filter((l) => getStatus(l) === "sold").length}
-                </p>
-                <p className="mylistings-stat-label">Đã bán</p>
-              </div>
-            </div>
-          </div>
+            )}
+          </>
         )}
       </div>
+
+      {/* Rejection Reason Modal */}
+      <RejectionReasonModal
+        isOpen={showRejectionModal}
+        onClose={() => setShowRejectionModal(false)}
+        rejectionReason={selectedRejection?.rejectionReason}
+        rejectedAt={selectedRejection?.rejectedAt}
+        rejectedBy={selectedRejection?.rejectedBy}
+      />
     </div>
   );
 };

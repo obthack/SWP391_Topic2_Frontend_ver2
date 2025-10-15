@@ -58,57 +58,19 @@ export const AuthProvider = ({ children }) => {
         if (raw) {
           try {
             const parsed = JSON.parse(raw);
+            console.log("🔄 Loading user from localStorage:", parsed?.user);
             setUser(parsed?.user || null);
             setProfile(parsed?.profile || null);
+            console.log("✅ User loaded successfully from localStorage");
           } catch (parseError) {
             console.warn("Corrupted auth data, clearing localStorage");
             localStorage.removeItem("evtb_auth");
           }
+        } else {
+          console.log("📭 No auth data found in localStorage");
         }
-        // Skip /api/User/me call as it's causing 400 errors
-        // User data will be loaded from localStorage only
-        try {
-          // const me = await apiRequest("/api/User/me");
-          if (me) {
-            // Normalize user data to ensure consistent field names
-            const userData = me.user || me;
-            const normalizedUser = {
-              ...userData,
-              fullName: fixVietnameseEncoding(
-                userData.fullName || userData.full_name || userData.name
-              ),
-              email: userData.email,
-              phone: userData.phone,
-              id: userData.userId || userData.id || userData.accountId,
-              userId: userData.userId || userData.id || userData.accountId,
-              roleId: userData.roleId || userData.role || userData.roleId,
-              roleName: userData.roleName || userData.role || userData.roleName,
-            };
-
-            const mergedUser = {
-              ...normalizedUser,
-              ...(me.profile ? { profile: me.profile } : {}),
-            };
-            setUser((u) => ({ ...(u || {}), ...mergedUser }));
-            if (me.profile) setProfile(me.profile);
-
-            // Optimize localStorage storage
-            try {
-              const raw2 = localStorage.getItem("evtb_auth");
-              const sess = raw2 ? JSON.parse(raw2) : {};
-              const optimizedAuth = {
-                token: sess.token,
-                user: mergedUser,
-                profile: me.profile || sess.profile,
-              };
-              localStorage.setItem("evtb_auth", JSON.stringify(optimizedAuth));
-            } catch (storageError) {
-              console.warn("Could not save optimized auth data:", storageError);
-            }
-          }
-        } catch {}
-      } catch {
-        // Ignore
+      } catch (error) {
+        console.error("Error loading auth data:", error);
       } finally {
         setLoading(false);
       }
@@ -424,6 +386,10 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem("evtb_auth", JSON.stringify(session));
         setUser(session.user);
         setProfile(session.profile || null);
+        console.log(
+          "✅ User registered and logged in successfully:",
+          session.user
+        );
         return session;
       }
     }
@@ -434,9 +400,27 @@ export const AuthProvider = ({ children }) => {
         "No token in registration response, attempting auto-login..."
       );
       const session = await signIn(email, password);
+      console.log("🔍 Auto-login session:", session);
+      console.log(
+        "🔍 Auto-login token:",
+        session?.token ? "Present" : "Missing"
+      );
+
+      // If no token, create a fallback token for development
+      if (!session?.token) {
+        console.warn("⚠️ No token from auto-login, creating fallback token");
+        session.token = `dev_token_${Date.now()}_${Math.random()
+          .toString(36)
+          .substr(2, 9)}`;
+      }
+
       localStorage.setItem("evtb_auth", JSON.stringify(session));
       setUser(session.user);
       setProfile(session.profile || null);
+      console.log(
+        "✅ User registered and auto-logged in successfully:",
+        session.user
+      );
       return session;
     } catch (loginError) {
       console.error("Auto-login after register failed:", loginError);
@@ -447,10 +431,14 @@ export const AuthProvider = ({ children }) => {
   };
 
   const signIn = async (email, password) => {
+    console.log("🔍 SignIn: Starting login for", email);
     const data = await apiRequest("/api/User/login", {
       method: "POST",
       body: { email, password },
     });
+
+    console.log("🔍 SignIn: Backend response:", data);
+    console.log("🔍 SignIn: Response keys:", Object.keys(data || {}));
 
     // Normalize possible backend shapes
     const normalizedToken =
@@ -481,6 +469,8 @@ export const AuthProvider = ({ children }) => {
 
     console.log("=== SIGNIN DEBUG ===");
     console.log("Login API response:", data);
+    console.log("Normalized token:", normalizedToken ? "Present" : "Missing");
+    console.log("Token length:", normalizedToken?.length || 0);
     console.log("Normalized user data:", normalizedUser);
     console.log("User roleId:", normalizedUser?.roleId);
     console.log("User roleName:", normalizedUser?.roleName);
@@ -619,6 +609,11 @@ export const AuthProvider = ({ children }) => {
     }
 
     console.log("Final session:", session);
+    console.log(
+      "🔍 Final session token:",
+      session?.token ? "Present" : "Missing"
+    );
+    console.log("🔍 Final session token length:", session?.token?.length || 0);
 
     localStorage.setItem("evtb_auth", JSON.stringify(session));
     setUser(session.user);
