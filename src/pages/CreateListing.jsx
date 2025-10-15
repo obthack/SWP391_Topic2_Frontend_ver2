@@ -5,6 +5,10 @@ import { useAuth } from "../contexts/AuthContext";
 import { apiRequest } from "../lib/api";
 import { useToast } from "../contexts/ToastContext";
 import { notifyPostCreated } from "../lib/notificationApi";
+import {
+  addWatermarkToImages,
+  shouldWatermarkImage,
+} from "../utils/watermarkUtils";
 
 export const CreateListing = () => {
   const { user, profile } = useAuth();
@@ -31,7 +35,6 @@ export const CreateListing = () => {
     // Vehicle specific fields
     vehicleType: "",
     manufactureYear: "",
-    seatCount: "",
     // Battery specific fields
     batteryType: "",
     batteryHealth: "",
@@ -55,10 +58,43 @@ export const CreateListing = () => {
     setImages([...images, ...newImages]);
   };
 
-  const handleDocumentImageUpload = (e) => {
+  const handleDocumentImageUpload = async (e) => {
     const files = Array.from(e.target.files);
     const newImages = files.slice(0, 3 - documentImages.length); // Max 3 document images
-    setDocumentImages([...documentImages, ...newImages]);
+
+    try {
+      // Add watermark to document images
+      const watermarkedImages = await addWatermarkToImages(
+        newImages,
+        "EV Trading Platform",
+        {
+          fontSize: 24,
+          color: "rgba(255, 255, 255, 0.8)",
+          strokeColor: "rgba(0, 0, 0, 0.6)",
+          strokeWidth: 2,
+          angle: -45,
+          spacing: 200,
+        }
+      );
+
+      setDocumentImages([...documentImages, ...watermarkedImages]);
+
+      show({
+        title: "✅ Đã thêm watermark",
+        description: "Ảnh giấy tờ đã được thêm watermark bảo mật",
+        type: "success",
+      });
+    } catch (error) {
+      console.error("Error adding watermark:", error);
+      // Fallback: use original images if watermarking fails
+      setDocumentImages([...documentImages, ...newImages]);
+
+      show({
+        title: "⚠️ Cảnh báo",
+        description: "Không thể thêm watermark, sử dụng ảnh gốc",
+        type: "warning",
+      });
+    }
   };
 
   const removeImage = (index) => {
@@ -88,7 +124,7 @@ export const CreateListing = () => {
       // Get user's profile ID for seller_id reference
       // Based on API response, the user object has 'userId' field, not 'id'
       let sellerId = user?.userId || user?.id || user?.accountId;
-      
+
       // If sellerId is a number, keep it as number (backend might expect integer)
       // If it's a string UUID, keep it as string
       if (
@@ -98,7 +134,7 @@ export const CreateListing = () => {
       ) {
         sellerId = parseInt(sellerId);
       }
-      
+
       console.log("Debug user object:", {
         user,
         profile,
@@ -107,12 +143,12 @@ export const CreateListing = () => {
         profileKeys: profile ? Object.keys(profile) : "no profile",
         userValues: user ? Object.entries(user) : "no user",
       });
-      
+
       // If still no sellerId, try to get from profile object directly
       if (!sellerId && profile) {
         sellerId = profile.userId || profile.id || profile.user_id;
       }
-      
+
       // Last resort: try to get user ID from localStorage
       if (!sellerId) {
         try {
@@ -130,11 +166,11 @@ export const CreateListing = () => {
           console.warn("Could not parse auth data from localStorage:", err);
         }
       }
-      
+
       // Get category ID based on brand
       // Since API Category doesn't exist, we'll use simple numeric IDs
       let categoryId = 1; // Default category
-      
+
       // Map brands to specific category IDs (using simple integers)
       const brandToCategoryMap = {
         Tesla: 1,
@@ -146,7 +182,7 @@ export const CreateListing = () => {
         Hyundai: 7,
         Kia: 8,
       };
-      
+
       if (formData.brand && brandToCategoryMap[formData.brand]) {
         categoryId = brandToCategoryMap[formData.brand];
       }
@@ -164,7 +200,7 @@ export const CreateListing = () => {
         price: formData.price,
         imageCount: images.length,
       });
-      
+
       // Additional debug for user object structure
       if (user) {
         console.log("User object details:", {
@@ -187,7 +223,7 @@ export const CreateListing = () => {
           profile,
           localStorage: localStorage.getItem("evtb_auth"),
         });
-        
+
         // Last resort: use a known working userId from API or generate temporary
         if (user?.email === "opgoodvsbad@gmail.com") {
           // Use the known userId from API response
@@ -270,7 +306,7 @@ export const CreateListing = () => {
       if (formData.productType === "vehicle" && formData.manufactureYear) {
         const year = parseInt(formData.manufactureYear);
         if (isNaN(year) || year < 2010 || year > 2024) {
-        throw new Error("Năm sản xuất phải là số từ 2010 đến 2024.");
+          throw new Error("Năm sản xuất phải là số từ 2010 đến 2024.");
         }
       }
 
@@ -289,25 +325,25 @@ export const CreateListing = () => {
           throw new Error("Dung lượng pin phải là số dương hợp lệ.");
         }
       }
-      
+
       // categoryId should always be set now since we have a default
       console.log("Using categoryId:", categoryId);
-      
+
       // Create product using specific API endpoints
-       let created = null;
+      let created = null;
 
       // Use unified API endpoint - backend will handle product type routing
       const apiEndpoint = "/api/Product";
 
       // Create product data with all fields (matching database schema)
       const productData = {
-           sellerId: sellerId,
+        sellerId: sellerId,
         productType: formData.productType === "vehicle" ? "Vehicle" : "Battery",
-           title: formData.title,
-           description: formData.description,
+        title: formData.title,
+        description: formData.description,
         price: price,
-           brand: formData.brand,
-           model: formData.model,
+        brand: formData.brand,
+        model: formData.model,
         condition: formData.condition,
         // Vehicle fields (will be null/0 for batteries)
         vehicleType:
@@ -381,7 +417,7 @@ export const CreateListing = () => {
 
       try {
         created = await apiRequest(apiEndpoint, {
-        method: "POST",
+          method: "POST",
           body: productData,
         });
         console.log(`✅ Product created successfully:`, created);
@@ -433,21 +469,21 @@ export const CreateListing = () => {
 
         throw error;
       }
-       const pid = created?.id || created?.productId || created?.Id;
+      const pid = created?.id || created?.productId || created?.Id;
 
       // Upload product images after product creation
-       if (pid && images.length > 0) {
+      if (pid && images.length > 0) {
         console.log(
           `Uploading ${images.length} product images for product ${pid}...`
         );
-         
-         try {
-           // Try multiple upload first
-           const formData = new FormData();
+
+        try {
+          // Try multiple upload first
+          const formData = new FormData();
           formData.append("productId", pid);
-           
+
           // Add all product images to FormData
-           images.forEach((image, index) => {
+          images.forEach((image, index) => {
             formData.append("images", image);
           });
 
@@ -459,44 +495,44 @@ export const CreateListing = () => {
           const uploadedImages = await apiRequest(
             `/api/ProductImage/multiple`,
             {
-             method: "POST",
-             body: formData,
+              method: "POST",
+              body: formData,
             }
           );
           console.log(
             "Multiple product images uploaded successfully:",
             uploadedImages
           );
-         } catch (e) {
+        } catch (e) {
           console.warn(
             "Multiple product image upload failed, trying individual uploads:",
             e
           );
 
-           // Fallback to individual uploads
-           for (let i = 0; i < images.length; i++) {
-             const img = images[i];
-             try {
-               const formData = new FormData();
+          // Fallback to individual uploads
+          for (let i = 0; i < images.length; i++) {
+            const img = images[i];
+            try {
+              const formData = new FormData();
               formData.append("productId", pid);
               formData.append("imageFile", img);
 
-               console.log(
+              console.log(
                 `Uploading product image ${i + 1}/${
                   images.length
                 } for product ${pid}`
-               );
-               await apiRequest(`/api/ProductImage`, {
-                 method: "POST",
-                 body: formData,
-               });
+              );
+              await apiRequest(`/api/ProductImage`, {
+                method: "POST",
+                body: formData,
+              });
               console.log(`Product image ${i + 1} uploaded successfully`);
-             } catch (e) {
+            } catch (e) {
               console.warn(`Product image ${i + 1} upload failed:`, e);
-             }
-           }
-         }
-       } else {
+            }
+          }
+        }
+      } else {
         console.log("No product images were selected for upload.");
       }
 
@@ -585,7 +621,7 @@ export const CreateListing = () => {
           notificationError
         );
         // Don't throw error - notification is optional
-       }
+      }
 
       show({
         title: "✅ Tạo bài đăng thành công",
@@ -740,14 +776,14 @@ export const CreateListing = () => {
                     </option>
                     {formData.productType === "vehicle" ? (
                       <>
-                    <option value="VinFast">VinFast</option>
-                    <option value="Tesla">Tesla</option>
-                    <option value="BMW">BMW</option>
-                    <option value="Mercedes">Mercedes</option>
-                    <option value="Audi">Audi</option>
-                    <option value="Porsche">Porsche</option>
-                    <option value="Hyundai">Hyundai</option>
-                    <option value="Kia">Kia</option>
+                        <option value="VinFast">VinFast</option>
+                        <option value="Tesla">Tesla</option>
+                        <option value="BMW">BMW</option>
+                        <option value="Mercedes">Mercedes</option>
+                        <option value="Audi">Audi</option>
+                        <option value="Porsche">Porsche</option>
+                        <option value="Hyundai">Hyundai</option>
+                        <option value="Kia">Kia</option>
                         <option value="Toyota">Toyota</option>
                         <option value="Honda">Honda</option>
                         <option value="Ford">Ford</option>
@@ -769,7 +805,7 @@ export const CreateListing = () => {
                         <option value="Jeep">Jeep</option>
                         <option value="Ram">Ram</option>
                         <option value="GMC">GMC</option>
-                    <option value="Other">Khác</option>
+                        <option value="Other">Khác</option>
                       </>
                     ) : (
                       <>
@@ -801,7 +837,7 @@ export const CreateListing = () => {
                     )}
                   </select>
                 </div>
-                </div>
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
@@ -875,13 +911,13 @@ export const CreateListing = () => {
 
           {/* Vehicle Specific Fields */}
           {formData.productType === "vehicle" && (
-          <div className="bg-white rounded-xl shadow-sm p-6">
+            <div className="bg-white rounded-xl shadow-sm p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">
                 🚗 Thông số kỹ thuật xe điện
-            </h2>
+              </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Loại xe *
                   </label>
                   <select
@@ -901,67 +937,51 @@ export const CreateListing = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Năm sản xuất *
-                </label>
-                <input
+                  </label>
+                  <input
                     type="number"
                     name="manufactureYear"
                     value={formData.manufactureYear}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="VD: 2023"
                     min="2010"
                     max="2024"
                     required
-                />
-              </div>
+                  />
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Số km đã đi
-                </label>
+                  </label>
                   <input
                     type="number"
                     name="mileage"
                     value={formData.mileage}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="VD: 15000"
                     min="0"
                   />
                   <p className="text-xs text-gray-500 mt-1">Đơn vị: km</p>
-              </div>
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Hộp số
-                </label>
-                <select
-                  name="transmission"
-                  value={formData.transmission}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Hộp số
+                  </label>
+                  <select
+                    name="transmission"
+                    value={formData.transmission}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
                     <option value="">Chọn hộp số</option>
                     <option value="Automatic">Tự động</option>
                     <option value="Manual">Số sàn</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Số chỗ ngồi
-                </label>
-                  <input
-                    type="number"
-                    name="seatCount"
-                    value={formData.seatCount}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="VD: 5"
-                    min="1"
-                    max="50"
-                  />
-              </div>
+                  </select>
+                </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -981,20 +1001,20 @@ export const CreateListing = () => {
                   <p className="text-xs text-gray-500 mt-1">
                     Định dạng: 30A-12345 (2 số + 1 chữ cái + 5 số)
                   </p>
-            </div>
-          </div>
+                </div>
+              </div>
             </div>
           )}
 
           {/* Battery Specific Fields */}
           {formData.productType === "battery" && (
-          <div className="bg-white rounded-xl shadow-sm p-6">
+            <div className="bg-white rounded-xl shadow-sm p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">
                 🔋 Thông số kỹ thuật pin
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Loại pin *
                   </label>
                   <select
@@ -1014,56 +1034,56 @@ export const CreateListing = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Tình trạng pin (%) *
-                </label>
-                <input
+                  </label>
+                  <input
                     type="number"
                     name="batteryHealth"
                     value={formData.batteryHealth}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="VD: 85"
                     min="0"
                     max="100"
                     step="0.01"
-                  required
-                />
+                    required
+                  />
                   <p className="text-xs text-gray-500 mt-1">Đơn vị: %</p>
-              </div>
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Dung lượng (kWh) *
-                </label>
-                <input
+                  </label>
+                  <input
                     type="number"
                     name="capacity"
                     value={formData.capacity}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="VD: 50.5"
                     min="0"
                     step="0.01"
-                  required
-                />
+                    required
+                  />
                   <p className="text-xs text-gray-500 mt-1">Đơn vị: kWh</p>
-              </div>
+                </div>
 
                 <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Điện áp (V)
-                </label>
-                <input
+                  </label>
+                  <input
                     type="number"
                     name="voltage"
                     value={formData.voltage}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="VD: 48.0"
                     min="0"
                     step="0.01"
-                />
+                  />
                   <p className="text-xs text-gray-500 mt-1">Đơn vị: V</p>
-              </div>
+                </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1080,7 +1100,7 @@ export const CreateListing = () => {
                   <p className="text-xs text-gray-500 mt-1">
                     Tên hoặc loại hệ thống quản lý pin
                   </p>
-            </div>
+                </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1097,7 +1117,7 @@ export const CreateListing = () => {
                   <p className="text-xs text-gray-500 mt-1">
                     Loại cell (ví dụ: 18650, 21700, LFP, NMC)
                   </p>
-          </div>
+                </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">

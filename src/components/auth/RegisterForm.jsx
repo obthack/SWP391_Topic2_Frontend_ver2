@@ -15,6 +15,7 @@ import {
   CheckCircle,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
+import { useToast } from "../../contexts/ToastContext";
 import "../../styles/auth.css";
 
 export const RegisterForm = () => {
@@ -29,7 +30,8 @@ export const RegisterForm = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const { signUp } = useAuth();
+  const { signUp, signOut } = useAuth();
+  const { show: showToast } = useToast();
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -59,22 +61,35 @@ export const RegisterForm = () => {
     setLoading(true);
 
     try {
-      const session = await signUp(
+      console.log("🚀 Starting registration process...");
+      await signUp(
         formData.email,
         formData.password,
         formData.fullName,
         formData.phone
       );
-      const rawId =
-        session?.user?.roleId ??
-        session?.profile?.roleId ??
-        session?.user?.role;
-      const rid = typeof rawId === "string" ? Number(rawId) : rawId;
-      const roleName = (session?.user?.roleName || session?.profile?.role || "")
-        .toString()
-        .toLowerCase();
-      const isAdmin = rid === 1 || roleName === "admin";
-      navigate(isAdmin ? "/admin" : "/dashboard");
+
+      console.log("✅ Registration successful!");
+      console.log("🚪 Signing out current user...");
+
+      // Sign out current user (if any) to clear any existing session
+      signOut();
+
+      console.log("🧭 Redirecting to login page...");
+
+      // Show success message and redirect to login
+      setError("");
+      showToast({
+        title: "🎉 Đăng ký thành công!",
+        description:
+          "Tài khoản của bạn đã được tạo. Vui lòng đăng nhập để tiếp tục.",
+        type: "success",
+      });
+
+      // Redirect to login page after a short delay
+      setTimeout(() => {
+        navigate("/login");
+      }, 1500);
     } catch (err) {
       console.error("Register form error:", err);
 
