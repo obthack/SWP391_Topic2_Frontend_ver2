@@ -6,10 +6,22 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5044
 function getAuthToken() {
   try {
     const raw = localStorage.getItem("evtb_auth");
-    if (!raw) return null;
+    if (!raw) {
+      console.log("🔍 No auth data in localStorage");
+      return null;
+    }
     const parsed = JSON.parse(raw);
-    return parsed?.token || null;
-  } catch {
+    const token = parsed?.token || null;
+    console.log("🔍 Auth token check:", { 
+      hasAuth: !!raw, 
+      hasToken: !!token, 
+      tokenLength: token?.length || 0,
+      parsedKeys: Object.keys(parsed || {}),
+      parsedData: parsed
+    });
+    return token;
+  } catch (error) {
+    console.error("🔍 Error getting auth token:", error);
     return null;
   }
 }
@@ -20,14 +32,15 @@ export async function apiRequest(path, { method = "GET", body, headers } = {}) {
 
   const isFormData = (typeof FormData !== 'undefined') && body instanceof FormData;
   
-  // Debug logging for approve/reject requests
-  if (path.includes('/Product/') && (method === 'PUT' || method === 'PATCH' || method === 'POST')) {
+  // Debug logging for all requests with token
+  if (token) {
     console.log('=== API REQUEST DEBUG ===');
     console.log('URL:', url);
     console.log('Method:', method);
     console.log('Body:', body);
     console.log('Is FormData:', isFormData);
     console.log('Token:', token ? 'Present' : 'Missing');
+    console.log('Token length:', token?.length || 0);
   }
   
   const res = await fetch(url, {

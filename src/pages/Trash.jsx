@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { apiRequest } from "../lib/api";
-import { RotateCcw, Trash2, Package, AlertTriangle } from "lucide-react";
+import { Package, AlertTriangle } from "lucide-react";
 import { useToast } from "../contexts/ToastContext";
 
 export const Trash = () => {
@@ -11,7 +11,7 @@ export const Trash = () => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [actionLoading, setActionLoading] = useState({});
+  // Removed actionLoading state - no actions needed
 
   const getListingId = (l) =>
     l?.id ?? l?.productId ?? l?.Id ?? l?.listingId ?? l?.product_id ?? null;
@@ -83,7 +83,8 @@ export const Trash = () => {
     })();
   }, [user]);
 
-  const restore = async (id) => {
+  // Removed restore function - only display deleted items
+  const _restore = async (id) => {
     setActionLoading((prev) => ({ ...prev, [id]: "restore" }));
     try {
       console.log("🔄 Attempting to restore product:", id);
@@ -156,7 +157,8 @@ export const Trash = () => {
     }
   };
 
-  const hardDelete = async (id) => {
+  // Removed hardDelete function - only display deleted items
+  const _hardDelete = async (id) => {
     if (!confirm("Xóa vĩnh viễn? Hành động này không thể hoàn tác!")) return;
     setActionLoading((prev) => ({ ...prev, [id]: "delete" }));
     try {
@@ -270,7 +272,6 @@ export const Trash = () => {
           <div className="space-y-4">
             {items.map((l) => {
               const id = getListingId(l);
-              const isLoading = actionLoading[id];
               return (
                 <div
                   key={id}
@@ -320,34 +321,10 @@ export const Trash = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => restore(id)}
-                        disabled={isLoading}
-                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2 transition-colors"
-                      >
-                        {isLoading === "restore" ? (
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                        ) : (
-                          <RotateCcw className="w-4 h-4" />
-                        )}
-                        {isLoading === "restore"
-                          ? "Đang khôi phục..."
-                          : "Khôi phục"}
-                      </button>
-                      <button
-                        onClick={() => hardDelete(id)}
-                        disabled={isLoading}
-                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2 transition-colors"
-                      >
-                        {isLoading === "delete" ? (
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                        ) : (
-                          <Trash2 className="w-4 h-4" />
-                        )}
-                        {isLoading === "delete"
-                          ? "Đang xóa..."
-                          : "Xóa vĩnh viễn"}
-                      </button>
+                      <div className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg inline-flex items-center gap-2">
+                        <Package className="w-4 h-4" />
+                        Đã xóa
+                      </div>
                     </div>
                   </div>
                 </div>

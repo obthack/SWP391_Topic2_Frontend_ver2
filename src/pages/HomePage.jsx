@@ -92,11 +92,15 @@ export const HomePage = () => {
             const images = Array.isArray(imagesData)
               ? imagesData
               : imagesData?.items || [];
+
+            // Map images - only use real product images
+            const mappedImages = images.map(
+              (img) => img.imageData || img.imageUrl || img.url
+            );
+
             return {
               ...product,
-              images: images.map(
-                (img) => img.imageData || img.imageUrl || img.url
-              ),
+              images: mappedImages, // Only real images, no placeholder
             };
           } catch (error) {
             console.warn(
@@ -105,7 +109,11 @@ export const HomePage = () => {
               }:`,
               error
             );
-            return { ...product, images: [] };
+            // Return product with no images if API fails
+            return {
+              ...product,
+              images: [], // No placeholder, only real images
+            };
           }
         })
       );
@@ -368,31 +376,52 @@ export const HomePage = () => {
           <div className="flex items-center justify-between mb-8">
             <div>
               <h2 className="text-3xl font-bold text-gray-900">
-                Xe điện nổi bật
+                Sản phẩm nổi bật
               </h2>
               <p className="text-gray-600 mt-2">
-                Những chiếc xe được kiểm duyệt và giá cạnh tranh nhất
+                Những sản phẩm được kiểm duyệt và giá cạnh tranh nhất
               </p>
             </div>
-            <Link
-              to="/vehicles"
-              className="text-blue-600 hover:text-blue-700 font-medium flex items-center"
-            >
-              Xem tất cả
-              <svg
-                className="w-5 h-5 ml-1"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+            <div className="flex space-x-4">
+              <Link
+                to="/vehicles"
+                className="text-blue-600 hover:text-blue-700 font-medium flex items-center"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
-            </Link>
+                🚗 Xe điện
+                <svg
+                  className="w-5 h-5 ml-1"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+              </Link>
+              <Link
+                to="/batteries"
+                className="text-green-600 hover:text-green-700 font-medium flex items-center"
+              >
+                🔋 Pin
+                <svg
+                  className="w-5 h-5 ml-1"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+              </Link>
+            </div>
           </div>
 
           {loading ? (
@@ -403,17 +432,74 @@ export const HomePage = () => {
             </div>
           ) : featuredProducts.length > 0 ? (
             <>
+              {/* Phân loại sản phẩm */}
+              <div className="mb-8">
+                <div className="flex flex-wrap gap-4 mb-6">
+                  <button
+                    onClick={() => setSelectedCategory("all")}
+                    className={`px-4 py-2 rounded-full font-medium transition-colors ${
+                      selectedCategory === "all"
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                    }`}
+                  >
+                    Tất cả ({featuredProducts.length})
+                  </button>
+                  <button
+                    onClick={() => setSelectedCategory("vehicle")}
+                    className={`px-4 py-2 rounded-full font-medium transition-colors ${
+                      selectedCategory === "vehicle"
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                    }`}
+                  >
+                    🚗 Xe điện (
+                    {
+                      featuredProducts.filter(
+                        (p) => p.productType?.toLowerCase() === "vehicle"
+                      ).length
+                    }
+                    )
+                  </button>
+                  <button
+                    onClick={() => setSelectedCategory("battery")}
+                    className={`px-4 py-2 rounded-full font-medium transition-colors ${
+                      selectedCategory === "battery"
+                        ? "bg-green-600 text-white"
+                        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                    }`}
+                  >
+                    🔋 Pin (
+                    {
+                      featuredProducts.filter(
+                        (p) => p.productType?.toLowerCase() === "battery"
+                      ).length
+                    }
+                    )
+                  </button>
+                </div>
+              </div>
+
               <div className="products-grid">
                 {(showAllProducts
-                  ? featuredProducts.filter(
-                      (product) =>
-                        !productType || product.productType === productType
-                    )
+                  ? featuredProducts.filter((product) => {
+                      const matchesCategory =
+                        selectedCategory === "all" ||
+                        product.productType?.toLowerCase() === selectedCategory;
+                      const matchesType =
+                        !productType || product.productType === productType;
+                      return matchesCategory && matchesType;
+                    })
                   : featuredProducts
-                      .filter(
-                        (product) =>
-                          !productType || product.productType === productType
-                      )
+                      .filter((product) => {
+                        const matchesCategory =
+                          selectedCategory === "all" ||
+                          product.productType?.toLowerCase() ===
+                            selectedCategory;
+                        const matchesType =
+                          !productType || product.productType === productType;
+                        return matchesCategory && matchesType;
+                      })
                       .slice(0, 8)
                 ).map((product, index) => (
                   <ProductCard

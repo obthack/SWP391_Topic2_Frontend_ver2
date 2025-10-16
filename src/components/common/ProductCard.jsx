@@ -20,8 +20,11 @@ export const ProductCard = ({ product, onToggleFavorite, isFavorite }) => {
   const productId = getProductId(product);
 
   // Debug log
-  console.log("ProductCard - Product data:", product);
-  console.log("ProductCard - Product ID:", productId);
+  console.log("🖼️ ProductCard - Product data:", product);
+  console.log("🖼️ ProductCard - Product ID:", productId);
+  console.log("🖼️ ProductCard - Images array:", product.images);
+  console.log("🖼️ ProductCard - Primary image:", primaryImage);
+  console.log("🖼️ ProductCard - Will show image?", !!primaryImage);
 
   return (
     <div className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all overflow-hidden group">
@@ -44,14 +47,15 @@ export const ProductCard = ({ product, onToggleFavorite, isFavorite }) => {
               src={primaryImage}
               alt={product.title}
               className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
-              onError={(e) => {
-                e.target.style.display = "none";
-              }}
             />
           ) : (
             <div className="w-full h-48 bg-gray-200 flex items-center justify-center">
               <div className="text-gray-400 text-center">
-                <div className="text-4xl mb-2">🚗</div>
+                <div className="text-4xl mb-2">
+                  {product.productType?.toLowerCase() === "battery"
+                    ? "🔋"
+                    : "🚗"}
+                </div>
                 <div className="text-sm">Chưa có ảnh</div>
               </div>
             </div>
@@ -81,44 +85,114 @@ export const ProductCard = ({ product, onToggleFavorite, isFavorite }) => {
               </h3>
             </Link>
             <p className="text-sm text-gray-600">
-              {product.licensePlate ||
-                product.license_plate ||
-                product.license ||
-                "Biển số: N/A"}
+              {product.productType?.toLowerCase() === "battery"
+                ? // Thông tin pin
+                  product.brand && product.model
+                  ? `${product.brand} ${product.model}`
+                  : product.brand || product.model || "Thông tin pin"
+                : // Thông tin xe
+                  product.licensePlate ||
+                  product.license_plate ||
+                  product.license ||
+                  "Biển số: N/A"}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center space-x-4 text-sm text-gray-600 mb-3">
-          {product.year && (
-            <div className="flex items-center">
-              <Calendar className="h-4 w-4 mr-1" />
-              {product.year}
+        {/* Thông số kỹ thuật - Layout cải tiến */}
+        <div className="space-y-2 mb-3">
+          {/* Thông tin xe điện */}
+          {product.productType?.toLowerCase() === "vehicle" && (
+            <div className="flex flex-wrap gap-2 text-sm text-gray-600">
+              {product.year && (
+                <div className="flex items-center bg-blue-50 px-2 py-1 rounded-md">
+                  <Calendar className="h-4 w-4 mr-1 text-blue-600" />
+                  <span className="text-blue-800 font-medium">
+                    {product.year}
+                  </span>
+                </div>
+              )}
+              {product.mileage && (
+                <div className="flex items-center bg-green-50 px-2 py-1 rounded-md">
+                  <Gauge className="h-4 w-4 mr-1 text-green-600" />
+                  <span className="text-green-800 font-medium">
+                    {product.mileage.toLocaleString()} km
+                  </span>
+                </div>
+              )}
+              {product.battery_capacity && (
+                <div className="flex items-center bg-purple-50 px-2 py-1 rounded-md">
+                  <Battery className="h-4 w-4 mr-1 text-purple-600" />
+                  <span className="text-purple-800 font-medium">
+                    {product.battery_capacity} kWh
+                  </span>
+                </div>
+              )}
             </div>
           )}
-          {product.mileage && (
-            <div className="flex items-center">
-              <Gauge className="h-4 w-4 mr-1" />
-              {product.mileage.toLocaleString()} km
+
+          {/* Thông tin pin - Layout đơn giản như xe */}
+          {product.productType?.toLowerCase() === "battery" && (
+            <div className="flex flex-wrap gap-2 text-sm text-gray-600">
+              {product.capacity && (
+                <div className="flex items-center bg-green-50 px-2 py-1 rounded-md">
+                  <Gauge className="h-4 w-4 mr-1 text-green-600" />
+                  <span className="text-green-800 font-medium">
+                    {product.capacity} Ah
+                  </span>
+                </div>
+              )}
+              {product.batteryHealth && (
+                <div className="flex items-center bg-green-50 px-2 py-1 rounded-md">
+                  <div className="h-4 w-4 mr-1 flex items-center justify-center">
+                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                  </div>
+                  <span className="text-green-800 font-medium">
+                    {product.batteryHealth}%
+                  </span>
+                </div>
+              )}
             </div>
           )}
-          {product.battery_capacity && (
-            <div className="flex items-center">
-              <Battery className="h-4 w-4 mr-1" />
-              {product.battery_capacity} kWh
+
+          {/* Fallback cho sản phẩm không có productType */}
+          {!product.productType && (
+            <div className="flex flex-wrap gap-2 text-sm text-gray-600">
+              {product.year && (
+                <div className="flex items-center bg-gray-50 px-2 py-1 rounded-md">
+                  <Calendar className="h-4 w-4 mr-1 text-gray-600" />
+                  <span className="text-gray-800 font-medium">
+                    {product.year}
+                  </span>
+                </div>
+              )}
+              {product.mileage && (
+                <div className="flex items-center bg-gray-50 px-2 py-1 rounded-md">
+                  <Gauge className="h-4 w-4 mr-1 text-gray-600" />
+                  <span className="text-gray-800 font-medium">
+                    {product.mileage.toLocaleString()} km
+                  </span>
+                </div>
+              )}
             </div>
           )}
         </div>
 
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <p className="text-2xl font-bold text-blue-600">
-              {formatPrice(product.price)}
-            </p>
-          </div>
+        <div className="mb-3">
+          <p className="text-2xl font-bold text-blue-600 mb-2">
+            {formatPrice(product.price)}
+          </p>
           <div className="flex items-center text-sm text-gray-500">
-            <Eye className="h-4 w-4 mr-1" />
-            {product.views_count || 0}
+            <Calendar className="h-4 w-4 mr-1" />
+            <span>
+              {new Date(
+                product.createdAt ||
+                  product.created_at ||
+                  product.createdDate ||
+                  product.datePosted ||
+                  Date.now()
+              ).toLocaleDateString("vi-VN")}
+            </span>
           </div>
         </div>
 

@@ -326,16 +326,22 @@ export const ProductDetail = () => {
     });
   };
 
-  const handleBuyNow = () => {
+  const handleCreateOrder = () => {
     if (!user) {
       showToast({
         title: "⚠️ Cần đăng nhập",
-        description: "Vui lòng đăng nhập để mua hàng",
+        description: "Vui lòng đăng nhập để tạo đơn hàng",
         type: "warning",
       });
       return;
     }
     setShowPaymentModal(true);
+  };
+
+  // Calculate deposit amount based on product price
+  const getDepositAmount = () => {
+    const price = product?.price || 0;
+    return price > 300000000 ? 10000000 : 5000000; // 10M if > 300M, else 5M
   };
 
   if (loading) {
@@ -564,27 +570,21 @@ export const ProductDetail = () => {
               {/* Action Buttons */}
               <div className="space-y-3">
                 <button
-                  onClick={handleBuyNow}
+                  onClick={handleCreateOrder}
                   disabled={product.status === "sold"}
                   className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
                 >
                   <CreditCard className="h-5 w-5 mr-2" />
-                  Mua ngay
+                  Tạo đơn hàng
                 </button>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={handleContactSeller}
-                    className="bg-green-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center justify-center"
-                  >
-                    <MessageCircle className="h-5 w-5 mr-2" />
-                    Liên hệ người bán
-                  </button>
-                  <button className="bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center">
-                    <MessageSquare className="h-5 w-5 mr-2" />
-                    Chat
-                  </button>
-                </div>
+                <button
+                  onClick={handleContactSeller}
+                  className="w-full bg-green-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center justify-center"
+                >
+                  <MessageCircle className="h-5 w-5 mr-2" />
+                  Liên hệ người bán
+                </button>
               </div>
             </div>
 
@@ -677,46 +677,172 @@ export const ProductDetail = () => {
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 Thông số kỹ thuật
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-3">
+                {/* Thông tin chung */}
                 {product.brand && (
-                  <div className="flex justify-between py-2 border-b border-gray-100">
-                    <span className="text-gray-600">Hãng xe</span>
-                    <span className="font-medium">{product.brand}</span>
+                  <div className="flex justify-between items-center py-3 px-4 bg-gray-50 rounded-lg">
+                    <span className="text-gray-600 font-medium">
+                      {product.productType?.toLowerCase() === "battery"
+                        ? "Hãng pin"
+                        : "Hãng xe"}
+                    </span>
+                    <span className="font-semibold text-gray-900">
+                      {product.brand}
+                    </span>
                   </div>
                 )}
                 {product.model && (
-                  <div className="flex justify-between py-2 border-b border-gray-100">
-                    <span className="text-gray-600">Mẫu xe</span>
-                    <span className="font-medium">{product.model}</span>
-                  </div>
-                )}
-                {product.year && (
-                  <div className="flex justify-between py-2 border-b border-gray-100">
-                    <span className="text-gray-600">Năm sản xuất</span>
-                    <span className="font-medium">{product.year}</span>
-                  </div>
-                )}
-                {product.mileage && (
-                  <div className="flex justify-between py-2 border-b border-gray-100">
-                    <span className="text-gray-600">Số km đã đi</span>
-                    <span className="font-medium">
-                      {product.mileage.toLocaleString()} km
+                  <div className="flex justify-between items-center py-3 px-4 bg-gray-50 rounded-lg">
+                    <span className="text-gray-600 font-medium">
+                      {product.productType?.toLowerCase() === "battery"
+                        ? "Mẫu pin"
+                        : "Mẫu xe"}
+                    </span>
+                    <span className="font-semibold text-gray-900">
+                      {product.model}
                     </span>
                   </div>
                 )}
-                {product.battery_capacity && (
-                  <div className="flex justify-between py-2 border-b border-gray-100">
-                    <span className="text-gray-600">Dung lượng pin</span>
-                    <span className="font-medium">
-                      {product.battery_capacity} kWh
-                    </span>
-                  </div>
+
+                {/* Thông tin xe điện */}
+                {product.productType?.toLowerCase() === "vehicle" && (
+                  <>
+                    {product.year && (
+                      <div className="flex justify-between items-center py-3 px-4 bg-gray-50 rounded-lg">
+                        <span className="text-gray-600 font-medium">
+                          Năm sản xuất
+                        </span>
+                        <span className="font-semibold text-gray-900">
+                          {product.year}
+                        </span>
+                      </div>
+                    )}
+                    {product.vehicleType && (
+                      <div className="flex justify-between items-center py-3 px-4 bg-gray-50 rounded-lg">
+                        <span className="text-gray-600 font-medium">
+                          Loại xe
+                        </span>
+                        <span className="font-semibold text-gray-900">
+                          {product.vehicleType}
+                        </span>
+                      </div>
+                    )}
+                    {product.mileage && (
+                      <div className="flex justify-between items-center py-3 px-4 bg-gray-50 rounded-lg">
+                        <span className="text-gray-600 font-medium">
+                          Số km đã đi
+                        </span>
+                        <span className="font-semibold text-gray-900">
+                          {product.mileage.toLocaleString()} km
+                        </span>
+                      </div>
+                    )}
+                    {product.transmission && (
+                      <div className="flex justify-between items-center py-3 px-4 bg-gray-50 rounded-lg">
+                        <span className="text-gray-600 font-medium">
+                          Hộp số
+                        </span>
+                        <span className="font-semibold text-gray-900">
+                          {product.transmission}
+                        </span>
+                      </div>
+                    )}
+
+                    {product.licensePlate && (
+                      <div className="flex justify-between items-center py-3 px-4 bg-gray-50 rounded-lg">
+                        <span className="text-gray-600 font-medium">
+                          Biển số
+                        </span>
+                        <span className="font-semibold text-gray-900">
+                          {product.licensePlate}
+                        </span>
+                      </div>
+                    )}
+                    {product.color && (
+                      <div className="flex justify-between items-center py-3 px-4 bg-gray-50 rounded-lg">
+                        <span className="text-gray-600 font-medium">
+                          Màu sắc
+                        </span>
+                        <span className="font-semibold text-gray-900">
+                          {product.color}
+                        </span>
+                      </div>
+                    )}
+                  </>
                 )}
-                {product.color && (
-                  <div className="flex justify-between py-2 border-b border-gray-100">
-                    <span className="text-gray-600">Màu sắc</span>
-                    <span className="font-medium">{product.color}</span>
-                  </div>
+
+                {/* Thông tin pin */}
+                {product.productType?.toLowerCase() === "battery" && (
+                  <>
+                    {product.batteryType && (
+                      <div className="flex justify-between items-center py-3 px-4 bg-gray-50 rounded-lg">
+                        <span className="text-gray-600 font-medium">
+                          Loại pin
+                        </span>
+                        <span className="font-semibold text-gray-900">
+                          {product.batteryType}
+                        </span>
+                      </div>
+                    )}
+                    {product.batteryHealth && (
+                      <div className="flex justify-between items-center py-3 px-4 bg-gray-50 rounded-lg">
+                        <span className="text-gray-600 font-medium">
+                          Tình trạng pin
+                        </span>
+                        <span className="font-semibold text-gray-900">
+                          {product.batteryHealth}%
+                        </span>
+                      </div>
+                    )}
+                    {product.capacity && (
+                      <div className="flex justify-between items-center py-3 px-4 bg-gray-50 rounded-lg">
+                        <span className="text-gray-600 font-medium">
+                          Dung lượng
+                        </span>
+                        <span className="font-semibold text-gray-900">
+                          {product.capacity} Ah
+                        </span>
+                      </div>
+                    )}
+                    {product.voltage && (
+                      <div className="flex justify-between items-center py-3 px-4 bg-gray-50 rounded-lg">
+                        <span className="text-gray-600 font-medium">
+                          Điện áp
+                        </span>
+                        <span className="font-semibold text-gray-900">
+                          {product.voltage} V
+                        </span>
+                      </div>
+                    )}
+                    {product.bms && (
+                      <div className="flex justify-between items-center py-3 px-4 bg-gray-50 rounded-lg">
+                        <span className="text-gray-600 font-medium">BMS</span>
+                        <span className="font-semibold text-gray-900">
+                          {product.bms}
+                        </span>
+                      </div>
+                    )}
+                    {product.cellType && (
+                      <div className="flex justify-between items-center py-3 px-4 bg-gray-50 rounded-lg">
+                        <span className="text-gray-600 font-medium">
+                          Loại cell
+                        </span>
+                        <span className="font-semibold text-gray-900">
+                          {product.cellType}
+                        </span>
+                      </div>
+                    )}
+                    {product.cycleCount && (
+                      <div className="flex justify-between items-center py-3 px-4 bg-gray-50 rounded-lg">
+                        <span className="text-gray-600 font-medium">
+                          Số chu kỳ
+                        </span>
+                        <span className="font-semibold text-gray-900">
+                          {product.cycleCount} chu kỳ
+                        </span>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -904,7 +1030,7 @@ export const ProductDetail = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl max-w-md w-full p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Xác nhận mua hàng
+              Tạo đơn hàng
             </h3>
             <div className="space-y-4">
               <div className="bg-gray-50 p-4 rounded-lg">
@@ -915,31 +1041,53 @@ export const ProductDetail = () => {
                   {formatPrice(product.price)}
                 </p>
               </div>
+
+              {/* Deposit Information */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-center mb-2">
+                  <Shield className="h-5 w-5 text-blue-600 mr-2" />
+                  <h4 className="font-medium text-blue-900">Thông tin cọc</h4>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-blue-700">Số tiền cọc:</span>
+                    <span className="font-bold text-blue-900">
+                      {formatPrice(getDepositAmount())}
+                    </span>
+                  </div>
+                  <p className="text-xs text-blue-600">
+                    {product.price > 300000000
+                      ? "Sản phẩm trên 300 triệu - cọc 10 triệu để gặp mặt trực tiếp"
+                      : "Sản phẩm dưới 300 triệu - cọc 5 triệu để gặp mặt trực tiếp"}
+                  </p>
+                </div>
+              </div>
+
               <div className="space-y-2">
-                <button className="w-full p-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-left">
+                <button
+                  onClick={() => {
+                    setShowPaymentModal(false);
+                    showToast({
+                      title: "✅ Đơn hàng đã được tạo",
+                      description: `Đơn hàng đã được tạo với số tiền cọc ${formatPrice(
+                        getDepositAmount()
+                      )}. Chuyển đến thanh toán ngân hàng online.`,
+                      type: "success",
+                    });
+                  }}
+                  className="w-full p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-center font-medium"
+                >
                   <CreditCard className="h-5 w-5 inline mr-2" />
-                  Thanh toán bằng thẻ
-                </button>
-                <button className="w-full p-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-left">
-                  <Truck className="h-5 w-5 inline mr-2" />
-                  Thanh toán khi nhận hàng
+                  Thanh toán cọc qua ngân hàng online
                 </button>
               </div>
             </div>
             <div className="flex space-x-3 mt-6">
               <button
                 onClick={() => setShowPaymentModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
               >
-                Hủy
-              </button>
-              <button
-                onClick={() => {
-                  setShowPaymentModal(false);
-                }}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Xác nhận
+                Đóng
               </button>
             </div>
           </div>
