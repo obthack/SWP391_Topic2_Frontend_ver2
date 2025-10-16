@@ -52,8 +52,68 @@ export const Dashboard = () => {
       console.log("User full_name:", user?.full_name);
       console.log("User phone:", user?.phone);
       console.log("===========================");
+      loadStats();
     }
   }, [user, profile]);
+
+  const loadStats = async () => {
+    try {
+      console.log("🔍 Loading dashboard stats...");
+      const sellerId = user?.id || user?.accountId || user?.userId || 1;
+
+      // Load user's products
+      const products = await apiRequest(`/api/Product/seller/${sellerId}`);
+      console.log("🔍 Products loaded for stats:", products);
+
+      if (Array.isArray(products)) {
+        const totalListings = products.length;
+        const activeListings = products.filter(
+          (p) => p.status === "approved" || p.status === "active"
+        ).length;
+        const soldListings = products.filter((p) => p.status === "sold").length;
+
+        // Calculate views (mock data for now)
+        const totalViews = products.reduce(
+          (sum, p) => sum + (p.views || Math.floor(Math.random() * 100)),
+          0
+        );
+        const avgViewsPerListing =
+          totalListings > 0 ? Math.round(totalViews / totalListings) : 0;
+        const conversionRate =
+          totalListings > 0
+            ? Math.round((soldListings / totalListings) * 100)
+            : 0;
+
+        setStats({
+          totalListings,
+          activeListings,
+          soldListings,
+          totalViews,
+          conversionRate,
+          avgViewsPerListing,
+          recentActivity: 0, // Mock data
+          monthlyGrowth: 0, // Mock data
+        });
+
+        console.log("✅ Stats updated:", {
+          totalListings,
+          activeListings,
+          soldListings,
+          totalViews,
+          conversionRate,
+          avgViewsPerListing,
+        });
+      }
+    } catch (error) {
+      console.error("❌ Error loading stats:", error);
+    }
+  };
+
+  console.log("🔍 Dashboard render state:", {
+    user: !!user,
+    profile: !!profile,
+    stats: stats,
+  });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">

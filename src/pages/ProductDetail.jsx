@@ -578,19 +578,13 @@ export const ProductDetail = () => {
                   Tạo đơn hàng
                 </button>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={handleContactSeller}
-                    className="bg-green-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center justify-center"
-                  >
-                    <MessageCircle className="h-5 w-5 mr-2" />
-                    Liên hệ người bán
-                  </button>
-                  <button className="bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center">
-                    <MessageSquare className="h-5 w-5 mr-2" />
-                    Chat
-                  </button>
-                </div>
+                <button
+                  onClick={handleContactSeller}
+                  className="w-full bg-green-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center justify-center"
+                >
+                  <MessageCircle className="h-5 w-5 mr-2" />
+                  Liên hệ người bán
+                </button>
               </div>
             </div>
 
@@ -683,26 +677,30 @@ export const ProductDetail = () => {
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 Thông số kỹ thuật
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-3">
                 {/* Thông tin chung */}
                 {product.brand && (
-                  <div className="flex justify-between py-2 border-b border-gray-100">
-                    <span className="text-gray-600">
+                  <div className="flex justify-between items-center py-3 px-4 bg-gray-50 rounded-lg">
+                    <span className="text-gray-600 font-medium">
                       {product.productType?.toLowerCase() === "battery"
                         ? "Hãng pin"
                         : "Hãng xe"}
                     </span>
-                    <span className="font-medium">{product.brand}</span>
+                    <span className="font-semibold text-gray-900">
+                      {product.brand}
+                    </span>
                   </div>
                 )}
                 {product.model && (
-                  <div className="flex justify-between py-2 border-b border-gray-100">
-                    <span className="text-gray-600">
+                  <div className="flex justify-between items-center py-3 px-4 bg-gray-50 rounded-lg">
+                    <span className="text-gray-600 font-medium">
                       {product.productType?.toLowerCase() === "battery"
                         ? "Mẫu pin"
                         : "Mẫu xe"}
                     </span>
-                    <span className="font-medium">{product.model}</span>
+                    <span className="font-semibold text-gray-900">
+                      {product.model}
+                    </span>
                   </div>
                 )}
 
@@ -710,55 +708,64 @@ export const ProductDetail = () => {
                 {product.productType?.toLowerCase() === "vehicle" && (
                   <>
                     {product.year && (
-                      <div className="flex justify-between py-2 border-b border-gray-100">
-                        <span className="text-gray-600">Năm sản xuất</span>
-                        <span className="font-medium">{product.year}</span>
+                      <div className="flex justify-between items-center py-3 px-4 bg-gray-50 rounded-lg">
+                        <span className="text-gray-600 font-medium">
+                          Năm sản xuất
+                        </span>
+                        <span className="font-semibold text-gray-900">
+                          {product.year}
+                        </span>
                       </div>
                     )}
                     {product.vehicleType && (
-                      <div className="flex justify-between py-2 border-b border-gray-100">
-                        <span className="text-gray-600">Loại xe</span>
-                        <span className="font-medium">
+                      <div className="flex justify-between items-center py-3 px-4 bg-gray-50 rounded-lg">
+                        <span className="text-gray-600 font-medium">
+                          Loại xe
+                        </span>
+                        <span className="font-semibold text-gray-900">
                           {product.vehicleType}
                         </span>
                       </div>
                     )}
                     {product.mileage && (
-                      <div className="flex justify-between py-2 border-b border-gray-100">
-                        <span className="text-gray-600">Số km đã đi</span>
-                        <span className="font-medium">
+                      <div className="flex justify-between items-center py-3 px-4 bg-gray-50 rounded-lg">
+                        <span className="text-gray-600 font-medium">
+                          Số km đã đi
+                        </span>
+                        <span className="font-semibold text-gray-900">
                           {product.mileage.toLocaleString()} km
                         </span>
                       </div>
                     )}
                     {product.transmission && (
-                      <div className="flex justify-between py-2 border-b border-gray-100">
-                        <span className="text-gray-600">Hộp số</span>
-                        <span className="font-medium">
+                      <div className="flex justify-between items-center py-3 px-4 bg-gray-50 rounded-lg">
+                        <span className="text-gray-600 font-medium">
+                          Hộp số
+                        </span>
+                        <span className="font-semibold text-gray-900">
                           {product.transmission}
                         </span>
                       </div>
                     )}
-                    {product.seatCount && (
-                      <div className="flex justify-between py-2 border-b border-gray-100">
-                        <span className="text-gray-600">Số chỗ ngồi</span>
-                        <span className="font-medium">
-                          {product.seatCount} chỗ
-                        </span>
-                      </div>
-                    )}
+
                     {product.licensePlate && (
-                      <div className="flex justify-between py-2 border-b border-gray-100">
-                        <span className="text-gray-600">Biển số</span>
-                        <span className="font-medium">
+                      <div className="flex justify-between items-center py-3 px-4 bg-gray-50 rounded-lg">
+                        <span className="text-gray-600 font-medium">
+                          Biển số
+                        </span>
+                        <span className="font-semibold text-gray-900">
                           {product.licensePlate}
                         </span>
                       </div>
                     )}
                     {product.color && (
-                      <div className="flex justify-between py-2 border-b border-gray-100">
-                        <span className="text-gray-600">Màu sắc</span>
-                        <span className="font-medium">{product.color}</span>
+                      <div className="flex justify-between items-center py-3 px-4 bg-gray-50 rounded-lg">
+                        <span className="text-gray-600 font-medium">
+                          Màu sắc
+                        </span>
+                        <span className="font-semibold text-gray-900">
+                          {product.color}
+                        </span>
                       </div>
                     )}
                   </>
@@ -768,51 +775,69 @@ export const ProductDetail = () => {
                 {product.productType?.toLowerCase() === "battery" && (
                   <>
                     {product.batteryType && (
-                      <div className="flex justify-between py-2 border-b border-gray-100">
-                        <span className="text-gray-600">Loại pin</span>
-                        <span className="font-medium">
+                      <div className="flex justify-between items-center py-3 px-4 bg-gray-50 rounded-lg">
+                        <span className="text-gray-600 font-medium">
+                          Loại pin
+                        </span>
+                        <span className="font-semibold text-gray-900">
                           {product.batteryType}
                         </span>
                       </div>
                     )}
                     {product.batteryHealth && (
-                      <div className="flex justify-between py-2 border-b border-gray-100">
-                        <span className="text-gray-600">Tình trạng pin</span>
-                        <span className="font-medium">
+                      <div className="flex justify-between items-center py-3 px-4 bg-gray-50 rounded-lg">
+                        <span className="text-gray-600 font-medium">
+                          Tình trạng pin
+                        </span>
+                        <span className="font-semibold text-gray-900">
                           {product.batteryHealth}%
                         </span>
                       </div>
                     )}
                     {product.capacity && (
-                      <div className="flex justify-between py-2 border-b border-gray-100">
-                        <span className="text-gray-600">Dung lượng</span>
-                        <span className="font-medium">
+                      <div className="flex justify-between items-center py-3 px-4 bg-gray-50 rounded-lg">
+                        <span className="text-gray-600 font-medium">
+                          Dung lượng
+                        </span>
+                        <span className="font-semibold text-gray-900">
                           {product.capacity} Ah
                         </span>
                       </div>
                     )}
                     {product.voltage && (
-                      <div className="flex justify-between py-2 border-b border-gray-100">
-                        <span className="text-gray-600">Điện áp</span>
-                        <span className="font-medium">{product.voltage} V</span>
+                      <div className="flex justify-between items-center py-3 px-4 bg-gray-50 rounded-lg">
+                        <span className="text-gray-600 font-medium">
+                          Điện áp
+                        </span>
+                        <span className="font-semibold text-gray-900">
+                          {product.voltage} V
+                        </span>
                       </div>
                     )}
                     {product.bms && (
-                      <div className="flex justify-between py-2 border-b border-gray-100">
-                        <span className="text-gray-600">BMS</span>
-                        <span className="font-medium">{product.bms}</span>
+                      <div className="flex justify-between items-center py-3 px-4 bg-gray-50 rounded-lg">
+                        <span className="text-gray-600 font-medium">BMS</span>
+                        <span className="font-semibold text-gray-900">
+                          {product.bms}
+                        </span>
                       </div>
                     )}
                     {product.cellType && (
-                      <div className="flex justify-between py-2 border-b border-gray-100">
-                        <span className="text-gray-600">Loại cell</span>
-                        <span className="font-medium">{product.cellType}</span>
+                      <div className="flex justify-between items-center py-3 px-4 bg-gray-50 rounded-lg">
+                        <span className="text-gray-600 font-medium">
+                          Loại cell
+                        </span>
+                        <span className="font-semibold text-gray-900">
+                          {product.cellType}
+                        </span>
                       </div>
                     )}
                     {product.cycleCount && (
-                      <div className="flex justify-between py-2 border-b border-gray-100">
-                        <span className="text-gray-600">Số chu kỳ</span>
-                        <span className="font-medium">
+                      <div className="flex justify-between items-center py-3 px-4 bg-gray-50 rounded-lg">
+                        <span className="text-gray-600 font-medium">
+                          Số chu kỳ
+                        </span>
+                        <span className="font-semibold text-gray-900">
                           {product.cycleCount} chu kỳ
                         </span>
                       </div>

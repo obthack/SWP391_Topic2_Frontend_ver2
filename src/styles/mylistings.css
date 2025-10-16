@@ -607,3 +607,59 @@
   border-radius: 0.25rem;
   border: 1px solid #fecaca;
 }
+
+/* Rejection reason overlay button on image - LEFT SIDE */
+.mylistings-rejection-overlay-button {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  background-color: rgba(220, 38, 38, 0.9);
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.375rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  transition: all 0.2s;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+}
+
+.mylistings-rejection-overlay-button:hover {
+  background-color: rgba(185, 28, 28, 0.95);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.mylistings-rejection-overlay-icon {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.mylistings-rejection-overlay-text {
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Responsive design for overlay button */
+@media (max-width: 640px) {
+  .mylistings-rejection-overlay-button {
+    padding: 0.25rem 0.375rem;
+    font-size: 0.625rem;
+  }
+
+  .mylistings-rejection-overlay-text {
+    display: none; /* Hide text on mobile, show only icon */
+  }
+
+  .mylistings-rejection-overlay-icon {
+    width: 1rem;
+    height: 1rem;
+  }
+}

@@ -23,13 +23,13 @@ export const addWatermarkToImage = (imageFile, watermarkText = "EV Trading Platf
       // Draw the original image
       ctx.drawImage(img, 0, 0);
       
-      // Watermark settings
+      // Watermark settings - Make text more transparent
       const {
         fontSize = Math.max(img.width / 20, 16),
         fontFamily = 'Arial, sans-serif',
-        color = 'rgba(255, 255, 255, 0.7)',
-        strokeColor = 'rgba(0, 0, 0, 0.5)',
-        strokeWidth = 2,
+        color = 'rgba(255, 255, 255, 0.3)', // More transparent
+        strokeColor = 'rgba(0, 0, 0, 0.2)', // Lighter stroke
+        strokeWidth = 1, // Thinner stroke
         angle = -45,
         spacing = 150
       } = options;

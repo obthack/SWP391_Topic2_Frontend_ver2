@@ -20,8 +20,11 @@ export const ProductCard = ({ product, onToggleFavorite, isFavorite }) => {
   const productId = getProductId(product);
 
   // Debug log
-  console.log("ProductCard - Product data:", product);
-  console.log("ProductCard - Product ID:", productId);
+  console.log("🖼️ ProductCard - Product data:", product);
+  console.log("🖼️ ProductCard - Product ID:", productId);
+  console.log("🖼️ ProductCard - Images array:", product.images);
+  console.log("🖼️ ProductCard - Primary image:", primaryImage);
+  console.log("🖼️ ProductCard - Will show image?", !!primaryImage);
 
   return (
     <div className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all overflow-hidden group">
@@ -44,9 +47,6 @@ export const ProductCard = ({ product, onToggleFavorite, isFavorite }) => {
               src={primaryImage}
               alt={product.title}
               className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
-              onError={(e) => {
-                e.target.style.display = "none";
-              }}
             />
           ) : (
             <div className="w-full h-48 bg-gray-200 flex items-center justify-center">

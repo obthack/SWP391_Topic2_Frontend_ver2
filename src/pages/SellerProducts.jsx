@@ -59,7 +59,142 @@ export const SellerProducts = () => {
         return status === "approved" || status === "active";
       });
 
-      setProducts(approvedProducts);
+      // Load images for each product
+      console.log("🔍 Loading images for products:", approvedProducts.length);
+      const productsWithImages = await Promise.all(
+        approvedProducts.map(async (product, index) => {
+          console.log(`🔍 Processing product ${index + 1}:`, {
+            id: product.id || product.productId || product.Id,
+            title: product.title,
+            hasImages: !!product.images,
+            imageFields: Object.keys(product).filter(
+              (key) =>
+                key.toLowerCase().includes("image") ||
+                key.toLowerCase().includes("photo") ||
+                key.toLowerCase().includes("picture")
+            ),
+          });
+
+          let images = [];
+
+          // Check if images are stored directly in the product object first
+          if (
+            product.images &&
+            Array.isArray(product.images) &&
+            product.images.length > 0
+          ) {
+            images = product.images;
+            console.log(`✅ Found images in product.images:`, images);
+          } else {
+            // Check other possible image fields
+            const possibleImageFields = [
+              "image",
+              "photo",
+              "thumbnail",
+              "picture",
+              "img",
+              "Image",
+              "Photo",
+              "Thumbnail",
+              "Picture",
+              "Img",
+              "primaryImage",
+              "mainImage",
+              "coverImage",
+              "imageUrls",
+              "imageUrl",
+              "ImageUrl",
+              "ImageUrls",
+            ];
+
+            for (const field of possibleImageFields) {
+              if (product[field]) {
+                console.log(`🔍 Found image field "${field}":`, product[field]);
+                if (Array.isArray(product[field])) {
+                  images = product[field];
+                } else if (typeof product[field] === "string") {
+                  images = [product[field]];
+                }
+                break;
+              }
+            }
+          }
+
+          // Only try the API endpoint if no images found in product object
+          if (images.length === 0) {
+            try {
+              console.log(
+                `🔍 No images found, trying API for product ${
+                  product.id || product.productId || product.Id
+                }`
+              );
+
+              // Add delay between API calls to prevent DbContext conflicts
+              if (index > 0) {
+                await new Promise((resolve) => setTimeout(resolve, 100));
+              }
+
+              const productId = product.id || product.productId || product.Id;
+              const imagesData = await apiRequest(
+                `/api/ProductImage/product/${productId}`
+              );
+
+              console.log(
+                `🔍 API response for product ${productId}:`,
+                imagesData
+              );
+
+              const imagesArray = Array.isArray(imagesData)
+                ? imagesData
+                : imagesData?.items || [];
+
+              images = imagesArray
+                .map(
+                  (img) =>
+                    img.imageData ||
+                    img.imageUrl ||
+                    img.url ||
+                    img.ImageData ||
+                    img.ImageUrl ||
+                    img.Url
+                )
+                .filter(Boolean); // Remove empty values
+
+              console.log(`🔍 Mapped images for product ${productId}:`, images);
+            } catch (error) {
+              console.warn(
+                `Failed to load images for product ${product.id}:`,
+                error
+              );
+              // Use fallback placeholder images based on product type
+              const productType = product.productType?.toLowerCase();
+              if (productType === "battery" || productType === "pin") {
+                images = [
+                  "https://images.unsplash.com/photo-1609592807902-4a3a4a4a4a4b?w=400&h=300&fit=crop&auto=format",
+                ];
+              } else {
+                images = [
+                  "https://images.unsplash.com/photo-1609592807902-4a3a4a4a4a4b?w=400&h=300&fit=crop&auto=format",
+                ];
+              }
+            }
+          }
+
+          console.log(
+            `✅ Final images for product ${
+              product.id || product.productId || product.Id
+            }:`,
+            images
+          );
+
+          return {
+            ...product,
+            images: images,
+          };
+        })
+      );
+
+      setProducts(productsWithImages);
     } catch (error) {
       console.error("Error loading seller products:", error);
     } finally {
@@ -161,20 +296,20 @@ export const SellerProducts = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Seller Info Card */}
         <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-           <div className="flex items-center space-x-4">
-             <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center overflow-hidden">
-               {seller.avatar ? (
-                 <img 
-                   src={seller.avatar} 
-                   alt="Avatar" 
-                   className="w-full h-full object-cover"
-                 />
-               ) : (
-                 <span className="text-blue-600 font-bold text-xl">
-                   {seller.fullName?.charAt(0) || seller.name?.charAt(0) || "N"}
-                 </span>
-               )}
-             </div>
+          <div className="flex items-center space-x-4">
+            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center overflow-hidden">
+              {seller.avatar ? (
+                <img
+                  src={seller.avatar}
+                  alt="Avatar"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-blue-600 font-bold text-xl">
+                  {seller.fullName?.charAt(0) || seller.name?.charAt(0) || "N"}
+                </span>
+              )}
+            </div>
             <div className="flex-1">
               <h2 className="text-xl font-bold text-gray-900">
                 {seller.fullName || seller.name || "Người bán"}
@@ -286,68 +421,10 @@ export const SellerProducts = () => {
               }
             >
               {filteredProducts.map((product, index) => (
-                <div key={product.id || product.productId || index}>
-                  {viewMode === "grid" ? (
-                    <div className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
-                      <div className="aspect-w-16 aspect-h-9 bg-gray-200">
-                        <div className="flex items-center justify-center h-48">
-                          <Package className="h-12 w-12 text-gray-400" />
-                        </div>
-                      </div>
-                      <div className="p-4">
-                        <h4 className="font-medium text-gray-900 line-clamp-2 mb-2">
-                          {product.title}
-                        </h4>
-                        <p className="text-lg font-bold text-blue-600 mb-2">
-                          {formatPrice(product.price)}
-                        </p>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center text-green-600">
-                            <CheckCircle className="h-4 w-4 mr-1" />
-                            <span className="text-sm">Đã duyệt</span>
-                          </div>
-                          <Link
-                            to={`/product/${product.id || product.productId}`}
-                            className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-                          >
-                            Xem chi tiết →
-                          </Link>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center space-x-4 p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
-                      <div className="w-20 h-20 bg-gray-200 rounded-lg flex items-center justify-center">
-                        <Package className="h-8 w-8 text-gray-400" />
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="font-medium text-gray-900 mb-1">
-                          {product.title}
-                        </h4>
-                        <p className="text-lg font-bold text-blue-600 mb-2">
-                          {formatPrice(product.price)}
-                        </p>
-                        <div className="flex items-center space-x-4">
-                          <div className="flex items-center text-green-600">
-                            <CheckCircle className="h-4 w-4 mr-1" />
-                            <span className="text-sm">Đã duyệt</span>
-                          </div>
-                          <span className="text-sm text-gray-500">
-                            {new Date(
-                              product.createdDate || product.created_date
-                            ).toLocaleDateString("vi-VN")}
-                          </span>
-                        </div>
-                      </div>
-                      <Link
-                        to={`/product/${product.id || product.productId}`}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                      >
-                        Xem chi tiết
-                      </Link>
-                    </div>
-                  )}
-                </div>
+                <ProductCard
+                  key={product.id || product.productId || index}
+                  product={product}
+                />
               ))}
             </div>
           ) : (
