@@ -27,6 +27,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { apiRequest } from "../lib/api";
 import { ProductCard } from "../components/molecules/ProductCard";
 import { formatPrice } from "../utils/formatters";
+import { ChatAI } from "../components/common/ChatAI";
 
 export const Dashboard = () => {
   const { user, profile } = useAuth();
@@ -816,6 +817,9 @@ export const Dashboard = () => {
           </div>
         </div>
       </div>
+      
+      {/* Chat AI Component */}
+      <ChatAI />
     </div>
   );
 };
