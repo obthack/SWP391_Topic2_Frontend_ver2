@@ -4,6 +4,10 @@ import { ArrowLeft, Upload, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { apiRequest } from "../lib/api";
 import { useToast } from "../contexts/ToastContext";
+import {
+  formatVietnamesePrice,
+  parsePriceValue,
+} from "../utils/priceFormatter";
 
 export const EditListing = () => {
   const { user } = useAuth();
@@ -44,6 +48,7 @@ export const EditListing = () => {
     cellType: "",
     cycleCount: "",
   });
+  const [displayPrice, setDisplayPrice] = useState("");
 
   useEffect(() => {
     loadListing();
@@ -98,6 +103,11 @@ export const EditListing = () => {
       console.log("🔍 Mapped form data:", mapped);
       setFormData(mapped);
 
+      // Set display price for formatting
+      if (mapped.price) {
+        setDisplayPrice(formatVietnamesePrice(mapped.price));
+      }
+
       // Load existing product images
       try {
         const imageData = await apiRequest(`/api/ProductImage/product/${id}`);
@@ -121,10 +131,25 @@ export const EditListing = () => {
   };
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+    const { name, value } = e.target;
+
+    if (name === "price") {
+      // Format price display with spaces
+      const formattedPrice = formatVietnamesePrice(value);
+      setDisplayPrice(formattedPrice);
+
+      // Store numeric value in formData
+      const numericPrice = parsePriceValue(value);
+      setFormData({
+        ...formData,
+        [name]: numericPrice,
+      });
+    } else {
+      setFormData({
+        ...formData,
+        [name]: value,
+      });
+    }
   };
 
   const handleImageUpload = (e) => {
@@ -601,12 +626,12 @@ export const EditListing = () => {
                     Giá bán (VNĐ) *
                   </label>
                   <input
-                    type="number"
+                    type="text"
                     name="price"
-                    value={formData.price}
+                    value={displayPrice}
                     onChange={handleChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Ví dụ: 1200000000"
+                    placeholder="Ví dụ: 1 200 000 000"
                     required
                   />
                 </div>

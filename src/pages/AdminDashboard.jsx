@@ -112,6 +112,8 @@ export const AdminDashboard = () => {
           raw.includes("chờ")
         )
           return "pending";
+        if (raw.includes("resubmit") || raw.includes("re-submit"))
+          return "resubmit";
         if (
           raw.includes("active") ||
           raw.includes("approve") ||
@@ -286,7 +288,18 @@ export const AdminDashboard = () => {
 
     // Product type filter
     if (productTypeFilter !== "all") {
-      filtered = filtered.filter((l) => l.productType === productTypeFilter);
+      console.log(
+        "🔍 AdminDashboard filtering by productType:",
+        productTypeFilter
+      );
+      filtered = filtered.filter((l) => {
+        const matches =
+          l.productType?.toLowerCase() === productTypeFilter.toLowerCase();
+        console.log(
+          `🔍 Product ${l.id}: productType="${l.productType}", filter="${productTypeFilter}", matches=${matches}`
+        );
+        return matches;
+      });
     }
 
     // Date filter
@@ -444,6 +457,12 @@ export const AdminDashboard = () => {
         bg: "bg-yellow-100",
         text: "text-yellow-700",
         label: "Chờ duyệt",
+        icon: Clock,
+      },
+      resubmit: {
+        bg: "bg-orange-100",
+        text: "text-orange-700",
+        label: "Chờ duyệt lại",
         icon: Clock,
       },
       approved: {
@@ -656,6 +675,7 @@ export const AdminDashboard = () => {
               >
                 <option value="all">Tất cả trạng thái</option>
                 <option value="pending">Chờ duyệt</option>
+                <option value="resubmit">Chờ duyệt lại</option>
                 <option value="approved">Đã duyệt</option>
                 <option value="rejected">Từ chối</option>
                 <option value="sold">Đã bán</option>
@@ -1110,16 +1130,7 @@ export const AdminDashboard = () => {
                                     "Chưa cập nhật"}
                                 </p>
                               </div>
-                              <div>
-                                <p className="text-sm text-gray-500 mb-1">
-                                  Dung lượng pin
-                                </p>
-                                <p className="font-medium">
-                                  {selectedListing.battery_capacity
-                                    ? `${selectedListing.battery_capacity} kWh`
-                                    : "Chưa cập nhật"}
-                                </p>
-                              </div>
+
                               <div>
                                 <p className="text-sm text-gray-500 mb-1">
                                   Tình trạng
@@ -1351,7 +1362,8 @@ export const AdminDashboard = () => {
 
               {/* Show approve/reject buttons for all non-approved listings */}
               {selectedListing.status !== "approved" &&
-                selectedListing.status !== "sold" && (
+                selectedListing.status !== "sold" &&
+                selectedListing.status !== "rejected" && (
                   <div className="mt-8">
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                       <h4 className="text-lg font-semibold text-blue-900 mb-2">

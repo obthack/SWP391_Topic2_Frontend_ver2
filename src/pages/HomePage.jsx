@@ -92,11 +92,15 @@ export const HomePage = () => {
             const images = Array.isArray(imagesData)
               ? imagesData
               : imagesData?.items || [];
+
+            // Map images - only use real product images
+            const mappedImages = images.map(
+              (img) => img.imageData || img.imageUrl || img.url
+            );
+
             return {
               ...product,
-              images: images.map(
-                (img) => img.imageData || img.imageUrl || img.url
-              ),
+              images: mappedImages, // Only real images, no placeholder
             };
           } catch (error) {
             console.warn(
@@ -105,7 +109,11 @@ export const HomePage = () => {
               }:`,
               error
             );
-            return { ...product, images: [] };
+            // Return product with no images if API fails
+            return {
+              ...product,
+              images: [], // No placeholder, only real images
+            };
           }
         })
       );

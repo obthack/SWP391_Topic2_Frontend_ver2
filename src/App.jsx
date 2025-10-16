@@ -27,6 +27,25 @@ import { Favorites } from "./pages/Favorites";
 import { Notifications } from "./pages/Notifications";
 import { ToastProvider } from "./contexts/ToastContext";
 
+const PublicRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  // If user is already logged in, redirect to homepage
+  if (user) {
+    return <Navigate to="/" replace />;
+  }
+
+  return children;
+};
+
 const ProtectedRoute = ({ children, adminOnly = false, userOnly = false }) => {
   const { user, profile, loading } = useAuth();
 
@@ -92,8 +111,22 @@ const AppContent = () => {
       <main className="flex-grow">
         <Routes>
           <Route path="/" element={<HomePage />} />
-          <Route path="/login" element={<LoginForm />} />
-          <Route path="/register" element={<RegisterForm />} />
+          <Route
+            path="/login"
+            element={
+              <PublicRoute>
+                <LoginForm />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/register"
+            element={
+              <PublicRoute>
+                <RegisterForm />
+              </PublicRoute>
+            }
+          />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/auth/callback" element={<AuthCallback />} />

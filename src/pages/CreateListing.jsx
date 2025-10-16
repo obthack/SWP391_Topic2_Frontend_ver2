@@ -9,6 +9,10 @@ import {
   addWatermarkToImages,
   shouldWatermarkImage,
 } from "../utils/watermarkUtils";
+import {
+  formatVietnamesePrice,
+  parsePriceValue,
+} from "../utils/priceFormatter";
 
 export const CreateListing = () => {
   const { user, profile } = useAuth();
@@ -44,12 +48,28 @@ export const CreateListing = () => {
     cellType: "",
     cycleCount: "",
   });
+  const [displayPrice, setDisplayPrice] = useState("");
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+    const { name, value } = e.target;
+
+    if (name === "price") {
+      // Format price display with spaces
+      const formattedPrice = formatVietnamesePrice(value);
+      setDisplayPrice(formattedPrice);
+
+      // Store numeric value in formData
+      const numericPrice = parsePriceValue(value);
+      setFormData({
+        ...formData,
+        [name]: numericPrice,
+      });
+    } else {
+      setFormData({
+        ...formData,
+        [name]: value,
+      });
+    }
   };
 
   const handleImageUpload = (e) => {
@@ -860,12 +880,12 @@ export const CreateListing = () => {
                     Giá bán (VNĐ) *
                   </label>
                   <input
-                    type="number"
+                    type="text"
                     name="price"
-                    value={formData.price}
+                    value={displayPrice}
                     onChange={handleChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Ví dụ: 1200000000"
+                    placeholder="Ví dụ: 1 200 000 000"
                     required
                   />
                 </div>
