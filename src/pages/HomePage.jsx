@@ -30,50 +30,44 @@ export const HomePage = () => {
 
   const loadFeaturedProducts = async () => {
     try {
+      console.log("🔄 Loading featured products for homepage...");
       let approvedProducts = [];
 
-      try {
-        // Load vehicles and batteries separately
-        const [vehiclesData, batteriesData] = await Promise.all([
-          apiRequest("/api/Product/vehicles?status=approved&take=4"),
-          apiRequest("/api/Product/batteries?status=approved&take=4"),
-        ]);
+      // Use the main Product API endpoint
+      const data = await apiRequest("/api/Product");
+      const allProducts = Array.isArray(data) ? data : data?.items || [];
 
-        const vehicles = Array.isArray(vehiclesData)
-          ? vehiclesData
-          : vehiclesData?.items || [];
-        const batteries = Array.isArray(batteriesData)
-          ? batteriesData
-          : batteriesData?.items || [];
+      console.log("📦 Total products from API:", allProducts.length);
+      console.log("📦 Sample product:", allProducts[0]);
 
-        // Filter approved products and add productType
-        const approvedVehicles = vehicles
-          .filter((x) => {
-            const status = String(x.status || x.Status).toLowerCase();
-            return status === "approved" || status === "active";
-          })
-          .map((x) => ({ ...x, productType: "vehicle" }));
+      // Filter approved products and classify by type
+      approvedProducts = allProducts
+        .filter((x) => {
+          const status = String(x.status || x.Status).toLowerCase();
+          const isApproved = status === "approved" || status === "active";
+          console.log(
+            `Product ${x.id}: status="${status}", isApproved=${isApproved}`
+          );
+          return isApproved;
+        })
+        .map((x) => {
+          // Determine product type based on available fields
+          let productType = "vehicle"; // default
 
-        const approvedBatteries = batteries
-          .filter((x) => {
-            const status = String(x.status || x.Status).toLowerCase();
-            return status === "approved" || status === "active";
-          })
-          .map((x) => ({ ...x, productType: "battery" }));
+          if (x.productType) {
+            productType = x.productType.toLowerCase();
+          } else if (x.licensePlate || x.license_plate || x.mileage || x.year) {
+            productType = "vehicle";
+          } else if (x.capacity || x.voltage || x.cycleCount || x.cycle_count) {
+            productType = "battery";
+          }
 
-        approvedProducts = [...approvedVehicles, ...approvedBatteries];
-      } catch (e1) {
-        console.log("Separate API calls failed, trying fallback:", e1);
-        // Fallback: get all products and filter
-        const data2 = await apiRequest("/api/Product");
-        const list2 = Array.isArray(data2) ? data2 : data2?.items || [];
-        approvedProducts = list2
-          .filter((x) => {
-            const status = String(x.status || x.Status).toLowerCase();
-            return status === "approved" || status === "active";
-          })
-          .slice(0, 8);
-      }
+          console.log(`Product ${x.id}: classified as ${productType}`);
+          return { ...x, productType };
+        })
+        .slice(0, 8); // Limit to 8 products for homepage
+
+      console.log("✅ Filtered approved products:", approvedProducts.length);
 
       // Load images for each approved product with delay to avoid DbContext conflicts
       const productsWithImages = await Promise.all(
@@ -135,15 +129,26 @@ export const HomePage = () => {
       console.log("Loaded approved products for homepage:", sortedProducts);
       setFeaturedProducts(sortedProducts);
     } catch (err) {
-      console.error("Error loading featured products:", err);
+      console.error("❌ Error loading featured products:", err);
+      console.error("❌ Error details:", {
+        message: err.message,
+        status: err.status,
+        data: err.data,
+        stack: err.stack,
+      });
+
       setFeaturedProducts([]);
       setFeaturedError(err.message || String(err));
+
       try {
         // Expose a helpful debug object for the developer console (non-sensitive)
         window.__EVTB_LAST_ERROR = window.__EVTB_LAST_ERROR || {};
         window.__EVTB_LAST_ERROR.loadFeaturedProducts = {
           message: err.message || String(err),
+          status: err.status,
+          data: err.data,
           stack: err.stack || null,
+          timestamp: new Date().toISOString(),
         };
       } catch (debugErr) {
         console.warn("Could not set debug error object:", debugErr);
@@ -178,11 +183,15 @@ export const HomePage = () => {
       return;
     }
 
+    // Debug user ID
+    const userId = user.id || user.userId || user.accountId;
+    console.log("🔍 FAVORITE DEBUG:");
+    console.log("  User object:", user);
+    console.log("  Extracted userId:", userId);
+    console.log("  Product ID:", productId);
+
     try {
-      const result = await toggleFavorite(
-        user.id || user.userId || user.accountId,
-        productId
-      );
+      const result = await toggleFavorite(userId, productId);
 
       // Only update UI if we got a valid result
       if (result && typeof result.isFavorited === "boolean") {
@@ -547,8 +556,61 @@ export const HomePage = () => {
               )}
             </>
           ) : (
-            <div className="text-center py-8">
-              <p className="text-gray-500">Không có sản phẩm nào</p>
+            <div className="text-center py-12">
+              <div className="max-w-md mx-auto">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg
+                    className="w-8 h-8 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
+                    />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  {featuredError ? "Lỗi tải sản phẩm" : "Không có sản phẩm nào"}
+                </h3>
+                <p className="text-gray-500 mb-4">
+                  {featuredError
+                    ? "Không thể tải danh sách sản phẩm. Vui lòng thử lại sau."
+                    : "Hiện tại chưa có sản phẩm nào được phê duyệt."}
+                </p>
+                {featuredError && (
+                  <button
+                    onClick={loadFeaturedProducts}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Thử lại
+                  </button>
+                )}
+                {!featuredError && (
+                  <Link
+                    to="/create-listing"
+                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <svg
+                      className="w-4 h-4 mr-2"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                      />
+                    </svg>
+                    Đăng tin đầu tiên
+                  </Link>
+                )}
+              </div>
             </div>
           )}
         </div>
