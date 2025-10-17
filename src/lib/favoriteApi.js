@@ -8,20 +8,31 @@ import { apiRequest } from './api';
  */
 export const addToFavorites = async (userId, productId) => {
   try {
+    console.log("🔍 addToFavorites called with:", { userId, productId });
+    
     const favoriteData = {
       userId: userId,
       productId: productId,
       createdDate: new Date().toISOString()
     };
 
+    console.log("🔍 Sending favorite data:", favoriteData);
+
     const response = await apiRequest('/api/Favorite', {
       method: 'POST',
       body: favoriteData
     });
 
+    console.log("🔍 addToFavorites response:", response);
     return response;
   } catch (error) {
     console.error('Error adding to favorites:', error);
+    console.error('Error details:', {
+      userId,
+      productId,
+      status: error.status,
+      message: error.message
+    });
     throw error;
   }
 };
@@ -49,10 +60,17 @@ export const removeFromFavorites = async (favoriteId) => {
  */
 export const getUserFavorites = async (userId) => {
   try {
+    console.log("🔍 getUserFavorites called with userId:", userId);
     const response = await apiRequest(`/api/Favorite/user/${userId}`);
+    console.log("🔍 getUserFavorites response:", response);
     return Array.isArray(response) ? response : [];
   } catch (error) {
     console.error('Error getting user favorites:', error);
+    console.error('Error details:', {
+      userId,
+      status: error.status,
+      message: error.message
+    });
     throw error;
   }
 };
@@ -65,10 +83,19 @@ export const getUserFavorites = async (userId) => {
  */
 export const isProductFavorited = async (userId, productId) => {
   try {
+    console.log("🔍 isProductFavorited called with:", { userId, productId });
     const favorites = await getUserFavorites(userId);
-    return favorites.find(fav => fav.productId === productId) || null;
+    const result = favorites.find(fav => fav.productId === productId) || null;
+    console.log("🔍 isProductFavorited result:", result);
+    return result;
   } catch (error) {
     console.error('Error checking if product is favorited:', error);
+    console.error('Error details:', {
+      userId,
+      productId,
+      status: error.status,
+      message: error.message
+    });
     // Return null if API is not available or user doesn't have permission
     return null;
   }

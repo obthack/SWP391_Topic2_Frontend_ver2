@@ -37,9 +37,7 @@ export const Dashboard = () => {
     totalListings: 0,
     activeListings: 0,
     soldListings: 0,
-    totalViews: 0,
     conversionRate: 0,
-    avgViewsPerListing: 0,
     recentActivity: 0,
     monthlyGrowth: 0,
   });
@@ -68,18 +66,41 @@ export const Dashboard = () => {
 
       if (Array.isArray(products)) {
         const totalListings = products.length;
-        const activeListings = products.filter(
-          (p) => p.status === "approved" || p.status === "active"
-        ).length;
-        const soldListings = products.filter((p) => p.status === "sold").length;
 
-        // Calculate views (mock data for now)
-        const totalViews = products.reduce(
-          (sum, p) => sum + (p.views || Math.floor(Math.random() * 100)),
-          0
+        // Debug: Show all product statuses
+        console.log(
+          "🔍 Product statuses:",
+          products.map((p) => ({
+            id: p.productId || p.id,
+            title: p.title,
+            status: p.status,
+            rawStatus: p.status,
+          }))
         );
-        const avgViewsPerListing =
-          totalListings > 0 ? Math.round(totalViews / totalListings) : 0;
+
+        // Check for different possible status values
+        const activeListings = products.filter((p) => {
+          const status = String(p.status || p.Status || "").toLowerCase();
+          const isActive =
+            status === "approved" ||
+            status === "active" ||
+            status === "published" ||
+            status === "available" ||
+            status === "live";
+
+          console.log(
+            `Product ${
+              p.productId || p.id
+            }: status="${status}", isActive=${isActive}`
+          );
+          return isActive;
+        }).length;
+
+        const soldListings = products.filter((p) => {
+          const status = String(p.status || p.Status || "").toLowerCase();
+          return status === "sold";
+        }).length;
+
         const conversionRate =
           totalListings > 0
             ? Math.round((soldListings / totalListings) * 100)
@@ -89,9 +110,7 @@ export const Dashboard = () => {
           totalListings,
           activeListings,
           soldListings,
-          totalViews,
           conversionRate,
-          avgViewsPerListing,
           recentActivity: 0, // Mock data
           monthlyGrowth: 0, // Mock data
         });
@@ -100,10 +119,15 @@ export const Dashboard = () => {
           totalListings,
           activeListings,
           soldListings,
-          totalViews,
           conversionRate,
-          avgViewsPerListing,
         });
+
+        // Debug: Show detailed breakdown
+        console.log("📊 Detailed breakdown:");
+        console.log("  Total products:", totalListings);
+        console.log("  Active products:", activeListings);
+        console.log("  Sold products:", soldListings);
+        console.log("  Conversion rate:", conversionRate + "%");
       }
     } catch (error) {
       console.error("❌ Error loading stats:", error);
@@ -165,7 +189,7 @@ export const Dashboard = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Enhanced Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {/* Total Listings */}
           <div className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 border border-gray-100 group">
             <div className="flex items-center justify-between">
@@ -229,29 +253,6 @@ export const Dashboard = () => {
               </div>
               <div className="p-4 bg-orange-100 rounded-full group-hover:bg-orange-200 transition-colors">
                 <DollarSign className="h-8 w-8 text-orange-600" />
-              </div>
-            </div>
-          </div>
-
-          {/* Total Views */}
-          <div className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 border border-gray-100 group">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">
-                  Lượt xem
-                </p>
-                <p className="text-3xl font-bold text-purple-600">
-                  {stats.totalViews}
-                </p>
-                <div className="flex items-center mt-2">
-                  <Eye className="h-4 w-4 text-purple-500 mr-1" />
-                  <span className="text-sm text-purple-600 font-medium">
-                    {stats.avgViewsPerListing} TB/tin
-                  </span>
-                </div>
-              </div>
-              <div className="p-4 bg-purple-100 rounded-full group-hover:bg-purple-200 transition-colors">
-                <Eye className="h-8 w-8 text-purple-600" />
               </div>
             </div>
           </div>
