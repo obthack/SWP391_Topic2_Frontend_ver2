@@ -15,6 +15,7 @@ export const EditListing = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState("");
   const [images, setImages] = useState([]);
   const [documentImages, setDocumentImages] = useState([]);
@@ -56,51 +57,265 @@ export const EditListing = () => {
 
   const loadListing = async () => {
     try {
-      // Use unified API endpoint for all product types
-      const data = await apiRequest(`/api/Product/${id}`);
-      console.log("🔍 Loaded from unified API:", data);
-      console.log("🔍 Raw API data:", data);
-      console.log("🔍 Data keys:", Object.keys(data));
+      console.log("🔄 Loading listing data for ID:", id);
+
+      // First, verify the product belongs to the current user
+      const sellerId = user?.id || user?.userId || user?.accountId;
+      console.log("🔄 Seller ID:", sellerId);
+
+      // Get seller products to verify ownership
+      const sellerProducts = await apiRequest(
+        `/api/Product/seller/${sellerId}`
+      );
+      console.log("🔍 Loaded seller products:", sellerProducts);
+
+      // Check if the product exists in seller's list
+      const productExists = sellerProducts.find(
+        (product) =>
+          product.productId === parseInt(id) ||
+          product.id === parseInt(id) ||
+          product.Id === parseInt(id)
+      );
+
+      if (!productExists) {
+        throw new Error("Không tìm thấy sản phẩm này trong danh sách của bạn");
+      }
+
+      // Now get the FULL product details using the individual product endpoint
+      console.log("🔍 Getting full product details from /api/Product/" + id);
+
+      // Add retry logic for DbContext conflicts
+      let data = null;
+      let retryCount = 0;
+      const maxRetries = 3;
+
+      while (retryCount < maxRetries && !data) {
+        try {
+          data = await apiRequest(`/api/Product/${id}`);
+          console.log("🔍 Found FULL product data:", data);
+          console.log("🔍 Data keys:", Object.keys(data));
+          break;
+        } catch (error) {
+          retryCount++;
+          console.log(
+            `🔄 Retry attempt ${retryCount}/${maxRetries} for DbContext conflict`
+          );
+
+          if (
+            error.message?.includes("DbContext") ||
+            error.message?.includes("second operation")
+          ) {
+            if (retryCount < maxRetries) {
+              // Wait a bit before retrying
+              await new Promise((resolve) =>
+                setTimeout(resolve, 1000 * retryCount)
+              );
+              continue;
+            }
+          }
+
+          // If not a DbContext error or max retries reached, throw the error
+          throw error;
+        }
+      }
+
+      if (!data) {
+        // Fallback: Use data from seller products list if individual API fails
+        console.log("🔄 Fallback: Using data from seller products list");
+        data = productExists;
+
+        if (!data) {
+          throw new Error("Không thể tải thông tin sản phẩm sau nhiều lần thử");
+        }
+      }
+
+      // Debug: Show all available fields from API
+      console.log("🔍 ALL AVAILABLE FIELDS FROM API:");
+      Object.keys(data).forEach((key) => {
+        console.log(`  ${key}:`, data[key], `(type: ${typeof data[key]})`);
+      });
+
+      // Debug all fields to see what data is available
+      console.log("🔍 DETAILED FIELD ANALYSIS:");
+      console.log("📋 Basic Info:", {
+        title: data.title,
+        description: data.description,
+        brand: data.brand,
+        model: data.model,
+        price: data.price,
+        condition: data.condition,
+        productType: data.productType,
+      });
+      console.log("🚗 Vehicle Info:", {
+        licensePlate: data.licensePlate,
+        vehicleType: data.vehicleType,
+        manufactureYear: data.manufactureYear,
+        year: data.year,
+        mileage: data.mileage,
+        transmission: data.transmission,
+        seatCount: data.seatCount,
+        color: data.color,
+        fuelType: data.fuelType,
+      });
+      console.log("🔋 Battery Info:", {
+        batteryType: data.batteryType,
+        batteryHealth: data.batteryHealth,
+        capacity: data.capacity,
+        voltage: data.voltage,
+        bms: data.bms,
+        cellType: data.cellType,
+        cycleCount: data.cycleCount,
+      });
+
+      // Helper function to clean up "string" placeholder values and null values
+      const cleanValue = (value) => {
+        console.log("🧹 Cleaning value:", {
+          original: value,
+          type: typeof value,
+        });
+
+        if (
+          value === "string" ||
+          value === null ||
+          value === undefined ||
+          (value === 0 && typeof value === "number") ||
+          value === "0"
+        ) {
+          console.log("🧹 Cleaned to empty string");
+          return "";
+        }
+
+        // For numbers, keep them as strings for form display
+        if (typeof value === "number" && value > 0) {
+          console.log("🧹 Keeping number as string:", value.toString());
+          return value.toString();
+        }
+
+        console.log("🧹 Keeping original value:", value);
+        return value;
+      };
+
+      // More comprehensive data mapping with fallbacks
       const mapped = {
+        productId: data.productId || data.id || data.Id || id,
         title: data.title ?? data.Title ?? "",
-        licensePlate:
-          data.licensePlate ?? data.license_plate ?? data.LicensePlate ?? "",
+        licensePlate: cleanValue(
+          data.licensePlate ?? data.license_plate ?? data.LicensePlate
+        ),
         description: data.description ?? data.Description ?? "",
         brand: data.brand ?? data.Brand ?? "",
         model: data.model ?? data.Model ?? "",
         year:
-          data.year ??
-          data.productionYear ??
-          data.manufactureYear ??
-          data.ManufactureYear ??
+          cleanValue(data.manufactureYear) || // Use manufactureYear first (from API)
+          cleanValue(data.year) ||
+          cleanValue(data.productionYear) ||
+          cleanValue(data.Year) ||
           "",
         price: data.price ?? data.Price ?? "",
-        mileage: data.mileage ?? data.Mileage ?? "",
-        color: data.color ?? data.Color ?? "",
-        fuelType: data.fuelType ?? data.FuelType ?? "",
-        transmission: data.transmission ?? data.Transmission ?? "",
+        mileage: cleanValue(data.mileage ?? data.Mileage),
+        color: cleanValue(data.color ?? data.Color),
+        fuelType: cleanValue(data.fuelType ?? data.FuelType),
+        transmission: cleanValue(data.transmission ?? data.Transmission),
         condition: data.condition ?? data.Condition ?? "excellent",
-        productType:
-          data.productType ?? data.product_type ?? data.Type ?? "vehicle",
+        productType: (
+          data.productType ??
+          data.product_type ??
+          data.Type ??
+          "vehicle"
+        ).toLowerCase(),
         // Vehicle specific fields
-        vehicleType: data.vehicleType ?? data.VehicleType ?? "",
+        vehicleType: cleanValue(data.vehicleType ?? data.VehicleType),
         manufactureYear:
-          data.manufactureYear ??
-          data.ManufactureYear ??
-          data.year ??
-          data.Year ??
+          cleanValue(data.manufactureYear) || // Use manufactureYear first
+          cleanValue(data.year) ||
+          cleanValue(data.Year) ||
           "",
-        seatCount: data.seatCount ?? data.SeatCount ?? "",
+        seatCount: cleanValue(data.seatCount ?? data.SeatCount),
         // Battery specific fields
-        batteryType: data.batteryType ?? data.BatteryType ?? "",
-        batteryHealth: data.batteryHealth ?? data.BatteryHealth ?? "",
-        capacity: data.capacity ?? data.Capacity ?? "",
-        voltage: data.voltage ?? data.Voltage ?? "",
-        bms: data.bms ?? data.BMS ?? "",
-        cellType: data.cellType ?? data.CellType ?? "",
-        cycleCount: data.cycleCount ?? data.CycleCount ?? "",
+        batteryType: cleanValue(data.batteryType ?? data.BatteryType),
+        batteryHealth: cleanValue(data.batteryHealth ?? data.BatteryHealth),
+        capacity: cleanValue(data.capacity ?? data.Capacity),
+        voltage: cleanValue(data.voltage ?? data.Voltage),
+        bms: cleanValue(data.bms ?? data.BMS),
+        cellType: cleanValue(data.cellType ?? data.CellType),
+        cycleCount: cleanValue(data.cycleCount ?? data.CycleCount),
       };
+
       console.log("🔍 Mapped form data:", mapped);
+
+      // Debug mapped data after cleaning
+      console.log("🔍 CLEANED MAPPED DATA:");
+      console.log("📋 Basic Info (Cleaned):", {
+        title: mapped.title,
+        description: mapped.description,
+        brand: mapped.brand,
+        model: mapped.model,
+        price: mapped.price,
+        condition: mapped.condition,
+        productType: mapped.productType,
+      });
+      console.log("🚗 Vehicle Info (Cleaned):", {
+        licensePlate: mapped.licensePlate,
+        vehicleType: mapped.vehicleType,
+        manufactureYear: mapped.manufactureYear,
+        year: mapped.year,
+        mileage: mapped.mileage,
+        transmission: mapped.transmission,
+        seatCount: mapped.seatCount,
+        color: mapped.color,
+        fuelType: mapped.fuelType,
+      });
+      console.log("🔋 Battery Info (Cleaned):", {
+        batteryType: mapped.batteryType,
+        batteryHealth: mapped.batteryHealth,
+        capacity: mapped.capacity,
+        voltage: mapped.voltage,
+        bms: mapped.bms,
+        cellType: mapped.cellType,
+        cycleCount: mapped.cycleCount,
+      });
+
+      // Show summary of what data is available vs missing
+      console.log("📊 DATA AVAILABILITY SUMMARY:");
+      const availableFields = Object.entries(mapped).filter(
+        ([key, value]) => value && value !== ""
+      );
+      const missingFields = Object.entries(mapped).filter(
+        ([key, value]) => !value || value === ""
+      );
+
+      console.log(
+        "✅ Available fields:",
+        availableFields.map(([key]) => key)
+      );
+      console.log(
+        "❌ Missing fields:",
+        missingFields.map(([key]) => key)
+      );
+
+      // Debug product type for document upload logic
+      console.log("🔍 PRODUCT TYPE DEBUG:");
+      console.log("  Raw productType from API:", data.productType);
+      console.log("  Mapped productType:", mapped.productType);
+      console.log(
+        "  Should show documents:",
+        mapped.productType?.toLowerCase() === "vehicle"
+      );
+
+      // Debug: Show all available fields from API
+      console.log("🔍 All API fields:", {
+        manufactureYear: data.manufactureYear,
+        licensePlate: data.licensePlate,
+        mileage: data.mileage,
+        condition: data.condition,
+        vehicleType: data.vehicleType,
+        transmission: data.transmission,
+        batteryType: data.batteryType,
+        capacity: data.capacity,
+        voltage: data.voltage,
+        cycleCount: data.cycleCount,
+      });
+
       setFormData(mapped);
 
       // Set display price for formatting
@@ -110,7 +325,10 @@ export const EditListing = () => {
 
       // Load existing product images
       try {
-        const imageData = await apiRequest(`/api/ProductImage/product/${id}`);
+        const productId = data.productId || data.id || data.Id || id;
+        const imageData = await apiRequest(
+          `/api/ProductImage/product/${productId}`
+        );
         const productImages = (imageData || []).filter(
           (img) => !img.imageType || img.imageType !== "document"
         );
@@ -119,14 +337,47 @@ export const EditListing = () => {
         );
         setExistingImages(productImages);
         setExistingDocumentImages(docImages);
+        console.log("🔍 Loaded images:", {
+          productImages: productImages.length,
+          docImages: docImages.length,
+        });
       } catch (imageError) {
         console.warn("Could not load existing images:", imageError);
         setExistingImages([]);
         setExistingDocumentImages([]);
       }
     } catch (error) {
-      console.error("Error loading listing:", error);
-      setError("Không thể tải thông tin bài đăng");
+      console.error("❌ Error loading listing:", error);
+      console.error("❌ Error details:", {
+        message: error.message,
+        status: error.status,
+        data: error.data,
+        stack: error.stack,
+      });
+
+      let errorMessage = "Không thể tải thông tin bài đăng";
+
+      if (error.status === 404) {
+        errorMessage =
+          "Không tìm thấy bài đăng này. Có thể bài đăng đã bị xóa hoặc bạn không có quyền chỉnh sửa.";
+      } else if (error.status === 403) {
+        errorMessage = "Bạn không có quyền chỉnh sửa bài đăng này.";
+      } else if (error.status === 500 && error.message?.includes("DbContext")) {
+        errorMessage = "Lỗi hệ thống tạm thời. Vui lòng thử lại sau vài giây.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      setError(errorMessage);
+
+      // Show toast notification
+      show({
+        title: "Lỗi tải dữ liệu",
+        description: errorMessage,
+        type: "error",
+      });
+    } finally {
+      setInitialLoading(false);
     }
   };
 
@@ -245,8 +496,9 @@ export const EditListing = () => {
 
       console.log("Updating product data:", productData);
 
-      // Use unified API endpoint for all product types
-      const apiEndpoint = `/api/Product/${id}`;
+      // Get the correct product ID from the loaded data
+      const productId = formData.productId || id;
+      const apiEndpoint = `/api/Product/${productId}`;
 
       const updated = await apiRequest(apiEndpoint, {
         method: "PUT",
@@ -438,6 +690,36 @@ export const EditListing = () => {
       setLoading(false);
     }
   };
+
+  // Show loading state while loading initial data
+  if (initialLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="mb-8">
+            <button
+              onClick={() => navigate(-1)}
+              className="flex items-center text-gray-600 hover:text-gray-900 mb-4"
+            >
+              <ArrowLeft className="h-5 w-5 mr-2" />
+              Quay lại
+            </button>
+            <h1 className="text-3xl font-bold text-gray-900">
+              Chỉnh sửa tin đăng
+            </h1>
+            <p className="text-gray-600 mt-2">Đang tải thông tin bài đăng...</p>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm p-8">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
+              <p className="text-gray-600">Đang tải dữ liệu bài đăng...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -932,7 +1214,7 @@ export const EditListing = () => {
           )}
 
           {/* Existing Document Images - Only for vehicles */}
-          {formData.productType === "vehicle" &&
+          {formData.productType?.toLowerCase() === "vehicle" &&
             existingDocumentImages.length > 0 && (
               <div className="bg-white rounded-xl shadow-sm p-6">
                 <h2 className="text-xl font-semibold text-gray-900 mb-6">
@@ -1020,7 +1302,7 @@ export const EditListing = () => {
           </div>
 
           {/* Document Image Upload - Only for vehicles */}
-          {formData.productType === "vehicle" && (
+          {formData.productType?.toLowerCase() === "vehicle" && (
             <div className="bg-white rounded-xl shadow-sm p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-6">
                 Thêm hình ảnh giấy tờ mới (Tối đa{" "}

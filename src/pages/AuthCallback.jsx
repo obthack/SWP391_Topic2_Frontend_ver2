@@ -1,23 +1,27 @@
-import { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { API_BASE_URL } from '../lib/api';
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { API_BASE_URL } from "../lib/api";
 
 export const AuthCallback = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const token = params.get('token') || params.get('access_token') || '';
-    const userJson = params.get('user');
+    const token = params.get("token") || params.get("access_token") || "";
+    const userJson = params.get("user");
 
     const saveAndRedirect = (session) => {
-      try { localStorage.setItem('evtb_auth', JSON.stringify(session)); } catch {}
+      try {
+        localStorage.setItem("evtb_auth", JSON.stringify(session));
+      } catch {}
       const roleId = session?.user?.roleId || session?.profile?.roleId;
-      const roleName = (session?.user?.roleName || session?.profile?.role || '').toString().toLowerCase();
-      const isAdmin = roleId === 1 || roleName === 'admin';
-      navigate(isAdmin ? '/admin' : '/dashboard', { replace: true });
+      const roleName = (session?.user?.roleName || session?.profile?.role || "")
+        .toString()
+        .toLowerCase();
+      const isAdmin = roleId === 1 || roleName === "admin";
+      navigate(isAdmin ? "/admin" : "/dashboard", { replace: true });
     };
 
     (async () => {
@@ -27,13 +31,18 @@ export const AuthCallback = () => {
           saveAndRedirect({ token, user, profile: user?.profile || null });
           return;
         }
-        const resp = await fetch(`${API_BASE_URL}/api/Auth/callback${location.search}`);
-        if (!resp.ok) throw new Error('OAuth callback thất bại');
+        const resp = await fetch(
+          `${API_BASE_URL}/api/Auth/callback${location.search}`
+        );
+        if (!resp.ok) throw new Error("OAuth callback thất bại");
         const data = await resp.json();
-        const session = { token: data.token || data.accessToken, user: data.user || data };
+        const session = {
+          token: data.token || data.accessToken,
+          user: data.user || data,
+        };
         saveAndRedirect(session);
       } catch (e) {
-        setError(e.message || 'Không thể đăng nhập bằng mạng xã hội');
+        setError(e.message || "Không thể đăng nhập bằng mạng xã hội");
       }
     })();
   }, [location.search, navigate]);

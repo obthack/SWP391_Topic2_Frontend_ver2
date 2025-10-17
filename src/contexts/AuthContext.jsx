@@ -104,10 +104,39 @@ export const AuthProvider = ({ children }) => {
     if (!user) return;
 
     try {
+      const userId = user.id || user.userId || user.accountId;
+      if (!userId) {
+        throw new Error("Không tìm thấy ID người dùng");
+      }
+
+      console.log("🔄 Updating profile for user ID:", userId);
+      console.log("📝 Updates:", updates);
+
+      // Call API to update user in database
+      const updatePayload = {
+        id: userId,
+        email: updates.email || user.email,
+        fullName: updates.fullName || user.fullName || user.full_name,
+        phone: updates.phone || user.phone,
+        avatar: updates.avatar || user.avatar,
+        roleId: user.roleId,
+        accountStatus: user.accountStatus || "Active",
+      };
+
+      console.log("📤 Sending update payload:", updatePayload);
+
+      const updatedUserData = await apiRequest(`/api/User/${userId}`, {
+        method: "PUT",
+        body: updatePayload,
+      });
+
+      console.log("✅ Profile updated in database:", updatedUserData);
+
+      // Update local state with the new data
       const updatedUser = { ...user, ...updates };
       setUser(updatedUser);
 
-      // Optimize localStorage storage to prevent quota exceeded
+      // Update localStorage with the new data
       const authData = localStorage.getItem("evtb_auth");
       if (authData) {
         try {
@@ -135,6 +164,7 @@ export const AuthProvider = ({ children }) => {
           };
 
           localStorage.setItem("evtb_auth", JSON.stringify(optimizedAuth));
+          console.log("✅ Profile updated in localStorage");
         } catch (storageError) {
           console.warn("Could not save to localStorage:", storageError);
           // Clear old data and try again with minimal data

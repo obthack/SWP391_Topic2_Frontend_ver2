@@ -90,10 +90,10 @@ export const NotificationBell = () => {
         title="Thông báo"
       >
         <div className="relative">
-          <Bell className="h-5 w-5 group-hover:animate-bounce transition-transform duration-300" />
+          <Bell className="h-5 w-5 transition-colors duration-300" />
           {unreadCount > 0 && (
             <div
-              className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center shadow-lg ring-2 ring-white hover:scale-110 transition-all duration-300 cursor-pointer hover:bg-red-600 hover:shadow-xl hover:ring-red-300 animate-pulse"
+              className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center shadow-lg ring-2 ring-white hover:scale-110 transition-all duration-300 cursor-pointer hover:bg-red-600 hover:shadow-xl hover:ring-red-300"
               title={`${unreadCount} thông báo chưa đọc`}
             >
               {unreadCount > 99 ? "99+" : unreadCount}
