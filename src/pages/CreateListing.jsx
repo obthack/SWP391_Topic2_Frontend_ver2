@@ -51,7 +51,7 @@ export const CreateListing = () => {
   const [displayPrice, setDisplayPrice] = useState("");
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
 
     if (name === "price") {
       // Format price display with spaces
@@ -63,6 +63,11 @@ export const CreateListing = () => {
       setFormData({
         ...formData,
         [name]: numericPrice,
+      });
+    } else if (type === "checkbox") {
+      setFormData({
+        ...formData,
+        [name]: checked,
       });
     } else {
       setFormData({
@@ -489,138 +494,209 @@ export const CreateListing = () => {
 
         throw error;
       }
-      const pid = created?.id || created?.productId || created?.Id;
+      
+      // Debug product creation response
+      console.log("🔍 Product creation response:", created);
+      console.log("🔍 Available ID fields:", {
+        id: created?.id,
+        productId: created?.productId,
+        Id: created?.Id,
+        ProductId: created?.ProductId,
+        ID: created?.ID
+      });
+      
+      const pid = created?.id || created?.productId || created?.Id || created?.ProductId || created?.ID;
+      
+      if (!pid) {
+        throw new Error("Không thể lấy ID sản phẩm từ phản hồi API. Vui lòng thử lại.");
+      }
+      
+      console.log("✅ Product ID resolved:", pid);
 
       // Upload product images after product creation
-      if (pid && images.length > 0) {
+      if (images.length > 0) {
         console.log(
-          `Uploading ${images.length} product images for product ${pid}...`
+          `🖼️ Uploading ${images.length} product images for product ${pid}...`
         );
+
+        let uploadSuccess = false;
+        let uploadErrors = [];
 
         try {
           // Try multiple upload first
-          const formData = new FormData();
-          formData.append("productId", pid);
+          const uploadFormData = new FormData();
+          uploadFormData.append("productId", pid.toString());
+          
+          // Set image name based on product type
+          const imageName = formData.productType === "vehicle" ? "vehicle" : "battery";
+          uploadFormData.append("name", imageName);
 
           // Add all product images to FormData
           images.forEach((image, index) => {
-            formData.append("images", image);
+            uploadFormData.append("images", image);
           });
 
           console.log(
-            "Uploading product images with multiple endpoint:",
-            images.length,
-            "images"
+            "🚀 Attempting multiple image upload with FormData:",
+            {
+              productId: pid,
+              imageName: imageName,
+              imageCount: images.length,
+              formDataKeys: Array.from(uploadFormData.keys())
+            }
           );
+          
           const uploadedImages = await apiRequest(
             `/api/ProductImage/multiple`,
             {
               method: "POST",
-              body: formData,
+              body: uploadFormData,
             }
           );
-          console.log(
-            "Multiple product images uploaded successfully:",
-            uploadedImages
-          );
+          
+          console.log("✅ Multiple product images uploaded successfully:", uploadedImages);
+          uploadSuccess = true;
         } catch (e) {
           console.warn(
-            "Multiple product image upload failed, trying individual uploads:",
+            "❌ Multiple product image upload failed, trying individual uploads:",
             e
           );
+          uploadErrors.push(`Multiple upload failed: ${e.message}`);
 
           // Fallback to individual uploads
+          let individualSuccessCount = 0;
           for (let i = 0; i < images.length; i++) {
             const img = images[i];
             try {
-              const formData = new FormData();
-              formData.append("productId", pid);
-              formData.append("imageFile", img);
+              const individualFormData = new FormData();
+              individualFormData.append("productId", pid.toString());
+              individualFormData.append("imageFile", img);
+              
+              // Set image name based on product type
+              const imageName = formData.productType === "vehicle" ? "vehicle" : "battery";
+              individualFormData.append("name", imageName);
 
               console.log(
-                `Uploading product image ${i + 1}/${
-                  images.length
-                } for product ${pid}`
+                `📤 Uploading product image ${i + 1}/${images.length} for product ${pid} with name: ${imageName}`
               );
-              await apiRequest(`/api/ProductImage`, {
+              
+              const result = await apiRequest(`/api/ProductImage`, {
                 method: "POST",
-                body: formData,
+                body: individualFormData,
               });
-              console.log(`Product image ${i + 1} uploaded successfully`);
+              
+              console.log(`✅ Product image ${i + 1} uploaded successfully:`, result);
+              individualSuccessCount++;
             } catch (e) {
-              console.warn(`Product image ${i + 1} upload failed:`, e);
+              const errorMsg = `Image ${i + 1} upload failed: ${e.message}`;
+              console.warn(`❌ ${errorMsg}`, e);
+              uploadErrors.push(errorMsg);
             }
           }
+          
+          if (individualSuccessCount > 0) {
+            uploadSuccess = true;
+            console.log(`✅ ${individualSuccessCount}/${images.length} images uploaded successfully via individual method`);
+          }
+        }
+        
+        if (!uploadSuccess) {
+          console.error("❌ All image upload methods failed:", uploadErrors);
+          throw new Error(`Không thể upload ảnh sản phẩm: ${uploadErrors.join(', ')}`);
         }
       } else {
-        console.log("No product images were selected for upload.");
+        console.log("ℹ️ No product images were selected for upload.");
       }
 
       // Upload document images after product creation
-      if (pid && documentImages.length > 0) {
+      if (documentImages.length > 0) {
         console.log(
-          `Uploading ${documentImages.length} document images for product ${pid}...`
+          `📄 Uploading ${documentImages.length} document images for product ${pid}...`
         );
+
+        let docUploadSuccess = false;
+        let docUploadErrors = [];
 
         try {
           // Try multiple upload first for documents
-          const formData = new FormData();
-          formData.append("productId", pid);
-          formData.append("imageType", "document"); // Add type to distinguish from product images
+          const docFormData = new FormData();
+          docFormData.append("productId", pid.toString());
+          docFormData.append("imageType", "document"); // Add type to distinguish from product images
+          docFormData.append("name", "document"); // Set name for document images
 
           // Add all document images to FormData
           documentImages.forEach((image, index) => {
-            formData.append("images", image);
+            docFormData.append("images", image);
           });
 
           console.log(
-            "Uploading document images with multiple endpoint:",
-            documentImages.length,
-            "images"
+            "🚀 Attempting multiple document image upload with FormData:",
+            {
+              productId: pid,
+              imageName: "document",
+              imageCount: documentImages.length,
+              formDataKeys: Array.from(docFormData.keys())
+            }
           );
+          
           const uploadedDocumentImages = await apiRequest(
             `/api/ProductImage/multiple`,
             {
               method: "POST",
-              body: formData,
+              body: docFormData,
             }
           );
-          console.log(
-            "Multiple document images uploaded successfully:",
-            uploadedDocumentImages
-          );
+          
+          console.log("✅ Multiple document images uploaded successfully:", uploadedDocumentImages);
+          docUploadSuccess = true;
         } catch (e) {
           console.warn(
-            "Multiple document image upload failed, trying individual uploads:",
+            "❌ Multiple document image upload failed, trying individual uploads:",
             e
           );
+          docUploadErrors.push(`Multiple document upload failed: ${e.message}`);
 
           // Fallback to individual uploads for documents
+          let individualDocSuccessCount = 0;
           for (let i = 0; i < documentImages.length; i++) {
             const img = documentImages[i];
             try {
-              const formData = new FormData();
-              formData.append("productId", pid);
-              formData.append("imageFile", img);
-              formData.append("imageType", "document"); // Add type to distinguish
+              const individualDocFormData = new FormData();
+              individualDocFormData.append("productId", pid.toString());
+              individualDocFormData.append("imageFile", img);
+              individualDocFormData.append("imageType", "document"); // Add type to distinguish
+              individualDocFormData.append("name", "document"); // Set name for document images
 
               console.log(
-                `Uploading document image ${i + 1}/${
-                  documentImages.length
-                } for product ${pid}`
+                `📤 Uploading document image ${i + 1}/${documentImages.length} for product ${pid} with name: document`
               );
-              await apiRequest(`/api/ProductImage`, {
+              
+              const result = await apiRequest(`/api/ProductImage`, {
                 method: "POST",
-                body: formData,
+                body: individualDocFormData,
               });
-              console.log(`Document image ${i + 1} uploaded successfully`);
+              
+              console.log(`✅ Document image ${i + 1} uploaded successfully:`, result);
+              individualDocSuccessCount++;
             } catch (e) {
-              console.warn(`Document image ${i + 1} upload failed:`, e);
+              const errorMsg = `Document image ${i + 1} upload failed: ${e.message}`;
+              console.warn(`❌ ${errorMsg}`, e);
+              docUploadErrors.push(errorMsg);
             }
           }
+          
+          if (individualDocSuccessCount > 0) {
+            docUploadSuccess = true;
+            console.log(`✅ ${individualDocSuccessCount}/${documentImages.length} document images uploaded successfully via individual method`);
+          }
+        }
+        
+        if (!docUploadSuccess) {
+          console.error("❌ All document image upload methods failed:", docUploadErrors);
+          throw new Error(`Không thể upload ảnh giấy tờ: ${docUploadErrors.join(', ')}`);
         }
       } else {
-        console.log("No document images were selected for upload.");
+        console.log("ℹ️ No document images were selected for upload.");
       }
 
       // Send notification to user (optional - don't block success)
@@ -643,11 +719,22 @@ export const CreateListing = () => {
         // Don't throw error - notification is optional
       }
 
+      // Prepare success message with image upload status
+      const imageStatus = images.length > 0 ? 
+        (documentImages.length > 0 ? 
+          `Đã upload ${images.length} ảnh sản phẩm và ${documentImages.length} ảnh giấy tờ.` : 
+          `Đã upload ${images.length} ảnh sản phẩm.`) :
+        (documentImages.length > 0 ? 
+          `Đã upload ${documentImages.length} ảnh giấy tờ.` : 
+          "Chưa có ảnh nào được upload.");
+
+      // Add inspection request status
+      const inspectionStatus = formData.productType === "vehicle" && formData.inspectionRequested ? 
+        " Đã yêu cầu kiểm định xe - Admin sẽ liên hệ để hẹn lịch kiểm tra." : "";
+
       show({
         title: "✅ Tạo bài đăng thành công",
-        description: notificationSent
-          ? "Bài đăng của bạn đang chờ duyệt từ admin. Bạn sẽ được thông báo khi được duyệt."
-          : "Bài đăng của bạn đang chờ duyệt từ admin. (Hệ thống thông báo tạm thời không khả dụng)",
+        description: `${imageStatus}${inspectionStatus} Bài đăng của bạn đang chờ duyệt từ admin. ${notificationSent ? "Bạn sẽ được thông báo khi được duyệt." : "(Hệ thống thông báo tạm thời không khả dụng)"}`,
         type: "success",
       });
       navigate("/dashboard");
@@ -907,6 +994,7 @@ export const CreateListing = () => {
                   <option value="poor">Kém</option>
                 </select>
               </div>
+
             </div>
 
             <div className="mt-6">

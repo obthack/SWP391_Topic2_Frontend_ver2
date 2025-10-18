@@ -41,6 +41,13 @@ export const ProductCard = ({ product, onToggleFavorite, isFavorite }) => {
           </div>
         )}
 
+        {/* Verification Status Badge */}
+        {product.verificationStatus === "Verified" && (
+          <div className="absolute top-2 right-2 bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium z-10">
+            Đã kiểm định
+          </div>
+        )}
+
         <Link to={`/product/${productId}`}>
           {primaryImage ? (
             <img

@@ -18,6 +18,8 @@ import {
   Shield,
   BarChart3,
   Activity,
+  ClipboardCheck,
+  Camera,
 } from "lucide-react";
 import { apiRequest } from "../lib/api";
 import { formatPrice, formatDate } from "../utils/formatters";
@@ -25,6 +27,7 @@ import { useToast } from "../contexts/ToastContext";
 import { notifyPostApproved, notifyPostRejected } from "../lib/notificationApi";
 import { rejectProduct } from "../lib/productApi";
 import { RejectProductModal } from "../components/admin/RejectProductModal";
+import { updateVerificationStatus, getVerificationRequests } from "../lib/verificationApi";
 
 export const AdminDashboard = () => {
   const { show: showToast } = useToast();
@@ -38,6 +41,7 @@ export const AdminDashboard = () => {
   });
   const [allListings, setAllListings] = useState([]);
   const [filteredListings, setFilteredListings] = useState([]);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [productTypeFilter, setProductTypeFilter] = useState("all"); // all, vehicle, battery
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -47,6 +51,9 @@ export const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [expandedDetails, setExpandedDetails] = useState(false);
+  
+  // Tab navigation state
+  const [activeTab, setActiveTab] = useState("listings"); // listings, inspections
 
   // Reject modal state
   const [rejectModal, setRejectModal] = useState({
@@ -55,6 +62,24 @@ export const AdminDashboard = () => {
   });
 
   const getId = (x) => x?.id || x?.productId || x?.Id || x?.listingId;
+
+  // Get inspection requests (vehicles with verificationStatus = Requested or InProgress)
+  const getInspectionRequests = () => {
+    // Use refreshTrigger to force re-evaluation
+    const requests = allListings.filter(listing => 
+      listing.productType === "Vehicle" && 
+      (listing.verificationStatus === "Requested" || listing.verificationStatus === "InProgress")
+    );
+    
+    console.log('🔍 getInspectionRequests called:', {
+      allListingsCount: allListings.length,
+      refreshTrigger,
+      requestsCount: requests.length,
+      requests: requests.map(r => ({ id: r.id, title: r.title, verificationStatus: r.verificationStatus }))
+    });
+    
+    return requests;
+  };
 
   useEffect(() => {
     loadAdminData();
@@ -427,6 +452,39 @@ export const AdminDashboard = () => {
     }
   };
 
+  const handleStartInspection = async (productId) => {
+    try {
+      console.log(`Starting inspection for product ${productId}...`);
+      
+      // Use the correct verification API endpoint
+      const response = await apiRequest(`/api/Product/verify/${productId}`, {
+        method: 'PUT'
+      });
+      
+      console.log("Inspection started successfully:", response);
+      
+      showToast({
+        title: "✅ Bắt đầu kiểm định",
+        description: "Trạng thái kiểm định đã được cập nhật. Bạn có thể tiến hành kiểm định xe.",
+        type: "success",
+      });
+
+      // Reload all data to reflect changes
+      await loadAdminData();
+      
+      // Force re-render by updating refresh trigger
+      setRefreshTrigger(prev => prev + 1);
+      
+    } catch (error) {
+      console.error("Failed to start inspection:", error);
+      showToast({
+        title: "❌ Lỗi",
+        description: "Không thể bắt đầu kiểm định. Vui lòng thử lại.",
+        type: "error",
+      });
+    }
+  };
+
   const openRejectModal = (product) => {
     setRejectModal({
       isOpen: true,
@@ -524,6 +582,36 @@ export const AdminDashboard = () => {
                 Admin Dashboard
               </h1>
               <p className="text-gray-600 mt-1">Quản lý và duyệt bài đăng</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Tab Navigation */}
+        <div className="mb-8">
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-100">
+            <div className="flex space-x-1 p-2">
+              <button
+                onClick={() => setActiveTab("listings")}
+                className={`flex-1 flex items-center justify-center px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
+                  activeTab === "listings"
+                    ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg"
+                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                }`}
+              >
+                <Package className="h-5 w-5 mr-2" />
+                Quản lý tin đăng
+              </button>
+              <button
+                onClick={() => setActiveTab("inspections")}
+                className={`flex-1 flex items-center justify-center px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
+                  activeTab === "inspections"
+                    ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg"
+                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                }`}
+              >
+                <ClipboardCheck className="h-5 w-5 mr-2" />
+                Kiểm định xe ({getInspectionRequests().length})
+              </button>
             </div>
           </div>
         </div>
@@ -652,8 +740,11 @@ export const AdminDashboard = () => {
           </div>
         </div>
 
-        {/* Filters and Search */}
-        <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-gray-100">
+        {/* Tab Content */}
+        {activeTab === "listings" && (
+          <>
+            {/* Filters and Search */}
+            <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-gray-100">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0 lg:space-x-6">
             <div className="flex-1">
               <div className="relative">
@@ -839,6 +930,138 @@ export const AdminDashboard = () => {
             </div>
           )}
         </div>
+          </>
+        )}
+
+        {/* Inspections Tab */}
+        {activeTab === "inspections" && (
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-100">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  Yêu cầu kiểm định xe
+                </h2>
+                <div className="flex items-center space-x-2">
+                  <ClipboardCheck className="h-5 w-5 text-gray-400" />
+                  <span className="text-sm text-gray-500">
+                    {getInspectionRequests().length} yêu cầu
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {getInspectionRequests().length === 0 ? (
+              <div className="text-center py-16">
+                <ClipboardCheck className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  Chưa có yêu cầu kiểm định nào
+                </h3>
+                <p className="text-gray-500">
+                  Các yêu cầu kiểm định xe sẽ hiển thị ở đây
+                </p>
+              </div>
+            ) : (
+              <div className="p-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {getInspectionRequests().map((listing) => (
+                    <div
+                      key={getId(listing)}
+                      className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 hover:shadow-lg transition-all duration-300 border border-green-200 hover:border-green-300"
+                    >
+                      <div className="flex items-start space-x-4">
+                        <div className="relative">
+                          {listing.images && listing.images.length > 0 ? (
+                            <img
+                              src={listing.images[0]}
+                              alt={listing.title}
+                              className="w-24 h-24 object-cover rounded-lg"
+                              onError={(e) => {
+                                e.target.style.display = "none";
+                              }}
+                            />
+                          ) : (
+                            <div className="w-24 h-24 bg-green-200 rounded-lg flex items-center justify-center">
+                              <Car className="h-8 w-8 text-green-600" />
+                            </div>
+                          )}
+                          <div className="absolute -top-2 -right-2">
+                            <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full font-medium">
+                              Kiểm định
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-lg font-semibold text-gray-900 truncate">
+                            {listing.title}
+                          </h3>
+                          <p className="text-sm text-gray-600 mt-1">
+                            {listing.brand} {listing.model}
+                          </p>
+                          <p className="text-lg font-bold text-green-600 mt-2">
+                            {formatPrice(listing.price)}
+                          </p>
+                          
+                          {/* Seller Info */}
+                          {listing.seller && (
+                            <div className="mt-2 text-sm text-gray-500">
+                              <p>Người bán: {listing.seller.fullName || listing.seller.email}</p>
+                              {listing.seller.phone && (
+                                <p>SĐT: {listing.seller.phone}</p>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Vehicle Details */}
+                          <div className="mt-3 space-y-1 text-sm text-gray-600">
+                            {listing.licensePlate && (
+                              <p>Biển số: <span className="font-medium">{listing.licensePlate}</span></p>
+                            )}
+                            {listing.manufactureYear && (
+                              <p>Năm SX: <span className="font-medium">{listing.manufactureYear}</span></p>
+                            )}
+                            {listing.mileage && (
+                              <p>Km: <span className="font-medium">{listing.mileage.toLocaleString()} km</span></p>
+                            )}
+                          </div>
+
+                          {/* Status */}
+                          <div className="mt-3">
+                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                              listing.verificationStatus === 'Requested' 
+                                ? 'bg-yellow-100 text-yellow-800' 
+                                : 'bg-blue-100 text-blue-800'
+                            }`}>
+                              <Clock className="h-3 w-3 mr-1" />
+                              {listing.verificationStatus === 'Requested' ? 'Chờ kiểm định' : 'Đang kiểm định'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 flex space-x-2">
+                        <button
+                          onClick={() => openListingModal(listing)}
+                          className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center text-sm font-medium"
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          Xem chi tiết
+                        </button>
+                        <button
+                          onClick={() => handleStartInspection(getId(listing))}
+                          className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center text-sm font-medium"
+                        >
+                          <Camera className="h-4 w-4 mr-2" />
+                          Bắt đầu kiểm định
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Modal */}

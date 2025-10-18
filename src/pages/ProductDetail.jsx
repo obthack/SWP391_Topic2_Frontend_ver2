@@ -28,6 +28,7 @@ import { formatPrice } from "../utils/formatters";
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
 import { toggleFavorite, isProductFavorited } from "../lib/favoriteApi";
+import { VerificationButton } from "../components/common/VerificationButton";
 
 // Helper function to fix Vietnamese character encoding
 const fixVietnameseEncoding = (str) => {
@@ -501,7 +502,7 @@ export const ProductDetail = () => {
           <div className="space-y-6">
             <div className="bg-white rounded-xl shadow-sm p-6">
               <div className="flex items-start justify-between mb-4">
-                <div>
+                <div className="flex-1">
                   <h1 className="text-2xl font-bold text-gray-900 mb-2">
                     {product.title}
                   </h1>
@@ -510,6 +511,18 @@ export const ProductDetail = () => {
                       product.license_plate ||
                       "Biển số: N/A"}
                   </p>
+                  
+                  {/* Verification Button - Only show for vehicles and product owner */}
+                  {product.productType === "Vehicle" && (
+                    <div className="mt-4">
+                      <VerificationButton
+                        productId={product.id || product.productId || product.Id}
+                        currentStatus={product.verificationStatus || 'NotRequested'}
+                        isOwner={user && (user.id || user.userId || user.accountId) === (product.sellerId || product.userId)}
+                        disabled={loading}
+                      />
+                    </div>
+                  )}
                 </div>
                 <div className="text-right">
                   <p className="text-3xl font-bold text-blue-600">

@@ -616,6 +616,95 @@ export const HomePage = () => {
         </div>
       </section>
 
+      {/* Xe đã kiểm định Section */}
+      <section className="py-16 bg-gradient-to-br from-green-50 to-emerald-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h2 className="text-3xl font-bold text-gray-900 flex items-center">
+                <Shield className="h-8 w-8 mr-3 text-green-600" />
+                Xe đã kiểm định
+              </h2>
+              <p className="text-gray-600 mt-2">
+                Những chiếc xe đã được admin kiểm tra và chứng nhận chất lượng
+              </p>
+            </div>
+            <div className="flex items-center space-x-2 text-green-600">
+              <CheckCircle className="h-5 w-5" />
+              <span className="font-medium">
+                {featuredProducts.filter(
+                  (p) => p.productType?.toLowerCase() === "vehicle" && p.verificationStatus === "Verified"
+                ).length} xe đã kiểm định
+              </span>
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="products-grid">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="skeleton-card"></div>
+              ))}
+            </div>
+          ) : featuredProducts.filter(
+            (p) => p.productType?.toLowerCase() === "vehicle" && p.verificationStatus === "Verified"
+          ).length > 0 ? (
+            <div className="products-grid">
+              {featuredProducts
+                .filter(
+                  (p) => p.productType?.toLowerCase() === "vehicle" && p.verificationStatus === "Verified"
+                )
+                .slice(0, 8)
+                .map((product, index) => (
+                  <ProductCard
+                    key={
+                      product.id ||
+                      product.productId ||
+                      product.Id ||
+                      `verified-product-${index}`
+                    }
+                    product={product}
+                    onToggleFavorite={handleToggleFavorite}
+                    isFavorite={favorites.has(product.id || product.productId)}
+                  />
+                ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <div className="max-w-md mx-auto">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Shield className="h-8 w-8 text-green-600" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  Chưa có xe kiểm định nào
+                </h3>
+                <p className="text-gray-500 mb-4">
+                  Hiện tại chưa có xe nào được kiểm định. Hãy là người đầu tiên!
+                </p>
+                <Link
+                  to="/create-listing"
+                  className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  <svg
+                    className="w-4 h-4 mr-2"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                    />
+                  </svg>
+                  Đăng tin xe
+                </Link>
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+
       <section className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">

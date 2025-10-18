@@ -16,6 +16,7 @@ import { formatPrice, formatDate } from "../utils/formatters";
 import { useToast } from "../contexts/ToastContext";
 import { RejectedProducts } from "../components/user/RejectedProducts";
 import { RejectionReasonModal } from "../components/common/RejectionReasonModal";
+import { VerificationButton } from "../components/common/VerificationButton";
 import "../styles/mylistings.css";
 
 export const MyListings = () => {
@@ -656,6 +657,20 @@ export const MyListings = () => {
                           <Edit className="mylistings-edit-icon" />
                           Chỉnh sửa
                         </Link>
+                        
+                        {/* Verification Button - Only for vehicles that haven't requested verification */}
+                        {listing.productType === "Vehicle" && 
+                         listing.verificationStatus !== "Requested" && 
+                         listing.verificationStatus !== "InProgress" && 
+                         listing.verificationStatus !== "Completed" && 
+                         listing.verificationStatus !== "Verified" && (
+                          <VerificationButton
+                            productId={getListingId(listing)}
+                            currentStatus={listing.verificationStatus || "NotRequested"}
+                            isOwner={true}
+                          />
+                        )}
+                        
                         <button
                           type="button"
                           onClick={(e) => {
