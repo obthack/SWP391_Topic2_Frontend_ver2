@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Search, Zap, Shield, TrendingUp, CheckCircle } from "lucide-react";
 import { apiRequest } from "../lib/api";
 import { ProductCard } from "../components/molecules/ProductCard";
@@ -11,9 +11,10 @@ import "../styles/homepage.css";
 export const HomePage = () => {
   const { user } = useAuth();
   const { show: showToast } = useToast();
+  const location = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [productType, setProductType] = useState("");
-  const [location, setLocation] = useState("");
+  const [locationFilter, setLocationFilter] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all"); // all, vehicle, battery
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -26,7 +27,45 @@ export const HomePage = () => {
     if (user) {
       loadFavorites();
     }
+    
+    // Check for payment success parameters
+    checkPaymentSuccess();
   }, [user]);
+
+  const checkPaymentSuccess = () => {
+    const urlParams = new URLSearchParams(location.search);
+    const paymentSuccess = urlParams.get('payment_success');
+    const paymentError = urlParams.get('payment_error');
+    const paymentId = urlParams.get('payment_id');
+    const amount = urlParams.get('amount');
+    const transactionNo = urlParams.get('transaction_no');
+
+    if (paymentSuccess === 'true' && paymentId) {
+      const formattedAmount = amount ? (parseInt(amount) / 100).toLocaleString('vi-VN') : 'N/A';
+      
+      showToast({
+        type: 'success',
+        title: '🎉 Thanh toán thành công!',
+        message: `Giao dịch ${paymentId} đã được xử lý thành công. Số tiền: ${formattedAmount} VND`,
+        duration: 8000
+      });
+
+      // Clear URL parameters after showing notification
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
+    } else if (paymentError === 'true' && paymentId) {
+      showToast({
+        type: 'error',
+        title: '❌ Lỗi thanh toán',
+        message: `Có lỗi xảy ra khi xử lý giao dịch ${paymentId}. Vui lòng liên hệ hỗ trợ.`,
+        duration: 8000
+      });
+
+      // Clear URL parameters after showing notification
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
+    }
+  };
 
   const loadFeaturedProducts = async () => {
     try {
@@ -237,7 +276,7 @@ export const HomePage = () => {
   const handleSearch = (e) => {
     e.preventDefault();
     // TODO: implement search functionality
-    console.log("search clicked:", { searchQuery, productType, location });
+    console.log("search clicked:", { searchQuery, productType, locationFilter });
   };
 
   return (
@@ -338,8 +377,8 @@ export const HomePage = () => {
               <div className="md:col-span-1">
                 <input
                   type="text"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
+                  value={locationFilter}
+                  onChange={(e) => setLocationFilter(e.target.value)}
                   placeholder="Địa điểm (VD: HN)"
                   className="search-input"
                 />

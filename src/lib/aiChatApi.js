@@ -93,7 +93,7 @@ Trả lời bằng tiếng Việt, ngắn gọn và hữu ích.`
       ];
 
       // Sử dụng streaming endpoint
-      const response = await fetch(`${process.env.VITE_API_BASE_URL || 'http://localhost:5044'}/api/AI/chat/stream`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:5044'}/api/AI/chat/stream`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -35,6 +35,11 @@ import { FAQ } from "./pages/FAQ";
 import { Contact } from "./pages/Contact";
 import { Shipping } from "./pages/Shipping";
 import { Returns } from "./pages/Returns";
+import PaymentResult from "./pages/PaymentResult";
+import PaymentSuccess from "./pages/PaymentSuccess";
+import PaymentExample from "./pages/PaymentExample";
+import ApiTest from "./components/ApiTest";
+import UserDebug from "./components/UserDebug";
 import { ToastProvider } from "./contexts/ToastContext";
 
 const PublicRoute = ({ children }) => {
@@ -243,6 +248,11 @@ const AppContent = () => {
           <Route path="/contact" element={<Contact />} />
           <Route path="/shipping" element={<Shipping />} />
           <Route path="/returns" element={<Returns />} />
+          <Route path="/payment/result" element={<PaymentResult />} />
+          <Route path="/payment/success" element={<PaymentSuccess />} />
+          <Route path="/payment/example" element={<PaymentExample />} />
+          <Route path="/api/test" element={<ApiTest />} />
+          <Route path="/user/debug" element={<UserDebug />} />
 
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
