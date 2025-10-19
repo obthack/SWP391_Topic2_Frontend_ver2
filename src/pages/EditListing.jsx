@@ -34,7 +34,6 @@ export const EditListing = () => {
     mileage: "",
     color: "",
     fuelType: "",
-    transmission: "",
     condition: "excellent",
     productType: "vehicle",
     // Vehicle specific fields
@@ -152,7 +151,6 @@ export const EditListing = () => {
         manufactureYear: data.manufactureYear,
         year: data.year,
         mileage: data.mileage,
-        transmission: data.transmission,
         seatCount: data.seatCount,
         color: data.color,
         fuelType: data.fuelType,
@@ -215,7 +213,6 @@ export const EditListing = () => {
         mileage: cleanValue(data.mileage ?? data.Mileage),
         color: cleanValue(data.color ?? data.Color),
         fuelType: cleanValue(data.fuelType ?? data.FuelType),
-        transmission: cleanValue(data.transmission ?? data.Transmission),
         condition: data.condition ?? data.Condition ?? "excellent",
         productType: (
           data.productType ??
@@ -260,7 +257,6 @@ export const EditListing = () => {
         manufactureYear: mapped.manufactureYear,
         year: mapped.year,
         mileage: mapped.mileage,
-        transmission: mapped.transmission,
         seatCount: mapped.seatCount,
         color: mapped.color,
         fuelType: mapped.fuelType,
@@ -309,7 +305,6 @@ export const EditListing = () => {
         mileage: data.mileage,
         condition: data.condition,
         vehicleType: data.vehicleType,
-        transmission: data.transmission,
         batteryType: data.batteryType,
         capacity: data.capacity,
         voltage: data.voltage,
@@ -459,6 +454,9 @@ export const EditListing = () => {
         price: formData.price ? parseFloat(formData.price) : undefined,
         condition: formData.condition || undefined,
         productType: formData.productType,
+        // Preserve existing status to avoid resetting to pending
+        status: formData.status || "pending",
+        verificationStatus: formData.verificationStatus || "pending",
         // Vehicle specific fields
         ...(formData.productType === "vehicle" && {
           vehicleType: formData.vehicleType || undefined,
@@ -1020,23 +1018,6 @@ export const EditListing = () => {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Hộp số
-                  </label>
-                  <select
-                    name="transmission"
-                    value={formData.transmission}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">Chọn hộp số</option>
-                    <option value="automatic">Tự động</option>
-                    <option value="manual">Số sàn</option>
-                    <option value="cvt">CVT</option>
-                    <option value="semi-automatic">Bán tự động</option>
-                  </select>
-                </div>
               </div>
             </div>
           )}

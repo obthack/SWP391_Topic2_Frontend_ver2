@@ -1,6 +1,27 @@
 import { apiRequest } from "./api";
 
 /**
+ * Approve a product
+ * @param {number} productId - Product ID
+ * @returns {Promise<Object>} API response
+ */
+export const approveProduct = async (productId) => {
+  console.log("✅ Approving product:", productId);
+  
+  try {
+    const response = await apiRequest(`/api/Product/approve/${productId}`, {
+      method: "PUT"
+    });
+    
+    console.log("✅ Product approved successfully:", response);
+    return response;
+  } catch (error) {
+    console.error("❌ Error approving product:", error);
+    throw error;
+  }
+};
+
+/**
  * Reject a product with reason
  * @param {number} productId - Product ID
  * @param {string} rejectionReason - Reason for rejection
@@ -9,10 +30,15 @@ import { apiRequest } from "./api";
 export const rejectProduct = async (productId, rejectionReason) => {
   console.log("🚫 Rejecting product:", productId, "Reason:", rejectionReason);
   
+  // Validate productId
+  if (!productId || productId === 'undefined') {
+    throw new Error("Product ID is required");
+  }
+  
   try {
     const response = await apiRequest(`/api/Product/reject/${productId}`, {
       method: "PUT",
-      body: { rejectionReason }
+      body: { RejectionReason: rejectionReason }
     });
     
     console.log("✅ Product rejected successfully:", response);
