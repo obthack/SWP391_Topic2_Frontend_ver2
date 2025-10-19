@@ -22,7 +22,14 @@ export const RejectProductModal = ({ isOpen, onClose, product, onReject }) => {
     setIsSubmitting(true);
 
     try {
-      await onReject(product.productId, rejectionReason);
+      // Get the correct product ID using the same logic as AdminDashboard
+      const productId = product?.id || product?.productId || product?.Id || product?.listingId;
+      
+      if (!productId) {
+        throw new Error("Product ID not found");
+      }
+
+      await onReject(productId, rejectionReason);
 
       showToast({
         title: "Từ chối thành công",
@@ -89,7 +96,7 @@ export const RejectProductModal = ({ isOpen, onClose, product, onReject }) => {
             )}
             <div className="flex-1">
               <h4 className="font-semibold text-gray-900">{product.title}</h4>
-              <p className="text-sm text-gray-600">ID: {product.productId}</p>
+              <p className="text-sm text-gray-600">ID: {product?.id || product?.productId || product?.Id || product?.listingId}</p>
               <p className="text-sm text-gray-600">
                 Người bán: {product.sellerName || "N/A"}
               </p>

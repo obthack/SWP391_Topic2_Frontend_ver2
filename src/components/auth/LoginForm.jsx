@@ -62,13 +62,13 @@ export const LoginForm = () => {
       console.log("Processed roleId:", rid);
       console.log("Role name:", roleName);
       console.log("Is admin:", isAdmin);
-      console.log("Will navigate to:", "/");
+      console.log("Will navigate to:", isAdmin ? "/admin" : "/dashboard");
       console.log("==================");
 
       // Add a small delay to ensure state is updated before navigation
       setTimeout(() => {
         setLoading(false);
-        navigate("/");
+        navigate(isAdmin ? "/admin" : "/dashboard");
       }, 200);
     } catch (err) {
       setError(getErrorMessage(err));

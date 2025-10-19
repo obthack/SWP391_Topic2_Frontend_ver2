@@ -339,6 +339,20 @@ export const ProductDetail = () => {
       });
       return;
     }
+
+    // ✅ CRITICAL: Check if user is trying to buy their own product
+    const currentUserId = user?.id || user?.userId || user?.accountId;
+    const productSellerId = product?.sellerId || product?.seller_id;
+    
+    if (currentUserId && productSellerId && currentUserId == productSellerId) {
+      showToast({
+        title: "⚠️ Không thể mua",
+        description: "Bạn không thể mua sản phẩm của chính mình!",
+        type: "error",
+      });
+      return;
+    }
+
     setShowPaymentModal(true);
   };
 
@@ -390,6 +404,21 @@ export const ProductDetail = () => {
       
       if (!isMember && allowAllUsers) {
         console.log("[VNPay] ⚠️ TEMPORARY: Allowing payment despite role check failed");
+      }
+
+      // ✅ CRITICAL: Check if user is trying to buy their own product
+      const currentUserId = user?.id || user?.userId || user?.accountId;
+      const productSellerId = product?.sellerId || product?.seller_id;
+      
+      console.log("[VNPay] Seller validation:", {
+        currentUserId,
+        productSellerId,
+        isSameUser: currentUserId == productSellerId,
+        productId: product?.id
+      });
+
+      if (currentUserId && productSellerId && currentUserId == productSellerId) {
+        throw new Error("Bạn không thể mua sản phẩm của chính mình!");
       }
 
       const depositAmount = getDepositAmount();
@@ -704,14 +733,32 @@ export const ProductDetail = () => {
 
               {/* Action Buttons */}
               <div className="space-y-3">
-                <button
-                  onClick={handleCreateOrder}
-                  disabled={product.status === "sold"}
-                  className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
-                >
-                  <CreditCard className="h-5 w-5 mr-2" />
-                  Tạo đơn hàng
-                </button>
+                {/* ✅ Only show payment button if user is not the seller */}
+                {(() => {
+                  const currentUserId = user?.id || user?.userId || user?.accountId;
+                  const productSellerId = product?.sellerId || product?.seller_id;
+                  const isOwnProduct = currentUserId && productSellerId && currentUserId == productSellerId;
+                  
+                  if (isOwnProduct) {
+                    return (
+                      <div className="w-full bg-gray-100 text-gray-500 py-3 px-6 rounded-lg font-medium text-center">
+                        <CreditCard className="h-5 w-5 mr-2 inline" />
+                        Sản phẩm của bạn
+                      </div>
+                    );
+                  }
+                  
+                  return (
+                    <button
+                      onClick={handleCreateOrder}
+                      disabled={product.status === "sold"}
+                      className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
+                    >
+                      <CreditCard className="h-5 w-5 mr-2" />
+                      Tạo đơn hàng
+                    </button>
+                  );
+                })()}
 
                 <button
                   onClick={handleContactSeller}
@@ -869,16 +916,6 @@ export const ProductDetail = () => {
                         </span>
                         <span className="font-semibold text-gray-900">
                           {product.mileage.toLocaleString()} km
-                        </span>
-                      </div>
-                    )}
-                    {product.transmission && (
-                      <div className="flex justify-between items-center py-3 px-4 bg-gray-50 rounded-lg">
-                        <span className="text-gray-600 font-medium">
-                          Hộp số
-                        </span>
-                        <span className="font-semibold text-gray-900">
-                          {product.transmission}
                         </span>
                       </div>
                     )}

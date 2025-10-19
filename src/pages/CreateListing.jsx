@@ -33,7 +33,6 @@ export const CreateListing = () => {
     mileage: "",
     color: "",
     fuelType: "",
-    transmission: "",
     condition: "excellent",
     productType: "vehicle",
     // Vehicle specific fields
@@ -382,10 +381,6 @@ export const CreateListing = () => {
               ? parseInt(formData.mileage)
               : 0
             : 0,
-        transmission:
-          formData.productType === "vehicle"
-            ? formData.transmission || "string"
-            : "string",
         seatCount:
           formData.productType === "vehicle"
             ? formData.seatCount
@@ -494,21 +489,30 @@ export const CreateListing = () => {
       // Upload product images after product creation
       if (pid && images.length > 0) {
         console.log(
-          `Uploading ${images.length} product images for product ${pid}...`
+          `🖼️ Uploading ${images.length} product images for product ${pid}...`
         );
+        console.log(`🖼️ Product ID: ${pid}`);
+        console.log(`🖼️ Images to upload:`, images.map(img => ({
+          name: img.name,
+          size: img.size,
+          type: img.type
+        })));
 
         try {
           // Try multiple upload first
-          const formData = new FormData();
-          formData.append("productId", pid);
+          const uploadFormData = new FormData();
+          uploadFormData.append("productId", pid);
+          // Determine image type based on product type
+          const imageType = formData.productType === "vehicle" ? "Vehicle" : "Battery";
+          uploadFormData.append("name", imageType); // Add required name field
 
           // Add all product images to FormData
           images.forEach((image, index) => {
-            formData.append("images", image);
+            uploadFormData.append("images", image);
           });
 
           console.log(
-            "Uploading product images with multiple endpoint:",
+            "🖼️ Uploading product images with multiple endpoint:",
             images.length,
             "images"
           );
@@ -516,44 +520,58 @@ export const CreateListing = () => {
             `/api/ProductImage/multiple`,
             {
               method: "POST",
-              body: formData,
+              body: uploadFormData,
             }
           );
           console.log(
-            "Multiple product images uploaded successfully:",
+            "✅ Multiple product images uploaded successfully:",
             uploadedImages
           );
         } catch (e) {
           console.warn(
-            "Multiple product image upload failed, trying individual uploads:",
+            "⚠️ Multiple product image upload failed, trying individual uploads:",
             e
           );
+          console.warn(`Error details:`, {
+            message: e.message,
+            status: e.status,
+            data: e.data
+          });
 
           // Fallback to individual uploads
           for (let i = 0; i < images.length; i++) {
             const img = images[i];
             try {
-              const formData = new FormData();
-              formData.append("productId", pid);
-              formData.append("imageFile", img);
+              const uploadFormData = new FormData();
+              uploadFormData.append("productId", pid);
+              uploadFormData.append("imageFile", img);
+              // Determine image type based on product type
+              const imageType = formData.productType === "vehicle" ? "Vehicle" : "Battery";
+              uploadFormData.append("name", imageType); // Add required name field
 
               console.log(
-                `Uploading product image ${i + 1}/${
+                `🖼️ Uploading product image ${i + 1}/${
                   images.length
                 } for product ${pid}`
               );
-              await apiRequest(`/api/ProductImage`, {
+              const result = await apiRequest(`/api/ProductImage`, {
                 method: "POST",
-                body: formData,
+                body: uploadFormData,
               });
-              console.log(`Product image ${i + 1} uploaded successfully`);
+              console.log(`✅ Product image ${i + 1} uploaded successfully:`, result);
             } catch (e) {
-              console.warn(`Product image ${i + 1} upload failed:`, e);
+              console.warn(`❌ Product image ${i + 1} upload failed:`, e);
+              console.warn(`Error details:`, {
+                message: e.message,
+                status: e.status,
+                data: e.data
+              });
             }
           }
         }
       } else {
-        console.log("No product images were selected for upload.");
+        console.log("ℹ️ No product images were selected for upload.");
+        console.log(`ℹ️ PID: ${pid}, Images count: ${images.length}`);
       }
 
       // Upload document images after product creation
@@ -564,13 +582,14 @@ export const CreateListing = () => {
 
         try {
           // Try multiple upload first for documents
-          const formData = new FormData();
-          formData.append("productId", pid);
-          formData.append("imageType", "document"); // Add type to distinguish from product images
+          const uploadFormData = new FormData();
+          uploadFormData.append("productId", pid);
+          uploadFormData.append("imageType", "document"); // Add type to distinguish from product images
+          uploadFormData.append("name", "Document"); // Add required name field
 
           // Add all document images to FormData
           documentImages.forEach((image, index) => {
-            formData.append("images", image);
+            uploadFormData.append("images", image);
           });
 
           console.log(
@@ -582,7 +601,7 @@ export const CreateListing = () => {
             `/api/ProductImage/multiple`,
             {
               method: "POST",
-              body: formData,
+              body: uploadFormData,
             }
           );
           console.log(
@@ -599,10 +618,11 @@ export const CreateListing = () => {
           for (let i = 0; i < documentImages.length; i++) {
             const img = documentImages[i];
             try {
-              const formData = new FormData();
-              formData.append("productId", pid);
-              formData.append("imageFile", img);
-              formData.append("imageType", "document"); // Add type to distinguish
+              const uploadFormData = new FormData();
+              uploadFormData.append("productId", pid);
+              uploadFormData.append("imageFile", img);
+              uploadFormData.append("imageType", "document"); // Add type to distinguish
+              uploadFormData.append("name", "Document"); // Add required name field
 
               console.log(
                 `Uploading document image ${i + 1}/${
@@ -611,7 +631,7 @@ export const CreateListing = () => {
               );
               await apiRequest(`/api/ProductImage`, {
                 method: "POST",
-                body: formData,
+                body: uploadFormData,
               });
               console.log(`Document image ${i + 1} uploaded successfully`);
             } catch (e) {
@@ -987,21 +1007,6 @@ export const CreateListing = () => {
                   <p className="text-xs text-gray-500 mt-1">Đơn vị: km</p>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Hộp số
-                  </label>
-                  <select
-                    name="transmission"
-                    value={formData.transmission}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">Chọn hộp số</option>
-                    <option value="Automatic">Tự động</option>
-                    <option value="Manual">Số sàn</option>
-                  </select>
-                </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
