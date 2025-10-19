@@ -108,11 +108,26 @@ export const ProductDetail = () => {
 
       // Load product details
       const productData = await apiRequest(`/api/Product/${id}`);
-      setProduct(productData);
+      
+      // Normalize product data to ensure frontend compatibility
+      const normalizedProduct = {
+        ...productData,
+        id: productData.productId || productData.id,
+        productId: productData.productId || productData.id,
+        sellerId: productData.sellerId || productData.seller_id,
+        title: productData.title || productData.name,
+        price: productData.price || 0,
+        images: productData.imageUrls || productData.images || [],
+        status: productData.status || 'Available'
+      };
+      
+      console.log("[ProductDetail] Raw product data:", productData);
+      console.log("[ProductDetail] Normalized product:", normalizedProduct);
+      
+      setProduct(normalizedProduct);
 
       // Load seller information
-      const sellerId =
-        productData.sellerId || productData.seller_id || productData.seller?.id;
+      const sellerId = normalizedProduct.sellerId;
       if (sellerId) {
         try {
           const sellerData = await apiRequest(`/api/User/${sellerId}`);
@@ -372,7 +387,8 @@ export const ProductDetail = () => {
       console.log("[VNPay] Starting payment process...");
       
       // Get auth token
-      const token = user?.token || localStorage.getItem("evtb_auth") ? JSON.parse(localStorage.getItem("evtb_auth"))?.token : null;
+      const authData = localStorage.getItem("evtb_auth");
+      const token = authData ? JSON.parse(authData)?.token : null;
       
       if (!token) {
         throw new Error("Bạn cần đăng nhập để thực hiện thanh toán");
@@ -424,16 +440,23 @@ export const ProductDetail = () => {
       const depositAmount = getDepositAmount();
       const totalAmount = product?.price || 0;
       
+      // Validate product data
+      if (!product?.id) {
+        throw new Error("Không tìm thấy thông tin sản phẩm");
+      }
+
       // Create order first if not exists
       let orderId = currentOrderId;
       if (!orderId) {
         console.log("[VNPay] Creating new order...");
         const orderData = {
-          productId: product?.id,
-          sellerId: product?.sellerId || 1, // Default to admin as seller for testing
+          productId: product.id,
+          sellerId: product.sellerId || product.seller_id || 1, // Default to admin as seller for testing
           depositAmount: depositAmount,
           totalAmount: totalAmount
         };
+        
+        console.log("[VNPay] Order data:", orderData);
         
         const orderResponse = await createOrder(orderData, token);
         orderId = orderResponse.orderId;

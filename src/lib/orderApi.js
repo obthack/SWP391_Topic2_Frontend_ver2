@@ -8,9 +8,10 @@ export async function createOrder(orderData, token) {
     const response = await apiRequest("/api/Order", {
       method: "POST",
       body: orderData,
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
+      // Don't pass token in headers since apiRequest handles it automatically
+      // headers: {
+      //   Authorization: `Bearer ${token}`
+      // }
     });
 
     console.log("[Order] Order created:", response);
@@ -27,9 +28,7 @@ export async function getOrder(orderId, token) {
   try {
     const response = await apiRequest(`/api/Order/${orderId}`, {
       method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
+      // Don't pass token in headers since apiRequest handles it automatically
     });
 
     console.log("[Order] Order retrieved:", response);
@@ -46,9 +45,7 @@ export async function getUserOrders(token) {
   try {
     const response = await apiRequest("/api/Order", {
       method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
+      // Don't pass token in headers since apiRequest handles it automatically
     });
 
     console.log("[Order] User orders retrieved:", response);
