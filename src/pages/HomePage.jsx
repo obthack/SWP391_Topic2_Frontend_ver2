@@ -78,14 +78,33 @@ export const HomePage = () => {
 
       console.log("📦 Total products from API:", allProducts.length);
       console.log("📦 Sample product:", allProducts[0]);
+      console.log("📦 All products status check:", allProducts.map(p => ({
+        id: p.productId || p.id || p.ProductId,
+        status: p.status || p.Status,
+        title: p.title || p.Title
+      })));
+      
+      // Debug: Check specific products that should be approved
+      const approvedProductsDebug = allProducts.filter(p => {
+        const status = String(p.status || p.Status || "").toLowerCase();
+        return status === "approved" || status === "active" || status === "verified";
+      });
+      console.log("✅ Products that should be approved:", approvedProductsDebug.length);
+      console.log("✅ Approved products details:", approvedProductsDebug.map(p => ({
+        id: p.productId || p.id || p.ProductId,
+        status: p.status || p.Status,
+        title: p.title || p.Title
+      })));
+      
+      console.log("🔍 Starting product filtering...");
 
       // Filter approved products and classify by type
       approvedProducts = allProducts
         .filter((x) => {
-          const status = String(x.status || x.Status).toLowerCase();
-          const isApproved = status === "approved" || status === "active";
+          const status = String(x.status || x.Status || "").toLowerCase().trim();
+          const isApproved = status === "approved" || status === "active" || status === "verified";
           console.log(
-            `Product ${x.id}: status="${status}", isApproved=${isApproved}`
+            `Product ${x.productId || x.id || x.ProductId}: status="${status}", isApproved=${isApproved}`
           );
           return isApproved;
         })
@@ -104,9 +123,15 @@ export const HomePage = () => {
           console.log(`Product ${x.id}: classified as ${productType}`);
           return { ...x, productType };
         })
-        .slice(0, 8); // Limit to 8 products for homepage
+        // .slice(0, 8); // Tạm thời bỏ giới hạn để test
 
       console.log("✅ Filtered approved products:", approvedProducts.length);
+      console.log("🎯 Final approved products details:", approvedProducts.map(p => ({
+        id: p.id || p.productId || p.Id,
+        title: p.title || p.Title,
+        status: p.status || p.Status,
+        productType: p.productType
+      })));
 
       // Load images for each approved product with delay to avoid DbContext conflicts
       const productsWithImages = await Promise.all(
@@ -114,7 +139,7 @@ export const HomePage = () => {
           try {
             // Add delay to avoid DbContext conflicts
             if (index > 0) {
-              await new Promise((resolve) => setTimeout(resolve, 100 * index));
+              await new Promise((resolve) => setTimeout(resolve, 500 * index));
             }
 
             const imagesData = await apiRequest(

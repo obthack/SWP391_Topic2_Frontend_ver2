@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Upload, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
@@ -18,6 +18,31 @@ export const CreateListing = () => {
   const { user, profile } = useAuth();
   const { show } = useToast();
   const navigate = useNavigate();
+  
+  // Check if user is authenticated
+  useEffect(() => {
+    if (!user) {
+      console.log("❌ User not authenticated, redirecting to login");
+      navigate("/login");
+      return;
+    }
+    console.log("✅ User authenticated:", user);
+    
+    // Debug: Check token in localStorage
+    const authData = localStorage.getItem("evtb_auth");
+    console.log("🔍 Auth data in localStorage:", authData);
+    if (authData) {
+      try {
+        const parsed = JSON.parse(authData);
+        console.log("🔍 Parsed auth data:", parsed);
+        console.log("🔍 Token exists:", !!parsed?.token);
+        console.log("🔍 Token length:", parsed?.token?.length || 0);
+      } catch (err) {
+        console.error("🔍 Error parsing auth data:", err);
+      }
+    }
+  }, [user, navigate]);
+  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [images, setImages] = useState([]);
@@ -33,7 +58,7 @@ export const CreateListing = () => {
     mileage: "",
     color: "",
     fuelType: "",
-    transmission: "",
+
     condition: "excellent",
     productType: "vehicle",
     // Vehicle specific fields
@@ -388,10 +413,6 @@ export const CreateListing = () => {
               ? parseInt(formData.mileage)
               : 0
             : 0,
-        transmission:
-          formData.productType === "vehicle"
-            ? formData.transmission || "string"
-            : "string",
         seatCount:
           formData.productType === "vehicle"
             ? formData.seatCount
@@ -1076,21 +1097,6 @@ export const CreateListing = () => {
                   <p className="text-xs text-gray-500 mt-1">Đơn vị: km</p>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Hộp số
-                  </label>
-                  <select
-                    name="transmission"
-                    value={formData.transmission}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">Chọn hộp số</option>
-                    <option value="Automatic">Tự động</option>
-                    <option value="Manual">Số sàn</option>
-                  </select>
-                </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">

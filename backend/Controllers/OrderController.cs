@@ -3,6 +3,7 @@ using EVTB_Backend.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace EVTB_Backend.Controllers
 {
@@ -88,7 +89,7 @@ namespace EVTB_Backend.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error creating order for user {request.UserId}, product {request.ProductId}");
+                _logger.LogError(ex, $"Error creating order for product {request.ProductId}");
                 return StatusCode(500, new { message = "Có lỗi xảy ra khi tạo đơn hàng" });
             }
         }
