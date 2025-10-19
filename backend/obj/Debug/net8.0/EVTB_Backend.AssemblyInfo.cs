@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("EVTB_Backend")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+cce597265d4b84bb640472282fce80efc490c9bf")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+8ba485d96e2c348cbc3ac5075883d576b1781918")]
 [assembly: System.Reflection.AssemblyProductAttribute("EVTB_Backend")]
 [assembly: System.Reflection.AssemblyTitleAttribute("EVTB_Backend")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

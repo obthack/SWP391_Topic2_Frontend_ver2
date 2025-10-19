@@ -37,11 +37,25 @@ namespace EVTB_Backend.Controllers
                     return BadRequest(new { message = "Dữ liệu không hợp lệ", errors });
                 }
 
+                // Debug JWT token information
+                _logger.LogInformation("=== JWT TOKEN DEBUG ===");
+                _logger.LogInformation($"User.Identity.IsAuthenticated: {User.Identity?.IsAuthenticated}");
+                _logger.LogInformation($"User.Identity.Name: {User.Identity?.Name}");
+                _logger.LogInformation($"User.Claims count: {User.Claims.Count()}");
+                
+                foreach (var claim in User.Claims)
+                {
+                    _logger.LogInformation($"Claim Type: {claim.Type}, Value: {claim.Value}");
+                }
+
                 // Get user ID from JWT token
                 var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+                _logger.LogInformation($"NameIdentifier claim found: {userIdClaim != null}, Value: {userIdClaim?.Value}");
+                
                 if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId))
                 {
-                    return Unauthorized(new { message = "Không thể xác định người dùng" });
+                    _logger.LogError("Failed to extract user ID from JWT token");
+                    return Unauthorized(new { message = "Không thể xác định người dùng từ token" });
                 }
 
                 _logger.LogInformation($"Creating order for user {userId}, product {request.ProductId}");

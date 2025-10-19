@@ -323,6 +323,9 @@ namespace EVTB_Backend.Controllers
             var audience = jwtSettings["Audience"];
             var expiryInMinutes = int.Parse(jwtSettings["ExpiryInMinutes"] ?? "60");
 
+            _logger.LogInformation($"Generating JWT token for user {user.UserId} (email: {user.Email})");
+            _logger.LogInformation($"JWT Settings - Issuer: {issuer}, Audience: {audience}, Expiry: {expiryInMinutes} minutes");
+
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
             var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
@@ -336,6 +339,8 @@ namespace EVTB_Backend.Controllers
                 new Claim("accountStatus", user.AccountStatus)
             };
 
+            _logger.LogInformation($"JWT Claims created: {string.Join(", ", claims.Select(c => $"{c.Type}={c.Value}"))}");
+
             var token = new JwtSecurityToken(
                 issuer: issuer,
                 audience: audience,
@@ -344,7 +349,10 @@ namespace EVTB_Backend.Controllers
                 signingCredentials: credentials
             );
 
-            return new JwtSecurityTokenHandler().WriteToken(token);
+            var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
+            _logger.LogInformation($"JWT token generated successfully, length: {tokenString.Length}");
+            
+            return tokenString;
         }
     }
 

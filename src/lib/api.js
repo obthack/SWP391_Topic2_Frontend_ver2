@@ -49,7 +49,8 @@ export async function apiRequest(path, { method = "GET", body, headers } = {}) {
       Accept: 'application/json',
       ...(isFormData ? {} : { "Content-Type": "application/json" }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(headers || {}),
+      // Don't spread headers here to avoid overriding Authorization
+      ...(headers && !headers.Authorization ? headers : {}),
     },
     body: body ? (isFormData ? body : JSON.stringify(body)) : undefined,
   });
