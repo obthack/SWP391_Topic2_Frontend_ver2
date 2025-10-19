@@ -18,7 +18,6 @@ import {
   Shield,
   BarChart3,
   Activity,
-  ClipboardCheck,
   Camera,
 } from "lucide-react";
 import { apiRequest } from "../lib/api";
@@ -79,7 +78,6 @@ export const AdminDashboard = () => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [selectedListing, setSelectedListing] = useState(null);
   const [showModal, setShowModal] = useState(false);
-  const [inspectionRequests, setInspectionRequests] = useState([]);
   
   // Inspection modal state
   const [showInspectionModal, setShowInspectionModal] = useState(false);
@@ -129,87 +127,6 @@ export const AdminDashboard = () => {
     return requests;
   };
 
-  // Load inspection requests from dedicated API
-  const loadInspectionRequests = async () => {
-    try {
-      console.log('🔍 Loading inspection requests from API...');
-      const response = await apiRequest('/api/Product/verification/requested');
-      const requests = Array.isArray(response) ? response : response?.items || [];
-      
-      console.log('✅ Inspection requests loaded:', requests.length, requests.map(r => ({id: r.id, verificationStatus: r.verificationStatus, productType: r.productType})));
-      
-      // Process the requests similar to how we process other listings
-      const processedRequests = requests.map(item => {
-        const norm = (v) => String(v || "").toLowerCase();
-        
-        // Get seller info
-        const sellerId = item.sellerId || item.userId || item.ownerId || item.createdBy;
-        let sellerInfo = {
-          id: sellerId,
-          name: "Unknown Seller",
-          email: "unknown@example.com"
-        };
-        
-        if (sellerId && users.length > 0) {
-          const foundSeller = users.find(u => 
-            u.id === sellerId || u.userId === sellerId || u.accountId === sellerId
-          );
-          if (foundSeller) {
-            sellerInfo = {
-              id: foundSeller.id || foundSeller.userId || foundSeller.accountId,
-              name: foundSeller.name || foundSeller.fullName || foundSeller.displayName || "Unknown Seller",
-              email: foundSeller.email || "unknown@example.com"
-            };
-          }
-        }
-        
-        return {
-          id: getId(item),
-          title: item.title || item.name || "Untitled Product",
-          brand: item.brand || "",
-          model: item.model || "",
-          year: item.year || item.modelYear || "",
-          price: item.price || item.cost || 0,
-          status: norm(item.status || "pending"),
-          productType: item.productType || "Vehicle",
-          sellerId: sellerId,
-          seller: sellerInfo,
-          createdDate: item.createdDate || item.createdAt || item.created_date || item.dateCreated || new Date().toISOString(),
-          updatedDate: item.updatedDate || item.updatedAt || item.updated_date || item.dateUpdated,
-          images: item.images || item.imageUrls || item.photos || [],
-          imageUrl: item.imageUrl || item.mainImage || item.primaryImage,
-          rejectionReason: item.rejectionReason || item.rejectReason || item.reason || null,
-          verificationStatus: (() => {
-            const rawStatus = norm(item.verificationStatus || item.status || "pending");
-            let mappedStatus;
-            
-            if (rawStatus === "draft" || rawStatus === "re-submit" || rawStatus === "notrequested") {
-              mappedStatus = "NotRequested";
-            } else if (rawStatus === "requested") {
-              mappedStatus = "Requested";
-            } else if (rawStatus === "inprogress") {
-              mappedStatus = "InProgress";
-            } else if (rawStatus === "active" || rawStatus === "approved" || rawStatus === "verified") {
-              mappedStatus = "Verified";
-            } else if (rawStatus === "rejected") {
-              mappedStatus = "Rejected";
-            } else {
-              mappedStatus = rawStatus;
-            }
-            
-            return mappedStatus;
-          })(),
-        };
-      });
-      
-      setInspectionRequests(processedRequests);
-      console.log('✅ Processed inspection requests:', processedRequests.length);
-      
-    } catch (error) {
-      console.error('❌ Failed to load inspection requests:', error);
-      setInspectionRequests([]);
-    }
-  };
 
   // Add refresh function
   const refreshData = async () => {
@@ -222,13 +139,11 @@ export const AdminDashboard = () => {
     localStorage.removeItem('admin_cached_timestamp');
     
     await loadAdminData();
-    await loadInspectionRequests();
   };
 
   useEffect(() => {
     console.log('🔍 AdminDashboard mounted, loading data...');
     loadAdminData();
-    loadInspectionRequests();
   }, []);
 
   useEffect(() => {
@@ -378,7 +293,7 @@ export const AdminDashboard = () => {
               const rawStatus = norm(item.status || item.verificationStatus || item.approvalStatus || "pending");
               // Map backend statuses to frontend statuses
               if (rawStatus === "draft" || rawStatus === "re-submit") return "pending";
-              if (rawStatus === "active" || rawStatus === "approved") return "approved";
+              if (rawStatus === "active" || rawStatus === "approved") return "Active";
               if (rawStatus === "rejected") return "rejected";
               return rawStatus;
             })(),
@@ -411,7 +326,7 @@ export const AdminDashboard = () => {
                 mappedStatus = "Requested";
               } else if (rawStatus === "inprogress") {
                 mappedStatus = "InProgress";
-              } else if (rawStatus === "active" || rawStatus === "approved" || rawStatus === "verified") {
+              } else if (rawStatus === "verified") {
                 mappedStatus = "Verified";
               } else if (rawStatus === "rejected") {
                 mappedStatus = "Rejected";
@@ -548,11 +463,11 @@ export const AdminDashboard = () => {
       );
 
       const pendingListings = sortedListings.filter(l => l.status === "pending");
-      const approvedListings = sortedListings.filter(l => l.status === "approved");
+      const approvedListings = sortedListings.filter(l => l.status === "Active");
       const rejectedListings = sortedListings.filter(l => l.status === "rejected");
 
       // Calculate revenue from approved products (since no payment system yet)
-      const approvedProducts = sortedListings.filter(l => l.status === "approved");
+      const approvedProducts = sortedListings.filter(l => l.status === "Active");
       const totalRevenue = approvedProducts.reduce((sum, p) => sum + (parseFloat(p.price || 0)), 0);
       
       // Calculate orders stats from transactions (if any)
@@ -608,8 +523,8 @@ export const AdminDashboard = () => {
         completionRate,
         totalVehicles: vehicleListings.length,
         totalBatteries: batteryListings.length,
-        soldVehicles: vehicleListings.filter(v => v.status === "approved").length,
-        soldBatteries: batteryListings.filter(b => b.status === "approved").length,
+        soldVehicles: vehicleListings.filter(v => v.status === "Active").length,
+        soldBatteries: batteryListings.filter(b => b.status === "Active").length,
       });
 
       setAllListings(sortedListings);
@@ -641,7 +556,7 @@ export const AdminDashboard = () => {
             l.productType?.toLowerCase().includes("pin")
           );
           const pendingListings = cachedListings.filter(l => l.status === "pending");
-          const approvedListings = cachedListings.filter(l => l.status === "approved");
+          const approvedListings = cachedListings.filter(l => l.status === "Active");
           const rejectedListings = cachedListings.filter(l => l.status === "rejected");
           const totalRevenue = approvedListings.reduce((sum, p) => sum + (parseFloat(p.price || 0)), 0);
           
@@ -665,8 +580,8 @@ export const AdminDashboard = () => {
             completionRate: 0,
             totalVehicles: vehicleListings.length,
             totalBatteries: batteryListings.length,
-            soldVehicles: vehicleListings.filter(v => v.status === "approved").length,
-            soldBatteries: batteryListings.filter(b => b.status === "approved").length,
+            soldVehicles: vehicleListings.filter(v => v.status === "Active").length,
+            soldBatteries: batteryListings.filter(b => b.status === "Active").length,
           });
           
           // Show warning toast
@@ -859,11 +774,11 @@ export const AdminDashboard = () => {
     try {
       await approveProduct(productId);
 
-      // Update local state
+      // Update local state - chỉ cập nhật status, không động vào verificationStatus
       setAllListings((prev) =>
         prev.map((item) =>
           getId(item) === productId
-            ? { ...item, status: "approved", verificationStatus: "Verified" }
+            ? { ...item, status: "Active" }
             : item
         )
       );
@@ -1006,11 +921,7 @@ export const AdminDashboard = () => {
         setShowInspectionModal(true);
       }
       
-      // Refresh data
-      setRefreshTrigger(prev => prev + 1);
-      await loadInspectionRequests();
-      
-      showToast("Đã bắt đầu kiểm định xe. Vui lòng upload hình ảnh kiểm định.", "success");
+      showToast("Mở modal kiểm định. Vui lòng upload hình ảnh để hoàn thành kiểm định.", "info");
       
     } catch (error) {
       console.error("Failed to start inspection:", error);
@@ -1026,7 +937,6 @@ export const AdminDashboard = () => {
       
       // Refresh data
       setRefreshTrigger(prev => prev + 1);
-      await loadInspectionRequests();
       
       showToast("Đã hoàn thành kiểm định xe thành công!", "success");
       
@@ -1046,9 +956,8 @@ export const AdminDashboard = () => {
   const getStatusBadge = (status) => {
     const statusConfig = {
       pending: { color: "bg-yellow-100 text-yellow-800", text: "Đang chờ duyệt" },
-      approved: { color: "bg-green-100 text-green-800", text: "Đã duyệt" },
+      Active: { color: "bg-green-100 text-green-800", text: "Đã duyệt" },
       rejected: { color: "bg-red-100 text-red-800", text: "Bị từ chối" },
-      active: { color: "bg-blue-100 text-blue-800", text: "Hoạt động" },
     };
 
     const config = statusConfig[status] || statusConfig.pending;
@@ -1187,20 +1096,6 @@ export const AdminDashboard = () => {
               <Shield className="h-5 w-5" />
               <span>Battery Management</span>
             </div>
-            <div 
-              className={`flex items-center space-x-3 p-3 rounded-lg cursor-pointer transition-colors ${
-                activeTab === "inspections" 
-                  ? "bg-blue-50 text-blue-600" 
-                  : "text-gray-600 hover:bg-gray-50"
-              }`}
-              onClick={() => setActiveTab("inspections")}
-            >
-              <ClipboardCheck className="h-5 w-5" />
-              <span>Kiểm định xe</span>
-                    <span className="ml-auto bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">
-                      {inspectionRequests.length}
-                    </span>
-            </div>
             <div className="flex items-center space-x-3 p-3 text-gray-600 hover:bg-gray-50 rounded-lg cursor-pointer">
               <Users className="h-5 w-5" />
               <span>User Management</span>
@@ -1234,13 +1129,11 @@ export const AdminDashboard = () => {
                 {activeTab === "dashboard" && "Administration Dashboard"}
                 {activeTab === "vehicles" && "Vehicle Management"}
                 {activeTab === "batteries" && "Battery Management"}
-                {activeTab === "inspections" && "Kiểm định xe"}
               </h1>
               <p className="text-gray-600">
                 {activeTab === "dashboard" && "EV Market system overview • Realtime update"}
                 {activeTab === "vehicles" && "Manage all vehicle listings and approvals"}
                 {activeTab === "batteries" && "Manage all battery listings and approvals"}
-                {activeTab === "inspections" && "Quản lý yêu cầu kiểm định xe"}
               </p>
             </div>
             <div className="flex items-center space-x-2">
@@ -1445,7 +1338,7 @@ export const AdminDashboard = () => {
               >
                 <option value="all">Tất cả trạng thái ({allListings.length})</option>
                 <option value="pending">Đang chờ duyệt ({allListings.filter(l => l.status === "pending").length})</option>
-                <option value="approved">Đã duyệt ({allListings.filter(l => l.status === "approved").length})</option>
+                <option value="approved">Đã duyệt ({allListings.filter(l => l.status === "Active").length})</option>
                 <option value="rejected">Bị từ chối ({allListings.filter(l => l.status === "rejected").length})</option>
                 <option value="verification_requested">Yêu cầu kiểm định ({allListings.filter(l => l.verificationStatus === "Requested" || l.verificationStatus === "InProgress").length})</option>
               </select>
@@ -1849,108 +1742,6 @@ export const AdminDashboard = () => {
                           </div>
                         )}
 
-        {/* Inspections Tab Content */}
-        {activeTab === "inspections" && (
-          <div className="space-y-6">
-            {/* Debug Info */}
-            {console.log('🔍 Inspections Tab - inspectionRequests:', inspectionRequests.length, inspectionRequests.map(l => ({id: l.id, productType: l.productType, verificationStatus: l.verificationStatus})))}
-            
-            {/* Inspection Requests Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {inspectionRequests.map((listing) => (
-                <div key={listing.id} className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-all duration-300">
-                  {/* Product Image */}
-                  <div className="relative h-48 bg-gray-100">
-                    {listing.images && listing.images.length > 0 ? (
-                      <img
-                        src={listing.images[0]}
-                        alt={listing.title}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.target.style.display = 'none';
-                          e.target.nextSibling.style.display = 'flex';
-                        }}
-                      />
-                                ) : null}
-                    <div className="absolute inset-0 bg-gray-200 flex items-center justify-center" style={{ display: listing.images && listing.images.length > 0 ? 'none' : 'flex' }}>
-                      <Car className="h-12 w-12 text-gray-400" />
-                            </div>
-                    
-                    {/* Status Badge */}
-                    <div className="absolute top-3 right-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        listing.verificationStatus === "Requested" 
-                          ? "bg-yellow-100 text-yellow-800" 
-                          : "bg-blue-100 text-blue-800"
-                      }`}>
-                        {listing.verificationStatus === "Requested" ? "Chờ kiểm định" : "Đang kiểm định"}
-                      </span>
-                            </div>
-                            </div>
-
-                  {/* Product Details */}
-                  <div className="p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
-                      {listing.title}
-                    </h3>
-                    
-                    <div className="space-y-2 mb-4">
-                      <div className="flex items-center text-sm text-gray-600">
-                        <Car className="h-4 w-4 mr-2" />
-                        <span>{listing.brand} {listing.model}</span>
-                            </div>
-                      
-                      <div className="flex items-center text-sm text-gray-600">
-                        <Calendar className="h-4 w-4 mr-2" />
-                        <span>{formatDate(listing.createdAt)}</span>
-                            </div>
-                      
-                      <div className="text-lg font-bold text-green-600">
-                        {formatPrice(listing.price)}
-                          </div>
-                        </div>
-
-                    {/* Seller Info */}
-                    <div className="border-t pt-4 mb-4">
-                      <div className="flex items-center text-sm text-gray-600">
-                        <Users className="h-4 w-4 mr-2" />
-                        <span>{listing.sellerName || "Unknown Seller"}</span>
-                            </div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex space-x-3">
-                      <button
-                        onClick={() => openListingModal(listing)}
-                        className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                      >
-                        <Eye className="h-4 w-4" />
-                        <span>Xem chi tiết</span>
-                      </button>
-                      
-                      <button
-                        onClick={() => handleStartInspection(listing.id)}
-                        className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                      >
-                        <Camera className="h-4 w-4" />
-                        <span>Kiểm định</span>
-                      </button>
-                            </div>
-                      </div>
-                  </div>
-              ))}
-              </div>
-
-            {/* Empty State */}
-            {inspectionRequests.length === 0 && (
-              <div className="text-center py-12">
-                <ClipboardCheck className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Không có yêu cầu kiểm định</h3>
-                <p className="text-gray-500">Hiện tại không có xe nào đang yêu cầu kiểm định.</p>
-                    </div>
-            )}
-          </div>
-        )}
 
         {/* Reject Modal */}
       <RejectProductModal
@@ -2020,6 +1811,30 @@ export const AdminDashboard = () => {
                       <span>Người bán: {selectedListing.sellerName || "Unknown"}</span>
                     </div>
                   </div>
+
+                  {/* Inspection Images Section */}
+                  {selectedListing.inspectionImages && selectedListing.inspectionImages.length > 0 && (
+                    <div className="mt-6">
+                      <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                        <Camera className="h-5 w-5 mr-2 text-blue-600" />
+                        Hình ảnh kiểm định của Admin
+                      </h4>
+                      <div className="grid grid-cols-2 gap-3">
+                        {selectedListing.inspectionImages.map((img, index) => (
+                          <div key={index} className="relative">
+                            <img
+                              src={img.url}
+                              alt={img.description || `Hình kiểm định ${index + 1}`}
+                              className="w-full h-32 object-cover rounded-lg border-2 border-blue-200"
+                            />
+                            <div className="absolute bottom-1 left-1 bg-blue-600 text-white text-xs px-2 py-1 rounded">
+                              Admin
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="pt-4">
                     {/* Debug info */}
@@ -2177,7 +1992,21 @@ export const AdminDashboard = () => {
                 {/* Action Buttons */}
                 <div className="flex justify-end space-x-4">
                   <button
-                    onClick={() => setShowInspectionModal(false)}
+                    onClick={() => {
+                      if (inspectionImages.length > 0) {
+                        if (window.confirm("Bạn có chắc muốn hủy kiểm định? Hình ảnh đã upload sẽ bị mất và trạng thái xe không thay đổi.")) {
+                          setShowInspectionModal(false);
+                          setInspectionImages([]);
+                          setCurrentInspectionProduct(null);
+                          showToast("Đã hủy kiểm định. Trạng thái xe không thay đổi.", "info");
+                        }
+                      } else {
+                        setShowInspectionModal(false);
+                        setInspectionImages([]);
+                        setCurrentInspectionProduct(null);
+                        showToast("Đã hủy kiểm định. Trạng thái xe không thay đổi.", "info");
+                      }
+                    }}
                     className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
                   >
                     Hủy
@@ -2185,26 +2014,76 @@ export const AdminDashboard = () => {
                   <button
                     onClick={async () => {
                       try {
-                        // Here you would upload the images to the server
+                        if (inspectionImages.length === 0) {
+                          showToast("Vui lòng upload ít nhất một hình ảnh kiểm định!", "error");
+                          return;
+                        }
+
+                        // Upload inspection images to the server
                         console.log('Uploading inspection images:', inspectionImages);
                         
-                        // Update verification status to InProgress
-                        await updateVerificationStatus(currentInspectionProduct.id, "InProgress");
+                        // Upload each image using the ProductImage API
+                        const uploadedImages = [];
+                        for (let i = 0; i < inspectionImages.length; i++) {
+                          const imageUrl = inspectionImages[i];
+                          try {
+                            // Convert blob URL to file if needed
+                            const response = await fetch(imageUrl);
+                            const blob = await response.blob();
+                            const file = new File([blob], `inspection_${i + 1}.jpg`, { type: 'image/jpeg' });
+                            
+                            // Create FormData for file upload
+                            const formData = new FormData();
+                            formData.append('file', file);
+                            formData.append('type', 'inspection');
+                            formData.append('description', `Hình ảnh kiểm định ${i + 1} - Admin`);
+                            
+                            // Upload to ProductImage API
+                            const uploadResponse = await apiRequest(`/api/ProductImage/${currentInspectionProduct.id}`, {
+                              method: 'PUT',
+                              body: formData
+                            });
+                            
+                            uploadedImages.push({
+                              url: imageUrl,
+                              type: 'inspection',
+                              uploadedBy: 'admin',
+                              uploadedAt: new Date().toISOString(),
+                              description: `Hình ảnh kiểm định ${i + 1} - Admin`,
+                              id: uploadResponse.id || `inspection_${i + 1}`
+                            });
+                            
+                            console.log(`✅ Uploaded inspection image ${i + 1}:`, uploadResponse);
+                          } catch (uploadError) {
+                            console.error(`❌ Failed to upload image ${i + 1}:`, uploadError);
+                            // Continue with other images even if one fails
+                          }
+                        }
+
+                        // Update product verification status
+                        await apiRequest(`/api/Product/${currentInspectionProduct.id}`, {
+                          method: 'PUT',
+                          body: JSON.stringify({
+                            verificationStatus: 'Verified',
+                            inspectionCompletedAt: new Date().toISOString(),
+                            inspectionCompletedBy: 'admin'
+                          })
+                        });
                         
                         // Close modal and refresh data
                         setShowInspectionModal(false);
                         setInspectionImages([]);
                         setCurrentInspectionProduct(null);
-                        await loadInspectionRequests();
+                        await loadAdminData(); // Refresh main data
                         
-                        showToast("Đã upload hình ảnh kiểm định thành công!", "success");
+                        showToast(`Đã hoàn thành kiểm định xe thành công! Đã upload ${uploadedImages.length} hình ảnh vào tin đăng.`, "success");
                       } catch (error) {
-                        console.error("Failed to upload inspection images:", error);
-                        showToast("Không thể upload hình ảnh kiểm định. Vui lòng thử lại.", "error");
+                        console.error("Failed to complete inspection:", error);
+                        showToast("Không thể hoàn thành kiểm định. Vui lòng thử lại.", "error");
                       }
                     }}
                     disabled={inspectionImages.length === 0}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Hoàn thành kiểm định
                   </button>
