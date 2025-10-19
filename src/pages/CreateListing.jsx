@@ -370,6 +370,7 @@ export const CreateListing = () => {
         brand: formData.brand,
         model: formData.model,
         condition: formData.condition,
+        verificationStatus: "NotRequested", // Set default verification status for new products
         // Vehicle fields (will be null/0 for batteries)
         vehicleType:
           formData.productType === "vehicle"

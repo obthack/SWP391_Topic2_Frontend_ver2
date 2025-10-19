@@ -1,8 +1,9 @@
 import { Link } from "react-router-dom";
 import { Heart, Eye, Calendar, Gauge, Battery, Info } from "lucide-react";
 import { formatPrice } from "../../utils/formatters";
+import { VerificationButton } from "./VerificationButton";
 
-export const ProductCard = ({ product, onToggleFavorite, isFavorite }) => {
+export const ProductCard = ({ product, onToggleFavorite, isFavorite, user }) => {
   const primaryImage = product.images?.[0];
 
   // Helper function to get the correct product ID
@@ -41,9 +42,9 @@ export const ProductCard = ({ product, onToggleFavorite, isFavorite }) => {
           </div>
         )}
 
-        {/* Verification Status Badge */}
+        {/* Verification Status Badge - Bottom Right */}
         {product.verificationStatus === "Verified" && (
-          <div className="absolute top-2 right-2 bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium z-10">
+          <div className="absolute bottom-2 right-2 bg-green-500 text-white px-2 py-1 rounded-full text-xs font-medium z-10 shadow-sm">
             Đã kiểm định
           </div>
         )}
@@ -202,6 +203,19 @@ export const ProductCard = ({ product, onToggleFavorite, isFavorite }) => {
             </span>
           </div>
         </div>
+
+        {/* Verification Button - Only show for vehicles, product owner, and not verified */}
+        {product.productType === "Vehicle" && 
+         product.verificationStatus !== "Verified" && 
+         user && (user.id || user.userId || user.accountId) === (product.sellerId || product.userId) && (
+          <div className="mb-3">
+            <VerificationButton
+              productId={productId}
+              currentStatus={product.verificationStatus || 'NotRequested'}
+              isOwner={true}
+            />
+          </div>
+        )}
 
         <div className="flex gap-2">
           <Link

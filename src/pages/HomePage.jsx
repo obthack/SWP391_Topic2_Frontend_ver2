@@ -521,6 +521,7 @@ export const HomePage = () => {
                     product={product}
                     onToggleFavorite={handleToggleFavorite}
                     isFavorite={favorites.has(product.id || product.productId)}
+                    user={user}
                   />
                 ))}
               </div>
@@ -665,6 +666,7 @@ export const HomePage = () => {
                     product={product}
                     onToggleFavorite={handleToggleFavorite}
                     isFavorite={favorites.has(product.id || product.productId)}
+                    user={user}
                   />
                 ))}
             </div>

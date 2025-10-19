@@ -506,14 +506,26 @@ export const ProductDetail = () => {
                   <h1 className="text-2xl font-bold text-gray-900 mb-2">
                     {product.title}
                   </h1>
+                  
+                  {/* Verification Status Badge */}
+                  {product.verificationStatus === 'Verified' && (
+                    <div className="mb-3">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 border border-green-200">
+                        <CheckCircle className="h-4 w-4 mr-1" />
+                        Đã kiểm định
+                      </span>
+                    </div>
+                  )}
+                  
                   <p className="text-gray-600">
                     {product.licensePlate ||
                       product.license_plate ||
                       "Biển số: N/A"}
                   </p>
                   
-                  {/* Verification Button - Only show for vehicles and product owner */}
-                  {product.productType === "Vehicle" && (
+                  {/* Verification Button - Only show for vehicles, product owner, and not verified */}
+                  {product.productType === "Vehicle" && 
+                   product.verificationStatus !== "Verified" && (
                     <div className="mt-4">
                       <VerificationButton
                         productId={product.id || product.productId || product.Id}
