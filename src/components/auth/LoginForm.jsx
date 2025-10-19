@@ -65,10 +65,13 @@ export const LoginForm = () => {
       console.log("Will navigate to:", isAdmin ? "/admin" : "/dashboard");
       console.log("==================");
 
-      navigate(isAdmin ? "/admin" : "/dashboard");
+      // Add a small delay to ensure state is updated before navigation
+      setTimeout(() => {
+        setLoading(false);
+        navigate(isAdmin ? "/admin" : "/dashboard");
+      }, 200);
     } catch (err) {
       setError(getErrorMessage(err));
-    } finally {
       setLoading(false);
     }
   };

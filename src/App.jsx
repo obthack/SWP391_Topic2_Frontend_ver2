@@ -25,6 +25,21 @@ import { SellerProfile } from "./pages/SellerProfile";
 import { SellerProducts } from "./pages/SellerProducts";
 import { Favorites } from "./pages/Favorites";
 import { Notifications } from "./pages/Notifications";
+import { Products } from "./pages/Products";
+import { Categories } from "./pages/Categories";
+import { Brands } from "./pages/Brands";
+import { Deals } from "./pages/Deals";
+import { Reviews } from "./pages/Reviews";
+import { Help } from "./pages/Help";
+import { FAQ } from "./pages/FAQ";
+import { Contact } from "./pages/Contact";
+import { Shipping } from "./pages/Shipping";
+import { Returns } from "./pages/Returns";
+import PaymentResult from "./pages/PaymentResult";
+import PaymentSuccess from "./pages/PaymentSuccess";
+import PaymentExample from "./pages/PaymentExample";
+import ApiTest from "./components/ApiTest";
+import UserDebug from "./components/UserDebug";
 import { ToastProvider } from "./contexts/ToastContext";
 
 const PublicRoute = ({ children }) => {
@@ -38,9 +53,13 @@ const PublicRoute = ({ children }) => {
     );
   }
 
-  // If user is already logged in, redirect to homepage
+  // If user is already logged in, redirect to appropriate dashboard
   if (user) {
-    return <Navigate to="/" replace />;
+    const roleId = user?.roleId || user?.role;
+    const roleName = (user?.roleName || user?.role || "").toString().toLowerCase();
+    const isAdmin = roleId === 1 || roleId === "1" || roleName === "admin";
+    
+    return <Navigate to={isAdmin ? "/admin" : "/dashboard"} replace />;
   }
 
   return children;
@@ -217,6 +236,23 @@ const AppContent = () => {
               </ProtectedRoute>
             }
           />
+
+          {/* Footer Pages - Public Routes */}
+          <Route path="/products" element={<Products />} />
+          <Route path="/categories" element={<Categories />} />
+          <Route path="/brands" element={<Brands />} />
+          <Route path="/deals" element={<Deals />} />
+          <Route path="/reviews" element={<Reviews />} />
+          <Route path="/help" element={<Help />} />
+          <Route path="/faq" element={<FAQ />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/shipping" element={<Shipping />} />
+          <Route path="/returns" element={<Returns />} />
+          <Route path="/payment/result" element={<PaymentResult />} />
+          <Route path="/payment/success" element={<PaymentSuccess />} />
+          <Route path="/payment/example" element={<PaymentExample />} />
+          <Route path="/api/test" element={<ApiTest />} />
+          <Route path="/user/debug" element={<UserDebug />} />
 
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>

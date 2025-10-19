@@ -4,7 +4,43 @@ import { formatPrice } from "../../utils/formatters";
 import { VerificationButton } from "./VerificationButton";
 
 export const ProductCard = ({ product, onToggleFavorite, isFavorite, user }) => {
-  const primaryImage = product.images?.[0];
+  // Try multiple ways to get the primary image
+  let primaryImage = null;
+  
+  // Method 1: Try product.images array
+  if (product.images && Array.isArray(product.images) && product.images.length > 0) {
+    primaryImage = product.images[0];
+  }
+  
+  // Method 2: Try other image fields
+  if (!primaryImage) {
+    const imageFields = ['imageData', 'imageUrl', 'imageUrls', 'photo', 'photos', 'picture', 'pictures'];
+    for (const field of imageFields) {
+      if (product[field]) {
+        if (Array.isArray(product[field]) && product[field].length > 0) {
+          primaryImage = product[field][0];
+        } else if (typeof product[field] === 'string' && product[field].trim() !== '') {
+          primaryImage = product[field];
+        }
+        if (primaryImage) break;
+      }
+    }
+  }
+  
+  // Method 3: Try capitalized fields
+  if (!primaryImage) {
+    const imageFields = ['ImageData', 'ImageUrl', 'ImageUrls', 'Photo', 'Photos', 'Picture', 'Pictures'];
+    for (const field of imageFields) {
+      if (product[field]) {
+        if (Array.isArray(product[field]) && product[field].length > 0) {
+          primaryImage = product[field][0];
+        } else if (typeof product[field] === 'string' && product[field].trim() !== '') {
+          primaryImage = product[field];
+        }
+        if (primaryImage) break;
+      }
+    }
+  }
 
   // Helper function to get the correct product ID
   const getProductId = (product) => {
@@ -26,6 +62,11 @@ export const ProductCard = ({ product, onToggleFavorite, isFavorite, user }) => 
   console.log("🖼️ ProductCard - Images array:", product.images);
   console.log("🖼️ ProductCard - Primary image:", primaryImage);
   console.log("🖼️ ProductCard - Will show image?", !!primaryImage);
+  console.log("🖼️ ProductCard - All image fields:", Object.keys(product).filter(key => 
+    key.toLowerCase().includes('image') || 
+    key.toLowerCase().includes('photo') || 
+    key.toLowerCase().includes('picture')
+  ));
 
   return (
     <div className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all overflow-hidden group">

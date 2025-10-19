@@ -24,6 +24,8 @@ import {
   X,
 } from "lucide-react";
 import { apiRequest } from "../lib/api";
+import { createOrder } from "../lib/orderApi";
+import { createPayment } from "../api/payment";
 import { formatPrice } from "../utils/formatters";
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
@@ -82,6 +84,8 @@ export const ProductDetail = () => {
   const [showContactModal, setShowContactModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
+  const [paying, setPaying] = useState(false);
+  const [currentOrderId, setCurrentOrderId] = useState(null);
   const [contactForm, setContactForm] = useState({
     name: "",
     phone: "",
@@ -336,6 +340,20 @@ export const ProductDetail = () => {
       });
       return;
     }
+
+    // ✅ CRITICAL: Check if user is trying to buy their own product
+    const currentUserId = user?.id || user?.userId || user?.accountId;
+    const productSellerId = product?.sellerId || product?.seller_id;
+    
+    if (currentUserId && productSellerId && currentUserId == productSellerId) {
+      showToast({
+        title: "⚠️ Không thể mua",
+        description: "Bạn không thể mua sản phẩm của chính mình!",
+        type: "error",
+      });
+      return;
+    }
+
     setShowPaymentModal(true);
   };
 
@@ -343,6 +361,152 @@ export const ProductDetail = () => {
   const getDepositAmount = () => {
     const price = product?.price || 0;
     return price > 300000000 ? 10000000 : 5000000; // 10M if > 300M, else 5M
+  };
+
+  // Handle payment deposit
+  const onPayDeposit = async () => {
+    if (paying) return;
+    
+    setPaying(true);
+    
+    try {
+      console.log("[VNPay] Starting payment process...");
+      
+      // Get auth token
+      const token = user?.token || localStorage.getItem("evtb_auth") ? JSON.parse(localStorage.getItem("evtb_auth"))?.token : null;
+      
+      if (!token) {
+        throw new Error("Bạn cần đăng nhập để thực hiện thanh toán");
+      }
+
+      // Debug user info
+      console.log("[VNPay] User info:", {
+        user: user,
+        roleId: user?.roleId,
+        role: user?.role,
+        roleName: user?.roleName
+      });
+
+      // Check user role (should be role=2 for member) - More flexible check
+      const userRoleId = user?.roleId || user?.role;
+      const isMember = userRoleId === 2 || userRoleId === "2" || user?.roleName?.toLowerCase() === "member" || user?.roleName?.toLowerCase() === "user";
+      
+      // TEMPORARY: Allow all authenticated users for testing
+      const allowAllUsers = true; // Set to false in production
+      
+      if (!isMember && !allowAllUsers) {
+        console.log("[VNPay] Role check failed:", {
+          userRoleId,
+          roleName: user?.roleName,
+          isMember
+        });
+        throw new Error(`Bạn cần đăng nhập với vai trò thành viên. Vai trò hiện tại: ${user?.roleName || userRoleId || "Unknown"}`);
+      }
+      
+      if (!isMember && allowAllUsers) {
+        console.log("[VNPay] ⚠️ TEMPORARY: Allowing payment despite role check failed");
+      }
+
+      // ✅ CRITICAL: Check if user is trying to buy their own product
+      const currentUserId = user?.id || user?.userId || user?.accountId;
+      const productSellerId = product?.sellerId || product?.seller_id;
+      
+      console.log("[VNPay] Seller validation:", {
+        currentUserId,
+        productSellerId,
+        isSameUser: currentUserId == productSellerId,
+        productId: product?.id
+      });
+
+      if (currentUserId && productSellerId && currentUserId == productSellerId) {
+        throw new Error("Bạn không thể mua sản phẩm của chính mình!");
+      }
+
+      const depositAmount = getDepositAmount();
+      const totalAmount = product?.price || 0;
+      
+      // Create order first if not exists
+      let orderId = currentOrderId;
+      if (!orderId) {
+        console.log("[VNPay] Creating new order...");
+        const orderData = {
+          productId: product?.id,
+          sellerId: product?.sellerId || 1, // Default to admin as seller for testing
+          depositAmount: depositAmount,
+          totalAmount: totalAmount
+        };
+        
+        const orderResponse = await createOrder(orderData, token);
+        orderId = orderResponse.orderId;
+        setCurrentOrderId(orderId);
+        console.log("[VNPay] Order created:", orderId);
+      }
+      
+      console.log("[VNPay] POST /api/payment", { 
+        orderId, 
+        amount: depositAmount,
+        paymentType: "Deposit",
+        productId: product?.id 
+      });
+
+      // Create payment
+      const res = await createPayment(
+        {
+          orderId: orderId,
+          productId: product?.id,
+          amount: depositAmount,
+          paymentType: "Deposit"
+        },
+        token
+      );
+
+      console.log("[VNPay] createPayment res:", res);
+      
+      if (!res?.paymentUrl) {
+        throw new Error("paymentUrl empty");
+      }
+
+      // Close modal and show success message
+      setShowPaymentModal(false);
+      showToast({
+        title: "✅ Đang chuyển đến VNPay",
+        description: `Đơn hàng đã được tạo với số tiền cọc ${formatPrice(depositAmount)}. Đang chuyển đến cổng thanh toán...`,
+        type: "success",
+      });
+
+      // Redirect to VNPay
+      window.location.href = res.paymentUrl;
+      
+    } catch (err) {
+      console.error("[VNPay] createPayment error:", err);
+      
+      // Handle specific errors
+      if (err.message.includes("Phiên đăng nhập hết hạn")) {
+        showToast({
+          title: "❌ Phiên đăng nhập hết hạn",
+          description: "Vui lòng đăng nhập lại để tiếp tục",
+          type: "error",
+        });
+        // Redirect to login
+        setTimeout(() => {
+          window.location.href = "/login";
+        }, 2000);
+      } else if (err.message.includes("vai trò thành viên")) {
+        showToast({
+          title: "❌ Không có quyền",
+          description: "Bạn cần đăng nhập với vai trò thành viên",
+          type: "error",
+        });
+      } else {
+        showToast({
+          title: "❌ Lỗi thanh toán",
+          description: err.message || "Không tạo được giao dịch VNPay. Vui lòng thử lại!",
+          type: "error",
+        });
+      }
+    } finally {
+      setPaying(false);
+    }
   };
 
   if (loading) {
@@ -594,14 +758,32 @@ export const ProductDetail = () => {
 
               {/* Action Buttons */}
               <div className="space-y-3">
-                <button
-                  onClick={handleCreateOrder}
-                  disabled={product.status === "sold"}
-                  className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
-                >
-                  <CreditCard className="h-5 w-5 mr-2" />
-                  Tạo đơn hàng
-                </button>
+                {/* ✅ Only show payment button if user is not the seller */}
+                {(() => {
+                  const currentUserId = user?.id || user?.userId || user?.accountId;
+                  const productSellerId = product?.sellerId || product?.seller_id;
+                  const isOwnProduct = currentUserId && productSellerId && currentUserId == productSellerId;
+                  
+                  if (isOwnProduct) {
+                    return (
+                      <div className="w-full bg-gray-100 text-gray-500 py-3 px-6 rounded-lg font-medium text-center">
+                        <CreditCard className="h-5 w-5 mr-2 inline" />
+                        Sản phẩm của bạn
+                      </div>
+                    );
+                  }
+                  
+                  return (
+                    <button
+                      onClick={handleCreateOrder}
+                      disabled={product.status === "sold"}
+                      className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
+                    >
+                      <CreditCard className="h-5 w-5 mr-2" />
+                      Tạo đơn hàng
+                    </button>
+                  );
+                })()}
 
                 <button
                   onClick={handleContactSeller}
@@ -759,16 +941,6 @@ export const ProductDetail = () => {
                         </span>
                         <span className="font-semibold text-gray-900">
                           {product.mileage.toLocaleString()} km
-                        </span>
-                      </div>
-                    )}
-                    {product.transmission && (
-                      <div className="flex justify-between items-center py-3 px-4 bg-gray-50 rounded-lg">
-                        <span className="text-gray-600 font-medium">
-                          Hộp số
-                        </span>
-                        <span className="font-semibold text-gray-900">
-                          {product.transmission}
                         </span>
                       </div>
                     )}
@@ -1090,20 +1262,13 @@ export const ProductDetail = () => {
 
               <div className="space-y-2">
                 <button
-                  onClick={() => {
-                    setShowPaymentModal(false);
-                    showToast({
-                      title: "✅ Đơn hàng đã được tạo",
-                      description: `Đơn hàng đã được tạo với số tiền cọc ${formatPrice(
-                        getDepositAmount()
-                      )}. Chuyển đến thanh toán ngân hàng online.`,
-                      type: "success",
-                    });
-                  }}
-                  className="w-full p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-center font-medium"
+                  type="button"
+                  onClick={onPayDeposit}
+                  disabled={paying}
+                  className="w-full p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-center font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <CreditCard className="h-5 w-5 inline mr-2" />
-                  Thanh toán cọc qua ngân hàng online
+                  {paying ? "Đang chuyển tới VNPay..." : "Thanh toán cọc qua ngân hàng online"}
                 </button>
               </div>
             </div>

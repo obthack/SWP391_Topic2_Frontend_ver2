@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Search, Zap, Shield, TrendingUp, CheckCircle } from "lucide-react";
 import { apiRequest } from "../lib/api";
 import { ProductCard } from "../components/molecules/ProductCard";
@@ -11,9 +11,10 @@ import "../styles/homepage.css";
 export const HomePage = () => {
   const { user } = useAuth();
   const { show: showToast } = useToast();
+  const location = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [productType, setProductType] = useState("");
-  const [location, setLocation] = useState("");
+  const [locationFilter, setLocationFilter] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all"); // all, vehicle, battery
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -26,7 +27,45 @@ export const HomePage = () => {
     if (user) {
       loadFavorites();
     }
+    
+    // Check for payment success parameters
+    checkPaymentSuccess();
   }, [user]);
+
+  const checkPaymentSuccess = () => {
+    const urlParams = new URLSearchParams(location.search);
+    const paymentSuccess = urlParams.get('payment_success');
+    const paymentError = urlParams.get('payment_error');
+    const paymentId = urlParams.get('payment_id');
+    const amount = urlParams.get('amount');
+    const transactionNo = urlParams.get('transaction_no');
+
+    if (paymentSuccess === 'true' && paymentId) {
+      const formattedAmount = amount ? (parseInt(amount) / 100).toLocaleString('vi-VN') : 'N/A';
+      
+      showToast({
+        type: 'success',
+        title: '🎉 Thanh toán thành công!',
+        message: `Giao dịch ${paymentId} đã được xử lý thành công. Số tiền: ${formattedAmount} VND`,
+        duration: 8000
+      });
+
+      // Clear URL parameters after showing notification
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
+    } else if (paymentError === 'true' && paymentId) {
+      showToast({
+        type: 'error',
+        title: '❌ Lỗi thanh toán',
+        message: `Có lỗi xảy ra khi xử lý giao dịch ${paymentId}. Vui lòng liên hệ hỗ trợ.`,
+        duration: 8000
+      });
+
+      // Clear URL parameters after showing notification
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
+    }
+  };
 
   const loadFeaturedProducts = async () => {
     try {
@@ -83,18 +122,59 @@ export const HomePage = () => {
                 product.id || product.productId || product.Id
               }`
             );
-            const images = Array.isArray(imagesData)
-              ? imagesData
-              : imagesData?.items || [];
+            
+            console.log(`🖼️ Product ${product.id} images data:`, {
+              rawData: imagesData,
+              isArray: Array.isArray(imagesData),
+              hasItems: !!imagesData?.items,
+              imageDataField: imagesData?.imageData
+            });
+
+            // Handle different response formats
+            let images = [];
+            if (Array.isArray(imagesData)) {
+              images = imagesData;
+            } else if (imagesData?.items && Array.isArray(imagesData.items)) {
+              images = imagesData.items;
+            } else if (imagesData && typeof imagesData === 'object') {
+              // Single object response - wrap in array
+              images = [imagesData];
+            }
 
             // Map images - only use real product images
             const mappedImages = images.map(
               (img) => img.imageData || img.imageUrl || img.url
-            );
+            ).filter(img => img && img.trim() !== ''); // Filter out empty/null images
+
+            console.log(`🖼️ Product ${product.id} mapped images:`, mappedImages);
+
+            // If no images found from ProductImage API, try to get from product fields
+            let finalImages = mappedImages;
+            if (finalImages.length === 0) {
+              // Try to get images from product fields
+              const possibleImageFields = [
+                'imageData', 'imageUrls', 'imageUrl', 'images', 'photos', 'pictures',
+                'ImageData', 'ImageUrls', 'ImageUrl', 'Images', 'Photos', 'Pictures'
+              ];
+              
+              for (const field of possibleImageFields) {
+                if (product[field]) {
+                  if (Array.isArray(product[field])) {
+                    finalImages = product[field].filter(img => img && img.trim() !== '');
+                  } else if (typeof product[field] === 'string' && product[field].trim() !== '') {
+                    finalImages = [product[field]];
+                  }
+                  if (finalImages.length > 0) {
+                    console.log(`🖼️ Found images in product.${field}:`, finalImages);
+                    break;
+                  }
+                }
+              }
+            }
 
             return {
               ...product,
-              images: mappedImages, // Only real images, no placeholder
+              images: finalImages, // Only real images, no placeholder
             };
           } catch (error) {
             console.warn(
@@ -103,6 +183,12 @@ export const HomePage = () => {
               }:`,
               error
             );
+            console.warn(`Error details:`, {
+              message: error.message,
+              status: error.status,
+              data: error.data,
+              productId: product.id || product.productId || product.Id
+            });
             // Return product with no images if API fails
             return {
               ...product,
@@ -237,7 +323,7 @@ export const HomePage = () => {
   const handleSearch = (e) => {
     e.preventDefault();
     // TODO: implement search functionality
-    console.log("search clicked:", { searchQuery, productType, location });
+    console.log("search clicked:", { searchQuery, productType, locationFilter });
   };
 
   return (
@@ -338,8 +424,8 @@ export const HomePage = () => {
               <div className="md:col-span-1">
                 <input
                   type="text"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
+                  value={locationFilter}
+                  onChange={(e) => setLocationFilter(e.target.value)}
                   placeholder="Địa điểm (VD: HN)"
                   className="search-input"
                 />

@@ -1,7 +1,7 @@
 // Simple API helper for backend integration
 // Reads base URL from VITE_API_BASE_URL, defaults to http://localhost:5044
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5044";
+const API_BASE_URL = import.meta.env.VITE_API_BASE || "http://localhost:5044";
 
 function getAuthToken() {
   try {
