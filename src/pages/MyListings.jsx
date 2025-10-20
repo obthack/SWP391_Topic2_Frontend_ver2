@@ -9,6 +9,7 @@ import {
   Filter,
   Package,
   AlertTriangle,
+  CheckCircle,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { apiRequest } from "../lib/api";
@@ -16,6 +17,7 @@ import { formatPrice, formatDate } from "../utils/formatters";
 import { useToast } from "../contexts/ToastContext";
 import { RejectedProducts } from "../components/user/RejectedProducts";
 import { RejectionReasonModal } from "../components/common/RejectionReasonModal";
+import { VerificationButton } from "../components/common/VerificationButton";
 import "../styles/mylistings.css";
 
 export const MyListings = () => {
@@ -656,6 +658,28 @@ export const MyListings = () => {
                           <Edit className="mylistings-edit-icon" />
                           Chỉnh sửa
                         </Link>
+                        
+                        {/* Verification Button - Only show for vehicle owners with NotRequested status */}
+                        {(listing.productType === "vehicle" || listing.productType === "Vehicle") && 
+                         (listing.verificationStatus === "NotRequested" || 
+                          listing.verificationStatus === null || 
+                          listing.verificationStatus === undefined ||
+                          !listing.verificationStatus ||
+                          listing.verificationStatus === "") && 
+                         // Don't show if already verified or in progress
+                         listing.verificationStatus !== "Verified" &&
+                         listing.verificationStatus !== "Requested" &&
+                         listing.verificationStatus !== "InProgress" &&
+                         // Additional security check: ensure current user is the owner
+                         (listing.sellerId === (user?.id || user?.userId || user?.accountId) ||
+                          listing.seller_id === (user?.id || user?.userId || user?.accountId)) && (
+                          <VerificationButton
+                            productId={getListingId(listing)}
+                            currentStatus={listing.verificationStatus || "NotRequested"}
+                            isOwner={true}
+                          />
+                        )}
+                        
                         <button
                           type="button"
                           onClick={(e) => {
@@ -670,6 +694,16 @@ export const MyListings = () => {
                           <Trash2 className="mylistings-delete-icon" />
                         </button>
                       </div>
+                      
+                      {/* Verification Status Badge - Bottom Right */}
+                      {listing.verificationStatus === 'Verified' && (
+                        <div className="absolute bottom-2 right-2">
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200 shadow-sm">
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Đã kiểm định
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );

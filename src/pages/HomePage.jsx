@@ -78,14 +78,33 @@ export const HomePage = () => {
 
       console.log("📦 Total products from API:", allProducts.length);
       console.log("📦 Sample product:", allProducts[0]);
+      console.log("📦 All products status check:", allProducts.map(p => ({
+        id: p.productId || p.id || p.ProductId,
+        status: p.status || p.Status,
+        title: p.title || p.Title
+      })));
+      
+      // Debug: Check specific products that should be approved
+      const approvedProductsDebug = allProducts.filter(p => {
+        const status = String(p.status || p.Status || "").toLowerCase();
+        return status === "approved" || status === "active" || status === "verified";
+      });
+      console.log("✅ Products that should be approved:", approvedProductsDebug.length);
+      console.log("✅ Approved products details:", approvedProductsDebug.map(p => ({
+        id: p.productId || p.id || p.ProductId,
+        status: p.status || p.Status,
+        title: p.title || p.Title
+      })));
+      
+      console.log("🔍 Starting product filtering...");
 
       // Filter approved products and classify by type
       approvedProducts = allProducts
         .filter((x) => {
-          const status = String(x.status || x.Status).toLowerCase();
-          const isApproved = status === "approved" || status === "active";
+          const status = String(x.status || x.Status || "").toLowerCase().trim();
+          const isApproved = status === "approved" || status === "active" || status === "verified";
           console.log(
-            `Product ${x.id}: status="${status}", isApproved=${isApproved}`
+            `Product ${x.productId || x.id || x.ProductId}: status="${status}", isApproved=${isApproved}`
           );
           return isApproved;
         })
@@ -104,9 +123,15 @@ export const HomePage = () => {
           console.log(`Product ${x.id}: classified as ${productType}`);
           return { ...x, productType };
         })
-        .slice(0, 8); // Limit to 8 products for homepage
+        // .slice(0, 8); // Tạm thời bỏ giới hạn để test
 
       console.log("✅ Filtered approved products:", approvedProducts.length);
+      console.log("🎯 Final approved products details:", approvedProducts.map(p => ({
+        id: p.id || p.productId || p.Id,
+        title: p.title || p.Title,
+        status: p.status || p.Status,
+        productType: p.productType
+      })));
 
       // Load images for each approved product with delay to avoid DbContext conflicts
       const productsWithImages = await Promise.all(
@@ -114,7 +139,7 @@ export const HomePage = () => {
           try {
             // Add delay to avoid DbContext conflicts
             if (index > 0) {
-              await new Promise((resolve) => setTimeout(resolve, 100 * index));
+              await new Promise((resolve) => setTimeout(resolve, 500 * index));
             }
 
             const imagesData = await apiRequest(
@@ -607,6 +632,7 @@ export const HomePage = () => {
                     product={product}
                     onToggleFavorite={handleToggleFavorite}
                     isFavorite={favorites.has(product.id || product.productId)}
+                    user={user}
                   />
                 ))}
               </div>
@@ -696,6 +722,96 @@ export const HomePage = () => {
                     Đăng tin đầu tiên
                   </Link>
                 )}
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Xe đã kiểm định Section */}
+      <section className="py-16 bg-gradient-to-br from-green-50 to-emerald-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h2 className="text-3xl font-bold text-gray-900 flex items-center">
+                <Shield className="h-8 w-8 mr-3 text-green-600" />
+                Xe đã kiểm định
+              </h2>
+              <p className="text-gray-600 mt-2">
+                Những chiếc xe đã được admin kiểm tra và chứng nhận chất lượng
+              </p>
+            </div>
+            <div className="flex items-center space-x-2 text-green-600">
+              <CheckCircle className="h-5 w-5" />
+              <span className="font-medium">
+                {featuredProducts.filter(
+                  (p) => p.productType?.toLowerCase() === "vehicle" && p.verificationStatus === "Verified"
+                ).length} xe đã kiểm định
+              </span>
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="products-grid">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="skeleton-card"></div>
+              ))}
+            </div>
+          ) : featuredProducts.filter(
+            (p) => p.productType?.toLowerCase() === "vehicle" && p.verificationStatus === "Verified"
+          ).length > 0 ? (
+            <div className="products-grid">
+              {featuredProducts
+                .filter(
+                  (p) => p.productType?.toLowerCase() === "vehicle" && p.verificationStatus === "Verified"
+                )
+                .slice(0, 8)
+                .map((product, index) => (
+                  <ProductCard
+                    key={
+                      product.id ||
+                      product.productId ||
+                      product.Id ||
+                      `verified-product-${index}`
+                    }
+                    product={product}
+                    onToggleFavorite={handleToggleFavorite}
+                    isFavorite={favorites.has(product.id || product.productId)}
+                    user={user}
+                  />
+                ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <div className="max-w-md mx-auto">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Shield className="h-8 w-8 text-green-600" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  Chưa có xe kiểm định nào
+                </h3>
+                <p className="text-gray-500 mb-4">
+                  Hiện tại chưa có xe nào được kiểm định. Hãy là người đầu tiên!
+                </p>
+                <Link
+                  to="/create-listing"
+                  className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  <svg
+                    className="w-4 h-4 mr-2"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                    />
+                  </svg>
+                  Đăng tin xe
+                </Link>
               </div>
             </div>
           )}

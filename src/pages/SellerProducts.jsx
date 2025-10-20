@@ -56,7 +56,7 @@ export const SellerProducts = () => {
         const status = String(
           product.status || product.Status || ""
         ).toLowerCase();
-        return status === "approved" || status === "active";
+        return status === "approved" || status === "active" || status === "verified";
       });
 
       // Load images for each product

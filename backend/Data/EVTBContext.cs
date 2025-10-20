@@ -12,6 +12,7 @@ namespace EVTB_Backend.Data
         public DbSet<User> Users { get; set; }
         public DbSet<Order> Orders { get; set; }
         public DbSet<Payment> Payments { get; set; }
+        public DbSet<Product> Products { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -53,12 +54,12 @@ namespace EVTB_Backend.Data
                 entity.HasOne(e => e.User)
                     .WithMany()
                     .HasForeignKey(e => e.UserId)
-                    .OnDelete(DeleteBehavior.Cascade);
+                    .OnDelete(DeleteBehavior.NoAction);
                     
                 entity.HasOne(e => e.Seller)
                     .WithMany()
                     .HasForeignKey(e => e.SellerId)
-                    .OnDelete(DeleteBehavior.SetNull);
+                    .OnDelete(DeleteBehavior.NoAction);
             });
 
             // Configure Payment entity
@@ -81,17 +82,45 @@ namespace EVTB_Backend.Data
                 entity.HasOne(e => e.User)
                     .WithMany()
                     .HasForeignKey(e => e.UserId)
-                    .OnDelete(DeleteBehavior.Cascade);
+                    .OnDelete(DeleteBehavior.NoAction);
                     
                 entity.HasOne(e => e.Order)
                     .WithMany()
                     .HasForeignKey(e => e.OrderId)
-                    .OnDelete(DeleteBehavior.SetNull);
+                    .OnDelete(DeleteBehavior.NoAction);
                     
                 entity.HasOne(e => e.Seller)
                     .WithMany()
                     .HasForeignKey(e => e.SellerId)
-                    .OnDelete(DeleteBehavior.SetNull);
+                    .OnDelete(DeleteBehavior.NoAction);
+            });
+
+            // Configure Product entity
+            modelBuilder.Entity<Product>(entity =>
+            {
+                entity.HasKey(e => e.ProductId);
+                entity.Property(e => e.SellerId).IsRequired();
+                entity.Property(e => e.Title).IsRequired().HasMaxLength(255);
+                entity.Property(e => e.Description).HasMaxLength(1000);
+                entity.Property(e => e.Price).IsRequired().HasColumnType("decimal(18,2)");
+                entity.Property(e => e.Status).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.VerificationStatus).HasMaxLength(50);
+                entity.Property(e => e.RejectionReason).HasMaxLength(1000);
+                entity.Property(e => e.ProductType).HasMaxLength(50);
+                entity.Property(e => e.VehicleType).HasMaxLength(50);
+                entity.Property(e => e.LicensePlate).HasMaxLength(20);
+                entity.Property(e => e.BatteryType).HasMaxLength(50);
+                entity.Property(e => e.BatteryHealth).HasMaxLength(50);
+                entity.Property(e => e.Capacity).HasMaxLength(50);
+                entity.Property(e => e.Voltage).HasMaxLength(50);
+                entity.Property(e => e.Bms).HasMaxLength(50);
+                entity.Property(e => e.CellType).HasMaxLength(50);
+                
+                // Foreign key relationship
+                entity.HasOne(e => e.Seller)
+                    .WithMany()
+                    .HasForeignKey(e => e.SellerId)
+                    .OnDelete(DeleteBehavior.NoAction);
             });
 
             // Seed data

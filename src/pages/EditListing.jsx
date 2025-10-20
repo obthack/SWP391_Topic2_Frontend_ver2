@@ -47,6 +47,8 @@ export const EditListing = () => {
     bms: "",
     cellType: "",
     cycleCount: "",
+    // Verification status
+    verificationStatus: "NotRequested",
   });
   const [displayPrice, setDisplayPrice] = useState("");
 
@@ -236,6 +238,8 @@ export const EditListing = () => {
         bms: cleanValue(data.bms ?? data.BMS),
         cellType: cleanValue(data.cellType ?? data.CellType),
         cycleCount: cleanValue(data.cycleCount ?? data.CycleCount),
+        // Verification status
+        verificationStatus: data.verificationStatus ?? data.VerificationStatus ?? "NotRequested",
       };
 
       console.log("🔍 Mapped form data:", mapped);
@@ -954,6 +958,7 @@ export const EditListing = () => {
               />
             </div>
           </div>
+
 
           {/* Vehicle Specific Fields */}
           {formData.productType?.toLowerCase() === "vehicle" && (
