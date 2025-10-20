@@ -1,5 +1,4 @@
 using EVTB_Backend.Data;
-using EVTB_Backend.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -14,7 +13,12 @@ builder.Services.AddSwaggerGen();
 
 // Database Configuration
 builder.Services.AddDbContext<EVTBContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"), 
+        sqlOptions => sqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 3,
+            maxRetryDelay: TimeSpan.FromSeconds(30),
+            errorNumbersToAdd: null)),
+    ServiceLifetime.Scoped);
 
 // JWT Authentication Configuration
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
@@ -73,8 +77,8 @@ builder.Services.AddCors(options =>
 });
 
 // Register Services
-builder.Services.AddScoped<IEmailService, EmailService>();
-builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
+// builder.Services.AddScoped<IEmailService, EmailService>();
+// builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
 
 // Logging
 builder.Services.AddLogging();
