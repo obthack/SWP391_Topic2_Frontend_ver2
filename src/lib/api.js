@@ -12,13 +12,54 @@ function getAuthToken() {
     }
     const parsed = JSON.parse(raw);
     const token = parsed?.token || null;
-    console.log("🔍 Auth token check:", { 
-      hasAuth: !!raw, 
-      hasToken: !!token, 
-      tokenLength: token?.length || 0,
-      parsedKeys: Object.keys(parsed || {}),
-      parsedData: parsed
-    });
+    
+    // DEMO MODE: Skip token expiration check for presentation
+    const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true' || 
+                      localStorage.getItem('evtb_demo_mode') === 'true';
+    
+    if (isDemoMode) {
+      console.log("🎭 DEMO MODE: Skipping token expiration check");
+      console.log("🔍 Auth token check (DEMO):", { 
+        hasAuth: !!raw, 
+        hasToken: !!token, 
+        tokenLength: token?.length || 0,
+        demoMode: true,
+        parsedKeys: Object.keys(parsed || {}),
+        parsedData: parsed
+      });
+      return token;
+    }
+    
+    // Check if token is expired (only in production)
+    if (token) {
+      try {
+        // Decode JWT token to check expiration
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const currentTime = Math.floor(Date.now() / 1000);
+        const isExpired = payload.exp && payload.exp < currentTime;
+        
+        if (isExpired) {
+          console.warn("⚠️ Token is expired, clearing auth data");
+          localStorage.removeItem("evtb_auth");
+          return null;
+        }
+        
+        console.log("🔍 Auth token check:", { 
+          hasAuth: !!raw, 
+          hasToken: !!token, 
+          tokenLength: token?.length || 0,
+          isExpired: isExpired,
+          expiresAt: payload.exp ? new Date(payload.exp * 1000).toISOString() : 'No expiration',
+          parsedKeys: Object.keys(parsed || {}),
+          parsedData: parsed
+        });
+      } catch (decodeError) {
+        console.warn("⚠️ Invalid token format, clearing auth data:", decodeError);
+        localStorage.removeItem("evtb_auth");
+        return null;
+      }
+    }
+    
     return token;
   } catch (error) {
     console.error("🔍 Error getting auth token:", error);
@@ -94,44 +135,60 @@ export async function apiRequest(path, { method = "GET", body, headers } = {}) {
   if (!res.ok) {
     let message;
     
-    // Try to extract meaningful error message
-    if (data && typeof data === 'object') {
-      // Handle validation errors specifically
-      if (data.errors && Array.isArray(data.errors)) {
-        const validationErrors = data.errors.map(err => 
-          `${err.field || 'Field'}: ${err.message || err}`
-        ).join(', ');
-        message = `Validation errors: ${validationErrors}`;
-      } else if (data.title && data.title.includes('validation')) {
-        message = data.title;
-      } else {
-        message = data.message || data.error || data.detail || data.title || `Request failed (${res.status})`;
-      }
-    } else if (typeof data === 'string' && data.trim()) {
-      message = data;
+    // Handle 401 Unauthorized specifically
+    if (res.status === 401) {
+      console.warn("🚨 401 Unauthorized - Token may be expired or invalid");
+      console.warn("🔄 Clearing auth data and redirecting to login");
+      
+      // Clear auth data
+      localStorage.removeItem("evtb_auth");
+      
+      // Redirect to login after a short delay
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 1000);
+      
+      message = "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
     } else {
-      // Default messages based on status codes
-      switch (res.status) {
-        case 400:
-          message = "Dữ liệu không hợp lệ";
-          break;
-        case 401:
-          message = "Không có quyền truy cập";
-          break;
-        case 403:
-          message = "Bị từ chối truy cập";
-          break;
-        case 404:
-          message = "Không tìm thấy tài nguyên";
-          break;
-        case 409:
-          message = "Dữ liệu đã tồn tại";
-          break;
-        case 500:
-          message = "Lỗi máy chủ";
-          break;
-        default:
-          message = `Request failed (${res.status})`;
+      // Try to extract meaningful error message
+      if (data && typeof data === 'object') {
+        // Handle validation errors specifically
+        if (data.errors && Array.isArray(data.errors)) {
+          const validationErrors = data.errors.map(err => 
+            `${err.field || 'Field'}: ${err.message || err}`
+          ).join(', ');
+          message = `Validation errors: ${validationErrors}`;
+        } else if (data.title && data.title.includes('validation')) {
+          message = data.title;
+        } else {
+          message = data.message || data.error || data.detail || data.title || `Request failed (${res.status})`;
+        }
+      } else if (typeof data === 'string' && data.trim()) {
+        message = data;
+      } else {
+        // Default messages based on status codes
+        switch (res.status) {
+          case 400:
+            message = "Dữ liệu không hợp lệ";
+            break;
+          case 401:
+            message = "Không có quyền truy cập";
+            break;
+          case 403:
+            message = "Bị từ chối truy cập";
+            break;
+          case 404:
+            message = "Không tìm thấy tài nguyên";
+            break;
+          case 409:
+            message = "Dữ liệu đã tồn tại";
+            break;
+          case 500:
+            message = "Lỗi máy chủ";
+            break;
+          default:
+            message = `Request failed (${res.status})`;
+        }
       }
     }
     
