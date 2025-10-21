@@ -31,6 +31,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
 import { toggleFavorite, isProductFavorited } from "../lib/favoriteApi";
 import { VerificationButton } from "../components/common/VerificationButton";
+import { ChatModal } from "../components/common/ChatModal";
 
 // Helper function to fix Vietnamese character encoding
 const fixVietnameseEncoding = (str) => {
@@ -81,17 +82,11 @@ export const ProductDetail = () => {
   const [loading, setLoading] = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteId, setFavoriteId] = useState(null);
-  const [showContactModal, setShowContactModal] = useState(false);
+  const [showChatModal, setShowChatModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
   const [paying, setPaying] = useState(false);
   const [currentOrderId, setCurrentOrderId] = useState(null);
-  const [contactForm, setContactForm] = useState({
-    name: "",
-    phone: "",
-    message: "",
-  });
-  const [showSellerContact, setShowSellerContact] = useState(false);
 
   useEffect(() => {
     console.log("ProductDetail - ID from params:", id);
@@ -334,32 +329,12 @@ export const ProductDetail = () => {
       });
       return;
     }
-    setShowContactModal(true);
+    setShowChatModal(true);
   };
 
-  const handleContactFormSubmit = (e) => {
-    e.preventDefault();
-    if (!contactForm.name.trim() || !contactForm.phone.trim()) {
-      showToast({
-        title: "⚠️ Thiếu thông tin",
-        description: "Vui lòng điền đầy đủ họ tên và số điện thoại",
-        type: "warning",
-      });
-      return;
-    }
-    setShowSellerContact(true);
-    showToast({
-      title: "✅ Gửi thông tin thành công",
-      description: "Thông tin liên hệ đã được gửi cho người bán",
-      type: "success",
-    });
-  };
-
-  const handleContactFormChange = (e) => {
-    setContactForm({
-      ...contactForm,
-      [e.target.name]: e.target.value,
-    });
+  const handleSendMessage = async (message) => {
+    // This function is no longer needed as ChatModal handles the API call directly
+    console.log("Message sent:", message);
   };
 
   const handleCreateOrder = () => {
@@ -853,13 +828,26 @@ export const ProductDetail = () => {
                   );
                 })()}
 
-                <button
-                  onClick={handleContactSeller}
-                  className="w-full bg-green-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center justify-center"
-                >
-                  <MessageCircle className="h-5 w-5 mr-2" />
-                  Liên hệ người bán
-                </button>
+                {/* ✅ Only show contact button if user is not the seller */}
+                {(() => {
+                  const currentUserId = user?.id || user?.userId || user?.accountId;
+                  const productSellerId = product?.sellerId || product?.seller_id;
+                  const isOwnProduct = currentUserId && productSellerId && currentUserId == productSellerId;
+
+                  if (isOwnProduct) {
+                    return null; // Don't show contact button for own product
+                  }
+
+                  return (
+                    <button
+                      onClick={handleContactSeller}
+                      className="w-full bg-green-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center justify-center"
+                    >
+                      <MessageCircle className="h-5 w-5 mr-2" />
+                      Liên hệ người bán
+                    </button>
+                  );
+                })()}
               </div>
             </div>
 
@@ -1162,133 +1150,14 @@ export const ProductDetail = () => {
         </div>
       </div>
 
-      {/* Contact Modal */}
-      {showContactModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Liên hệ người bán
-            </h3>
-
-            {!showSellerContact ? (
-              <form onSubmit={handleContactFormSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Họ và tên *
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={contactForm.name}
-                    onChange={handleContactFormChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Nhập họ tên của bạn"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Số điện thoại *
-                  </label>
-                  <input
-                    type="tel"
-                    name="phone"
-                    value={contactForm.phone}
-                    onChange={handleContactFormChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Nhập số điện thoại"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Tin nhắn
-                  </label>
-                  <textarea
-                    name="message"
-                    value={contactForm.message}
-                    onChange={handleContactFormChange}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Nhập tin nhắn cho người bán"
-                  />
-                </div>
-                <div className="flex space-x-3 mt-6">
-                  <button
-                    type="button"
-                    onClick={() => setShowContactModal(false)}
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-                  >
-                    Hủy
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    Gửi thông tin
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <div className="space-y-4">
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <div className="flex items-center">
-                    <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
-                    <span className="text-green-800 font-medium">
-                      Thông tin đã được gửi thành công!
-                    </span>
-                  </div>
-                </div>
-
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h4 className="font-medium text-gray-900 mb-3">
-                    Thông tin liên hệ người bán:
-                  </h4>
-                  <div className="space-y-2">
-                    <div className="flex items-center">
-                      <Phone className="h-4 w-4 text-gray-600 mr-2" />
-                      <span className="text-gray-700">
-                        {seller?.phone ||
-                          product.sellerPhone ||
-                          product.contactPhone ||
-                          "Chưa cập nhật"}
-                      </span>
-                    </div>
-                    <div className="flex items-center">
-                      <MessageCircle className="h-4 w-4 text-gray-600 mr-2" />
-                      <span className="text-gray-700">
-                        {seller?.email ||
-                          product.sellerEmail ||
-                          product.contactEmail ||
-                          "Chưa cập nhật"}
-                      </span>
-                    </div>
-                    <div className="flex items-center">
-                      <span className="text-sm text-gray-500">
-                        Người bán:{" "}
-                        {seller?.fullName || product.sellerName || "Người bán"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex space-x-3 mt-6">
-                  <button
-                    onClick={() => {
-                      setShowContactModal(false);
-                      setShowSellerContact(false);
-                      setContactForm({ name: "", phone: "", message: "" });
-                    }}
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    Đóng
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {/* Chat Modal */}
+      <ChatModal
+        isOpen={showChatModal}
+        onClose={() => setShowChatModal(false)}
+        seller={seller}
+        product={product}
+        onSendMessage={handleSendMessage}
+      />
 
       {/* Payment Modal */}
       {showPaymentModal && (
