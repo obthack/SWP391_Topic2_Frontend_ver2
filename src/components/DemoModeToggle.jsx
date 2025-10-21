@@ -1,15 +1,40 @@
 import React, { useState, useEffect } from "react";
-import { Presentation, Shield, AlertTriangle } from "lucide-react";
+import { Presentation, Shield, AlertTriangle, Clock } from "lucide-react";
 
 export const DemoModeToggle = () => {
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [showWarning, setShowWarning] = useState(false);
+  const [tokenInfo, setTokenInfo] = useState(null);
 
   useEffect(() => {
     // Check if demo mode is enabled
     const demoMode = localStorage.getItem("evtb_demo_mode") === "true";
     setIsDemoMode(demoMode);
+
+    // Check token info
+    checkTokenInfo();
   }, []);
+
+  const checkTokenInfo = () => {
+    try {
+      const raw = localStorage.getItem("evtb_auth");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.token) {
+          const payload = JSON.parse(atob(parsed.token.split(".")[1]));
+          const currentTime = Math.floor(Date.now() / 1000);
+          const timeLeft = payload.exp - currentTime;
+          setTokenInfo({
+            expires: new Date(payload.exp * 1000),
+            timeLeft: Math.max(0, timeLeft),
+            isExpired: timeLeft < 0,
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error checking token:", error);
+    }
+  };
 
   const toggleDemoMode = () => {
     const newDemoMode = !isDemoMode;
@@ -46,6 +71,27 @@ export const DemoModeToggle = () => {
             ? "Token expiration checks are disabled for presentation"
             : "Token expiration checks are enabled for security"}
         </p>
+
+        {tokenInfo && (
+          <div className="mb-3 p-2 bg-gray-50 rounded text-xs">
+            <div className="flex items-center mb-1">
+              <Clock className="h-3 w-3 text-gray-500 mr-1" />
+              <span className="font-medium">Token Status:</span>
+            </div>
+            <div className="text-gray-600">
+              {tokenInfo.isExpired ? (
+                <span className="text-red-600">⚠️ Expired</span>
+              ) : (
+                <span className="text-green-600">
+                  ✅ Valid for {Math.floor(tokenInfo.timeLeft / 60)}m
+                </span>
+              )}
+            </div>
+            <div className="text-gray-500">
+              Expires: {tokenInfo.expires.toLocaleTimeString()}
+            </div>
+          </div>
+        )}
 
         <button
           onClick={toggleDemoMode}
