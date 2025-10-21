@@ -310,7 +310,7 @@ export const RegisterForm = () => {
                     value={formData.fullName}
                     onChange={handleChange}
                     className="auth-input"
-                    placeholder="Nguyễn Văn A"
+                    placeholder="Họ và tên của bạn"
                     required
                   />
                 </div>
@@ -330,7 +330,7 @@ export const RegisterForm = () => {
                     value={formData.email}
                     onChange={handleChange}
                     className="auth-input"
-                    placeholder="your@email.com"
+                    placeholder="name@email.com"
                     required
                   />
                 </div>
@@ -350,7 +350,7 @@ export const RegisterForm = () => {
                     value={formData.phone}
                     onChange={handleChange}
                     className="auth-input"
-                    placeholder="0123456789"
+                    placeholder="Số điện thoại của bạn"
                     required
                   />
                 </div>
