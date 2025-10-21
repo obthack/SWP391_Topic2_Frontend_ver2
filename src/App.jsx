@@ -38,9 +38,12 @@ import { Returns } from "./pages/Returns";
 import PaymentResult from "./pages/PaymentResult";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import PaymentExample from "./pages/PaymentExample";
+import { ChatPage } from "./pages/ChatPage";
+import { ChatHistory } from "./pages/ChatHistory";
 import ApiTest from "./components/ApiTest";
 import UserDebug from "./components/UserDebug";
 import { ToastProvider } from "./contexts/ToastContext";
+import { TokenExpirationWarning } from "./components/TokenExpirationWarning";
 
 const PublicRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -129,6 +132,7 @@ const AppContent = () => {
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
+      <TokenExpirationWarning />
       <main className="flex-grow">
         <Routes>
           <Route path="/" element={<HomePage />} />
@@ -253,6 +257,25 @@ const AppContent = () => {
           <Route path="/payment/result" element={<PaymentResult />} />
           <Route path="/payment/success" element={<PaymentSuccess />} />
           <Route path="/payment/example" element={<PaymentExample />} />
+          
+          {/* Chat Routes */}
+          <Route
+            path="/chats"
+            element={
+              <ProtectedRoute>
+                <ChatHistory />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/chat/:conversationId"
+            element={
+              <ProtectedRoute>
+                <ChatPage />
+              </ProtectedRoute>
+            }
+          />
+          
           <Route path="/api/test" element={<ApiTest />} />
           <Route path="/user/debug" element={<UserDebug />} />
 
