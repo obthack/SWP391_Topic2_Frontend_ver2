@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Upload, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
@@ -13,15 +13,42 @@ import {
   formatVietnamesePrice,
   parsePriceValue,
 } from "../utils/priceFormatter";
+import { DemoModeToggle } from "../components/DemoModeToggle";
 
 export const CreateListing = () => {
   const { user, profile } = useAuth();
   const { show } = useToast();
   const navigate = useNavigate();
+
+  // Check if user is authenticated
+  useEffect(() => {
+    if (!user) {
+      console.log("❌ User not authenticated, redirecting to login");
+      navigate("/login");
+      return;
+    }
+    console.log("✅ User authenticated:", user);
+
+    // Debug: Check token in localStorage
+    const authData = localStorage.getItem("evtb_auth");
+    console.log("🔍 Auth data in localStorage:", authData);
+    if (authData) {
+      try {
+        const parsed = JSON.parse(authData);
+        console.log("🔍 Parsed auth data:", parsed);
+        console.log("🔍 Token exists:", !!parsed?.token);
+        console.log("🔍 Token length:", parsed?.token?.length || 0);
+      } catch (err) {
+        console.error("🔍 Error parsing auth data:", err);
+      }
+    }
+  }, [user, navigate]);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [images, setImages] = useState([]);
   const [documentImages, setDocumentImages] = useState([]);
+  const isSubmittingRef = useRef(false);
   const [formData, setFormData] = useState({
     title: "",
     licensePlate: "",
@@ -33,6 +60,7 @@ export const CreateListing = () => {
     mileage: "",
     color: "",
     fuelType: "",
+
     condition: "excellent",
     productType: "vehicle",
     // Vehicle specific fields
@@ -50,7 +78,7 @@ export const CreateListing = () => {
   const [displayPrice, setDisplayPrice] = useState("");
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
 
     if (name === "price") {
       // Format price display with spaces
@@ -62,6 +90,11 @@ export const CreateListing = () => {
       setFormData({
         ...formData,
         [name]: numericPrice,
+      });
+    } else if (type === "checkbox") {
+      setFormData({
+        ...formData,
+        [name]: checked,
       });
     } else {
       setFormData({
@@ -134,6 +167,62 @@ export const CreateListing = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Prevent multiple submissions using ref
+    if (isSubmittingRef.current || loading) {
+      console.log("⚠️ Form already submitting, ignoring duplicate submission");
+      return;
+    }
+
+    // Check authentication before proceeding
+    const authData = localStorage.getItem("evtb_auth");
+    if (!authData) {
+      setError("Bạn cần đăng nhập để tạo bài đăng. Đang chuyển hướng...");
+      setTimeout(() => {
+        navigate("/login");
+      }, 2000);
+      return;
+    }
+
+    // Check if token is valid
+    try {
+      const parsed = JSON.parse(authData);
+      const token = parsed?.token;
+      if (!token) {
+        setError("Token không hợp lệ. Vui lòng đăng nhập lại.");
+        localStorage.removeItem("evtb_auth");
+        setTimeout(() => {
+          navigate("/login");
+        }, 2000);
+        return;
+      }
+
+      // Check token expiration
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      const currentTime = Math.floor(Date.now() / 1000);
+      const isExpired = payload.exp && payload.exp < currentTime;
+
+      if (isExpired) {
+        setError("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+        localStorage.removeItem("evtb_auth");
+        setTimeout(() => {
+          navigate("/login");
+        }, 2000);
+        return;
+      }
+
+      console.log("✅ Token validation passed");
+    } catch (error) {
+      console.error("❌ Token validation failed:", error);
+      setError("Token không hợp lệ. Vui lòng đăng nhập lại.");
+      localStorage.removeItem("evtb_auth");
+      setTimeout(() => {
+        navigate("/login");
+      }, 2000);
+      return;
+    }
+
+    isSubmittingRef.current = true;
     setError("");
     setLoading(true);
 
@@ -364,6 +453,7 @@ export const CreateListing = () => {
         brand: formData.brand,
         model: formData.model,
         condition: formData.condition,
+        verificationStatus: "NotRequested", // Set default verification status for new products
         // Vehicle fields (will be null/0 for batteries)
         vehicleType:
           formData.productType === "vehicle"
@@ -429,13 +519,16 @@ export const CreateListing = () => {
 
       console.log(`🚀 Using ${formData.productType} API:`, apiEndpoint);
       console.log(`📦 Product data:`, productData);
+      console.log(`⏰ Submission timestamp:`, new Date().toISOString());
 
       try {
+        console.log(`🔄 Creating product... (Single submission)`);
         created = await apiRequest(apiEndpoint, {
           method: "POST",
           body: productData,
         });
         console.log(`✅ Product created successfully:`, created);
+        console.log(`✅ Product ID: ${created?.productId || created?.id}`);
       } catch (error) {
         console.error(`❌ Product creation failed:`, error);
 
@@ -484,38 +577,63 @@ export const CreateListing = () => {
 
         throw error;
       }
-      const pid = created?.id || created?.productId || created?.Id;
+
+      // Debug product creation response
+      console.log("🔍 Product creation response:", created);
+      console.log("🔍 Available ID fields:", {
+        id: created?.id,
+        productId: created?.productId,
+        Id: created?.Id,
+        ProductId: created?.ProductId,
+        ID: created?.ID,
+      });
+
+      const pid =
+        created?.id ||
+        created?.productId ||
+        created?.Id ||
+        created?.ProductId ||
+        created?.ID;
+
+      if (!pid) {
+        throw new Error(
+          "Không thể lấy ID sản phẩm từ phản hồi API. Vui lòng thử lại."
+        );
+      }
+
+      console.log("✅ Product ID resolved:", pid);
 
       // Upload product images after product creation
-      if (pid && images.length > 0) {
+      if (images.length > 0) {
         console.log(
-          `🖼️ Uploading ${images.length} product images for product ${pid}...`
+          `🖼️ Uploading ${images.length} product images for product ${pid}... (Single upload)`
         );
-        console.log(`🖼️ Product ID: ${pid}`);
-        console.log(`🖼️ Images to upload:`, images.map(img => ({
-          name: img.name,
-          size: img.size,
-          type: img.type
-        })));
+
+        let uploadSuccess = false;
+        let uploadErrors = [];
 
         try {
           // Try multiple upload first
           const uploadFormData = new FormData();
-          uploadFormData.append("productId", pid);
-          // Determine image type based on product type
-          const imageType = formData.productType === "vehicle" ? "Vehicle" : "Battery";
-          uploadFormData.append("name", imageType); // Add required name field
+          uploadFormData.append("productId", pid.toString());
+
+          // Set image name based on product type - ảnh xe
+          const imageName =
+            formData.productType === "vehicle" ? "Vehicle" : "Battery";
+          uploadFormData.append("name", imageName);
 
           // Add all product images to FormData
           images.forEach((image, index) => {
             uploadFormData.append("images", image);
           });
 
-          console.log(
-            "🖼️ Uploading product images with multiple endpoint:",
-            images.length,
-            "images"
-          );
+          console.log("🚀 Attempting multiple image upload with FormData:", {
+            productId: pid,
+            imageName: imageName,
+            imageCount: images.length,
+            formDataKeys: Array.from(uploadFormData.keys()),
+          });
+
           const uploadedImages = await apiRequest(
             `/api/ProductImage/multiple`,
             {
@@ -523,124 +641,180 @@ export const CreateListing = () => {
               body: uploadFormData,
             }
           );
+
           console.log(
             "✅ Multiple product images uploaded successfully:",
             uploadedImages
           );
+          uploadSuccess = true;
         } catch (e) {
           console.warn(
-            "⚠️ Multiple product image upload failed, trying individual uploads:",
+            "❌ Multiple product image upload failed, trying individual uploads:",
             e
           );
-          console.warn(`Error details:`, {
-            message: e.message,
-            status: e.status,
-            data: e.data
-          });
+          uploadErrors.push(`Multiple upload failed: ${e.message}`);
 
           // Fallback to individual uploads
+          let individualSuccessCount = 0;
           for (let i = 0; i < images.length; i++) {
             const img = images[i];
             try {
-              const uploadFormData = new FormData();
-              uploadFormData.append("productId", pid);
-              uploadFormData.append("imageFile", img);
-              // Determine image type based on product type
-              const imageType = formData.productType === "vehicle" ? "Vehicle" : "Battery";
-              uploadFormData.append("name", imageType); // Add required name field
+              const individualFormData = new FormData();
+              individualFormData.append("productId", pid.toString());
+              individualFormData.append("imageFile", img);
+
+              // Set image name based on product type - ảnh xe
+              const imageName =
+                formData.productType === "vehicle" ? "Vehicle" : "Battery";
+              individualFormData.append("name", imageName);
 
               console.log(
-                `🖼️ Uploading product image ${i + 1}/${
+                `📤 Uploading product image ${i + 1}/${
                   images.length
-                } for product ${pid}`
+                } for product ${pid} with name: ${imageName}`
               );
+
               const result = await apiRequest(`/api/ProductImage`, {
                 method: "POST",
-                body: uploadFormData,
+                body: individualFormData,
               });
-              console.log(`✅ Product image ${i + 1} uploaded successfully:`, result);
+
+              console.log(
+                `✅ Product image ${i + 1} uploaded successfully:`,
+                result
+              );
+              individualSuccessCount++;
             } catch (e) {
-              console.warn(`❌ Product image ${i + 1} upload failed:`, e);
-              console.warn(`Error details:`, {
-                message: e.message,
-                status: e.status,
-                data: e.data
-              });
+              const errorMsg = `Image ${i + 1} upload failed: ${e.message}`;
+              console.warn(`❌ ${errorMsg}`, e);
+              uploadErrors.push(errorMsg);
             }
           }
+
+          if (individualSuccessCount > 0) {
+            uploadSuccess = true;
+            console.log(
+              `✅ ${individualSuccessCount}/${images.length} images uploaded successfully via individual method`
+            );
+          }
+        }
+
+        if (!uploadSuccess) {
+          console.error("❌ All image upload methods failed:", uploadErrors);
+          throw new Error(
+            `Không thể upload ảnh sản phẩm: ${uploadErrors.join(", ")}`
+          );
         }
       } else {
         console.log("ℹ️ No product images were selected for upload.");
-        console.log(`ℹ️ PID: ${pid}, Images count: ${images.length}`);
       }
 
       // Upload document images after product creation
-      if (pid && documentImages.length > 0) {
+      if (documentImages.length > 0) {
         console.log(
-          `Uploading ${documentImages.length} document images for product ${pid}...`
+          `📄 Uploading ${documentImages.length} document images for product ${pid}... (Single upload)`
         );
+
+        let docUploadSuccess = false;
+        let docUploadErrors = [];
 
         try {
           // Try multiple upload first for documents
-          const uploadFormData = new FormData();
-          uploadFormData.append("productId", pid);
-          uploadFormData.append("imageType", "document"); // Add type to distinguish from product images
-          uploadFormData.append("name", "Document"); // Add required name field
+          const docFormData = new FormData();
+          docFormData.append("productId", pid.toString());
+          docFormData.append("imageType", "document"); // Add type to distinguish from product images
+          docFormData.append("name", "Document"); // Set name for document images - ảnh giấy tờ xe
 
           // Add all document images to FormData
           documentImages.forEach((image, index) => {
-            uploadFormData.append("images", image);
+            docFormData.append("images", image);
           });
 
           console.log(
-            "Uploading document images with multiple endpoint:",
-            documentImages.length,
-            "images"
+            "🚀 Attempting multiple document image upload with FormData:",
+            {
+              productId: pid,
+              imageName: "Document",
+              imageCount: documentImages.length,
+              formDataKeys: Array.from(docFormData.keys()),
+            }
           );
+
           const uploadedDocumentImages = await apiRequest(
             `/api/ProductImage/multiple`,
             {
               method: "POST",
-              body: uploadFormData,
+              body: docFormData,
             }
           );
+
           console.log(
-            "Multiple document images uploaded successfully:",
+            "✅ Multiple document images uploaded successfully:",
             uploadedDocumentImages
           );
+          docUploadSuccess = true;
         } catch (e) {
           console.warn(
-            "Multiple document image upload failed, trying individual uploads:",
+            "❌ Multiple document image upload failed, trying individual uploads:",
             e
           );
+          docUploadErrors.push(`Multiple document upload failed: ${e.message}`);
 
           // Fallback to individual uploads for documents
+          let individualDocSuccessCount = 0;
           for (let i = 0; i < documentImages.length; i++) {
             const img = documentImages[i];
             try {
-              const uploadFormData = new FormData();
-              uploadFormData.append("productId", pid);
-              uploadFormData.append("imageFile", img);
-              uploadFormData.append("imageType", "document"); // Add type to distinguish
-              uploadFormData.append("name", "Document"); // Add required name field
+              const individualDocFormData = new FormData();
+              individualDocFormData.append("productId", pid.toString());
+              individualDocFormData.append("imageFile", img);
+              individualDocFormData.append("imageType", "document"); // Add type to distinguish
+              individualDocFormData.append("name", "Document"); // Set name for document images - ảnh giấy tờ xe
 
               console.log(
-                `Uploading document image ${i + 1}/${
+                `📤 Uploading document image ${i + 1}/${
                   documentImages.length
-                } for product ${pid}`
+                } for product ${pid} with name: Document`
               );
-              await apiRequest(`/api/ProductImage`, {
+
+              const result = await apiRequest(`/api/ProductImage`, {
                 method: "POST",
-                body: uploadFormData,
+                body: individualDocFormData,
               });
-              console.log(`Document image ${i + 1} uploaded successfully`);
+
+              console.log(
+                `✅ Document image ${i + 1} uploaded successfully:`,
+                result
+              );
+              individualDocSuccessCount++;
             } catch (e) {
-              console.warn(`Document image ${i + 1} upload failed:`, e);
+              const errorMsg = `Document image ${i + 1} upload failed: ${
+                e.message
+              }`;
+              console.warn(`❌ ${errorMsg}`, e);
+              docUploadErrors.push(errorMsg);
             }
           }
+
+          if (individualDocSuccessCount > 0) {
+            docUploadSuccess = true;
+            console.log(
+              `✅ ${individualDocSuccessCount}/${documentImages.length} document images uploaded successfully via individual method`
+            );
+          }
+        }
+
+        if (!docUploadSuccess) {
+          console.error(
+            "❌ All document image upload methods failed:",
+            docUploadErrors
+          );
+          throw new Error(
+            `Không thể upload ảnh giấy tờ: ${docUploadErrors.join(", ")}`
+          );
         }
       } else {
-        console.log("No document images were selected for upload.");
+        console.log("ℹ️ No document images were selected for upload.");
       }
 
       // Send notification to user (optional - don't block success)
@@ -663,13 +837,62 @@ export const CreateListing = () => {
         // Don't throw error - notification is optional
       }
 
+      // Prepare success message with image upload status
+      const imageStatus =
+        images.length > 0
+          ? documentImages.length > 0
+            ? `Đã upload ${images.length} ảnh xe (Vehicle) và ${documentImages.length} ảnh giấy tờ xe (Document).`
+            : `Đã upload ${images.length} ảnh xe (Vehicle).`
+          : documentImages.length > 0
+          ? `Đã upload ${documentImages.length} ảnh giấy tờ xe (Document).`
+          : "Chưa có ảnh nào được upload.";
+
+      // Add inspection request status
+      const inspectionStatus =
+        formData.productType === "vehicle" && formData.inspectionRequested
+          ? " Đã yêu cầu kiểm định xe - Admin sẽ liên hệ để hẹn lịch kiểm tra."
+          : "";
+
       show({
         title: "✅ Tạo bài đăng thành công",
-        description: notificationSent
-          ? "Bài đăng của bạn đang chờ duyệt từ admin. Bạn sẽ được thông báo khi được duyệt."
-          : "Bài đăng của bạn đang chờ duyệt từ admin. (Hệ thống thông báo tạm thời không khả dụng)",
+        description: `${imageStatus}${inspectionStatus} Bài đăng của bạn đang chờ duyệt từ admin. ${
+          notificationSent
+            ? "Bạn sẽ được thông báo khi được duyệt."
+            : "(Hệ thống thông báo tạm thời không khả dụng)"
+        }`,
         type: "success",
       });
+
+      // Reset form to prevent duplicate submissions
+      console.log("🔄 Resetting form after successful submission");
+      setFormData({
+        title: "",
+        licensePlate: "",
+        description: "",
+        brand: "",
+        model: "",
+        year: "",
+        price: "",
+        mileage: "",
+        color: "",
+        fuelType: "",
+        condition: "excellent",
+        productType: "vehicle",
+        vehicleType: "",
+        manufactureYear: "",
+        batteryHealth: "",
+        batteryType: "",
+        capacity: "",
+        voltage: "",
+        bms: "",
+        cellType: "",
+        cycleCount: "",
+        seatCount: "",
+        inspectionRequested: false,
+      });
+      setImages([]);
+      setDocumentImages([]);
+
       navigate("/dashboard");
     } catch (err) {
       console.error("Error creating product:", err);
@@ -727,11 +950,13 @@ export const CreateListing = () => {
       setError(errorMessage);
     } finally {
       setLoading(false);
+      isSubmittingRef.current = false; // Reset submission flag
     }
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <DemoModeToggle />
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <button
@@ -1007,7 +1232,6 @@ export const CreateListing = () => {
                   <p className="text-xs text-gray-500 mt-1">Đơn vị: km</p>
                 </div>
 
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Biển số xe *
@@ -1168,12 +1392,15 @@ export const CreateListing = () => {
           {/* Product Images Upload */}
           <div className="bg-white rounded-xl shadow-sm p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-6">
-              Hình ảnh sản phẩm (Tối đa 5 ảnh)
+              Hình ảnh xe (Tối đa 5 ảnh)
             </h2>
             <div className="space-y-4">
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                 <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600 mb-4">Upload hình ảnh xe của bạn</p>
+                <p className="text-gray-600 mb-4">
+                  Upload hình ảnh xe của bạn (ảnh xe sẽ được lưu với tên
+                  "Vehicle")
+                </p>
                 <input
                   type="file"
                   multiple
@@ -1230,7 +1457,8 @@ export const CreateListing = () => {
                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                   <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                   <p className="text-gray-600 mb-4">
-                    Upload hình ảnh giấy tờ xe
+                    Upload hình ảnh giấy tờ xe (ảnh giấy tờ sẽ được lưu với tên
+                    "Document")
                   </p>
                   <input
                     type="file"
@@ -1288,6 +1516,13 @@ export const CreateListing = () => {
               type="submit"
               disabled={loading}
               className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={(e) => {
+                // Additional protection against double clicks
+                if (loading) {
+                  e.preventDefault();
+                  return false;
+                }
+              }}
             >
               {loading ? "Đang tạo..." : "Tạo bài đăng"}
             </button>

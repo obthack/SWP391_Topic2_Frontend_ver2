@@ -30,6 +30,7 @@ import { formatPrice } from "../utils/formatters";
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
 import { toggleFavorite, isProductFavorited } from "../lib/favoriteApi";
+import { VerificationButton } from "../components/common/VerificationButton";
 
 // Helper function to fix Vietnamese character encoding
 const fixVietnameseEncoding = (str) => {
@@ -108,7 +109,7 @@ export const ProductDetail = () => {
 
       // Load product details
       const productData = await apiRequest(`/api/Product/${id}`);
-      
+
       // Normalize product data to ensure frontend compatibility
       const normalizedProduct = {
         ...productData,
@@ -118,12 +119,12 @@ export const ProductDetail = () => {
         title: productData.title || productData.name,
         price: productData.price || 0,
         images: productData.imageUrls || productData.images || [],
-        status: productData.status || 'Available'
+        status: productData.status || "Available",
       };
-      
+
       console.log("[ProductDetail] Raw product data:", productData);
       console.log("[ProductDetail] Normalized product:", normalizedProduct);
-      
+
       setProduct(normalizedProduct);
 
       // Load seller information
@@ -161,46 +162,62 @@ export const ProductDetail = () => {
         console.log("🔍 All images data:", allImages);
         console.log("🔍 First image structure:", allImages[0]);
 
-        // Separate product images from document images
-        // Try different possible field names for image type
+        // Separate product images from document images based on Name field
         const productImages = allImages.filter((img) => {
-          const imageType =
-            img.imageType || img.type || img.image_type || img.category;
-          console.log(`🔍 Image type for ${img.id || "unknown"}:`, imageType);
+          const imageName = img.name || img.Name;
+          console.log(`🔍 Image name for ${img.id || "unknown"}:`, imageName);
 
-          // If no imageType field exists, use temporary logic
-          if (!imageType) {
+          // Check if this is a product image based on Name field
+          if (imageName === "Vehicle" || imageName === "Battery") {
             console.log(
-              "🔍 No imageType found, using temporary separation logic"
+              `🔍 Image ${img.id}: treating as PRODUCT (${imageName})`
             );
-
-            // Temporary logic: Assume first 2-3 images are product images
-            // This is a workaround until backend supports imageType
-            const imageIndex = allImages.indexOf(img);
-            const isProductImage = imageIndex < 2; // First 2 images are products
-
-            console.log(
-              `🔍 Image ${imageIndex}: treating as ${
-                isProductImage ? "product" : "document"
-              }`
-            );
-            return isProductImage;
+            return true;
           }
 
-          return imageType !== "document";
+          // If no name field or unknown name, check imageType as fallback
+          const imageType =
+            img.imageType || img.type || img.image_type || img.category;
+          if (imageType && imageType !== "document") {
+            console.log(
+              `🔍 Image ${img.id}: treating as PRODUCT (imageType: ${imageType})`
+            );
+            return true;
+          }
+
+          console.log(
+            `🔍 Image ${img.id}: treating as DOCUMENT (name: ${imageName}, type: ${imageType})`
+          );
+          return false;
         });
 
         const docImages = allImages.filter((img) => {
-          const imageType =
-            img.imageType || img.type || img.image_type || img.category;
+          const imageName = img.name || img.Name;
+          console.log(`🔍 Image name for ${img.id || "unknown"}:`, imageName);
 
-          if (!imageType) {
-            // Temporary logic: Images after index 2 are documents
-            const imageIndex = allImages.indexOf(img);
-            return imageIndex >= 2;
+          // Check if this is a document image based on Name field
+          if (imageName === "Document") {
+            console.log(
+              `🔍 Image ${img.id}: treating as DOCUMENT (${imageName})`
+            );
+            return true;
           }
 
-          return imageType === "document";
+          // If no name field or unknown name, check imageType as fallback
+          const imageType =
+            img.imageType || img.type || img.image_type || img.category;
+          if (imageType === "document") {
+            console.log(
+              `🔍 Image ${img.id}: treating as DOCUMENT (imageType: ${imageType})`
+            );
+            return true;
+          }
+
+          // If neither name nor type indicates document, it's not a document
+          console.log(
+            `🔍 Image ${img.id}: treating as PRODUCT (name: ${imageName}, type: ${imageType})`
+          );
+          return false;
         });
 
         console.log("🔍 Product images:", productImages.length);
@@ -358,7 +375,7 @@ export const ProductDetail = () => {
     // ✅ CRITICAL: Check if user is trying to buy their own product
     const currentUserId = user?.id || user?.userId || user?.accountId;
     const productSellerId = product?.sellerId || product?.seller_id;
-    
+
     if (currentUserId && productSellerId && currentUserId == productSellerId) {
       showToast({
         title: "⚠️ Không thể mua",
@@ -380,16 +397,16 @@ export const ProductDetail = () => {
   // Handle payment deposit
   const onPayDeposit = async () => {
     if (paying) return;
-    
+
     setPaying(true);
-    
+
     try {
       console.log("[VNPay] Starting payment process...");
-      
+
       // Get auth token
       const authData = localStorage.getItem("evtb_auth");
       const token = authData ? JSON.parse(authData)?.token : null;
-      
+
       if (!token) {
         throw new Error("Bạn cần đăng nhập để thực hiện thanh toán");
       }
@@ -399,47 +416,61 @@ export const ProductDetail = () => {
         user: user,
         roleId: user?.roleId,
         role: user?.role,
-        roleName: user?.roleName
+        roleName: user?.roleName,
       });
 
       // Check user role (should be role=2 for member) - More flexible check
       const userRoleId = user?.roleId || user?.role;
-      const isMember = userRoleId === 2 || userRoleId === "2" || user?.roleName?.toLowerCase() === "member" || user?.roleName?.toLowerCase() === "user";
-      
+      const isMember =
+        userRoleId === 2 ||
+        userRoleId === "2" ||
+        user?.roleName?.toLowerCase() === "member" ||
+        user?.roleName?.toLowerCase() === "user";
+
       // TEMPORARY: Allow all authenticated users for testing
       const allowAllUsers = true; // Set to false in production
-      
+
       if (!isMember && !allowAllUsers) {
         console.log("[VNPay] Role check failed:", {
           userRoleId,
           roleName: user?.roleName,
-          isMember
+          isMember,
         });
-        throw new Error(`Bạn cần đăng nhập với vai trò thành viên. Vai trò hiện tại: ${user?.roleName || userRoleId || "Unknown"}`);
+        throw new Error(
+          `Bạn cần đăng nhập với vai trò thành viên. Vai trò hiện tại: ${
+            user?.roleName || userRoleId || "Unknown"
+          }`
+        );
       }
-      
+
       if (!isMember && allowAllUsers) {
-        console.log("[VNPay] ⚠️ TEMPORARY: Allowing payment despite role check failed");
+        console.log(
+          "[VNPay] ⚠️ TEMPORARY: Allowing payment despite role check failed"
+        );
       }
 
       // ✅ CRITICAL: Check if user is trying to buy their own product
       const currentUserId = user?.id || user?.userId || user?.accountId;
       const productSellerId = product?.sellerId || product?.seller_id;
-      
+
       console.log("[VNPay] Seller validation:", {
         currentUserId,
         productSellerId,
         isSameUser: currentUserId == productSellerId,
-        productId: product?.id
+        productId: product?.id,
       });
 
-      if (currentUserId && productSellerId && currentUserId == productSellerId) {
+      if (
+        currentUserId &&
+        productSellerId &&
+        currentUserId == productSellerId
+      ) {
         throw new Error("Bạn không thể mua sản phẩm của chính mình!");
       }
 
       const depositAmount = getDepositAmount();
       const totalAmount = product?.price || 0;
-      
+
       // Validate product data
       if (!product?.id) {
         throw new Error("Không tìm thấy thông tin sản phẩm");
@@ -453,22 +484,22 @@ export const ProductDetail = () => {
           productId: product.id,
           sellerId: product.sellerId || product.seller_id || 1, // Default to admin as seller for testing
           depositAmount: depositAmount,
-          totalAmount: totalAmount
+          totalAmount: totalAmount,
         };
-        
+
         console.log("[VNPay] Order data:", orderData);
-        
+
         const orderResponse = await createOrder(orderData, token);
         orderId = orderResponse.orderId;
         setCurrentOrderId(orderId);
         console.log("[VNPay] Order created:", orderId);
       }
-      
-      console.log("[VNPay] POST /api/payment", { 
-        orderId, 
+
+      console.log("[VNPay] POST /api/payment", {
+        orderId,
         amount: depositAmount,
         paymentType: "Deposit",
-        productId: product?.id 
+        productId: product?.id,
       });
 
       // Create payment
@@ -477,13 +508,13 @@ export const ProductDetail = () => {
           orderId: orderId,
           productId: product?.id,
           amount: depositAmount,
-          paymentType: "Deposit"
+          paymentType: "Deposit",
         },
         token
       );
 
       console.log("[VNPay] createPayment res:", res);
-      
+
       if (!res?.paymentUrl) {
         throw new Error("paymentUrl empty");
       }
@@ -492,16 +523,17 @@ export const ProductDetail = () => {
       setShowPaymentModal(false);
       showToast({
         title: "✅ Đang chuyển đến VNPay",
-        description: `Đơn hàng đã được tạo với số tiền cọc ${formatPrice(depositAmount)}. Đang chuyển đến cổng thanh toán...`,
+        description: `Đơn hàng đã được tạo với số tiền cọc ${formatPrice(
+          depositAmount
+        )}. Đang chuyển đến cổng thanh toán...`,
         type: "success",
       });
 
       // Redirect to VNPay
       window.location.href = res.paymentUrl;
-      
     } catch (err) {
       console.error("[VNPay] createPayment error:", err);
-      
+
       // Handle specific errors
       if (err.message.includes("Phiên đăng nhập hết hạn")) {
         showToast({
@@ -522,7 +554,8 @@ export const ProductDetail = () => {
       } else {
         showToast({
           title: "❌ Lỗi thanh toán",
-          description: err.message || "Không tạo được giao dịch VNPay. Vui lòng thử lại!",
+          description:
+            err.message || "Không tạo được giao dịch VNPay. Vui lòng thử lại!",
           type: "error",
         });
       }
@@ -688,15 +721,47 @@ export const ProductDetail = () => {
           <div className="space-y-6">
             <div className="bg-white rounded-xl shadow-sm p-6">
               <div className="flex items-start justify-between mb-4">
-                <div>
+                <div className="flex-1">
                   <h1 className="text-2xl font-bold text-gray-900 mb-2">
                     {product.title}
                   </h1>
+
+                  {/* Verification Status Badge */}
+                  {product.verificationStatus === "Verified" && (
+                    <div className="mb-3">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 border border-green-200">
+                        <CheckCircle className="h-4 w-4 mr-1" />
+                        Đã kiểm định
+                      </span>
+                    </div>
+                  )}
+
                   <p className="text-gray-600">
                     {product.licensePlate ||
                       product.license_plate ||
                       "Biển số: N/A"}
                   </p>
+
+                  {/* Verification Button - Only show for vehicles, product owner, and not verified */}
+                  {product.productType === "Vehicle" &&
+                    product.verificationStatus !== "Verified" && (
+                      <div className="mt-4">
+                        <VerificationButton
+                          productId={
+                            product.id || product.productId || product.Id
+                          }
+                          currentStatus={
+                            product.verificationStatus || "NotRequested"
+                          }
+                          isOwner={
+                            user &&
+                            (user.id || user.userId || user.accountId) ===
+                              (product.sellerId || product.userId)
+                          }
+                          disabled={loading}
+                        />
+                      </div>
+                    )}
                 </div>
                 <div className="text-right">
                   <p className="text-3xl font-bold text-blue-600">
@@ -758,10 +823,15 @@ export const ProductDetail = () => {
               <div className="space-y-3">
                 {/* ✅ Only show payment button if user is not the seller */}
                 {(() => {
-                  const currentUserId = user?.id || user?.userId || user?.accountId;
-                  const productSellerId = product?.sellerId || product?.seller_id;
-                  const isOwnProduct = currentUserId && productSellerId && currentUserId == productSellerId;
-                  
+                  const currentUserId =
+                    user?.id || user?.userId || user?.accountId;
+                  const productSellerId =
+                    product?.sellerId || product?.seller_id;
+                  const isOwnProduct =
+                    currentUserId &&
+                    productSellerId &&
+                    currentUserId == productSellerId;
+
                   if (isOwnProduct) {
                     return (
                       <div className="w-full bg-gray-100 text-gray-500 py-3 px-6 rounded-lg font-medium text-center">
@@ -770,7 +840,7 @@ export const ProductDetail = () => {
                       </div>
                     );
                   }
-                  
+
                   return (
                     <button
                       onClick={handleCreateOrder}
@@ -1266,7 +1336,9 @@ export const ProductDetail = () => {
                   className="w-full p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-center font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <CreditCard className="h-5 w-5 inline mr-2" />
-                  {paying ? "Đang chuyển tới VNPay..." : "Thanh toán cọc qua ngân hàng online"}
+                  {paying
+                    ? "Đang chuyển tới VNPay..."
+                    : "Thanh toán cọc qua ngân hàng online"}
                 </button>
               </div>
             </div>

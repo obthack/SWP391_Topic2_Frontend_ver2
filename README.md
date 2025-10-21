@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # EV Market - Nền tảng giao dịch xe điện & pin số 1 Việt Nam
 
 ## Giới thiệu
@@ -16,11 +15,13 @@ EV Market là một nền tảng web hoàn chỉnh cho việc mua bán xe điệ
 - ✅ Dashboard cá nhân với thống kê
 - ✅ Xem lịch sử giao dịch
 - ✅ Đánh giá và review sản phẩm
+- ✅ **Thanh toán kiểm định xe điện** (tính năng mới)
 
 ### Cho quản trị viên (Admin)
 - ✅ Dashboard tổng quan với thống kê
 - ✅ Quản lý người dùng
 - ✅ Kiểm duyệt tin đăng (approve/reject)
+- ✅ **Kiểm định xe điện** (tính năng mới)
 - ✅ Quản lý giao dịch
 - ✅ Xem báo cáo doanh thu và hoa hồng
 
@@ -161,6 +162,7 @@ npm run lint
 ### 3. Admin Dashboard
 - Thống kê tổng quan
 - Kiểm duyệt tin đăng
+- **Kiểm định xe điện** (tính năng mới)
 - Quản lý người dùng
 - Theo dõi giao dịch và doanh thu
 
@@ -175,6 +177,23 @@ npm run lint
 - Authentication required cho các trang quan trọng
 - Admin-only routes
 - Secure data access policies
+
+## Tính năng kiểm định xe điện (Mới)
+
+### Cho người bán:
+- Thanh toán 200.000 VNĐ để yêu cầu kiểm định xe
+- Nút "Thanh toán kiểm định" hiển thị tự động cho xe chưa kiểm định
+- Tag "Đã kiểm định" hiển thị khi xe được admin xác nhận
+
+### Cho admin:
+- Xem danh sách xe cần kiểm định
+- Bấm "Kiểm định xe" để xác nhận xe đã được kiểm tra
+- Upload hình ảnh kiểm định thực tế (tùy chọn)
+
+### Quy trình:
+1. Người bán thanh toán 200k → `VerificationStatus = "Requested"`
+2. Admin bấm "Kiểm định xe" → `VerificationStatus = "Verified"`
+3. Xe hiển thị tag "Đã kiểm định" và không cần thanh toán thêm
 
 ## Responsive Design
 
@@ -231,7 +250,3 @@ Nếu có vấn đề hoặc câu hỏi, vui lòng liên hệ qua email hoặc t
 ---
 
 **Developed with ❤️ for EV Market Vietnam**
-=======
-# SWP391_Topic2_Frontend_ver2
-SWP391_Topic2_Frontend_ver2
->>>>>>> 271beeb6f371ab15d1813af9cc1c517a6209f200
