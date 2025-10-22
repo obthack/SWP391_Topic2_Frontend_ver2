@@ -3,9 +3,11 @@ import { Link, useLocation } from "react-router-dom";
 import { Search, Zap, Shield, TrendingUp, CheckCircle } from "lucide-react";
 import { apiRequest } from "../lib/api";
 import { ProductCard } from "../components/molecules/ProductCard";
+import { searchProductsByLicensePlate, searchProducts } from "../lib/productApi";
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
 import { toggleFavorite, isProductFavorited } from "../lib/favoriteApi";
+import { handleVerificationPaymentSuccess } from "../lib/verificationNotificationService";
 import "../styles/homepage.css";
 
 export const HomePage = () => {
@@ -14,13 +16,18 @@ export const HomePage = () => {
   const location = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [productType, setProductType] = useState("");
-  const [locationFilter, setLocationFilter] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all"); // all, vehicle, battery
   const [featuredProducts, setFeaturedProducts] = useState([]);
+  const [allProducts, setAllProducts] = useState([]); // Store all products for search
   const [loading, setLoading] = useState(true);
   const [featuredError, setFeaturedError] = useState("");
   const [favorites, setFavorites] = useState(new Set());
   const [showAllProducts, setShowAllProducts] = useState(false);
+  const [isSearchMode, setIsSearchMode] = useState(false);
+  
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(4); // 4 products per page
 
   useEffect(() => {
     loadFeaturedProducts();
@@ -32,7 +39,7 @@ export const HomePage = () => {
     checkPaymentSuccess();
   }, [user]);
 
-  const checkPaymentSuccess = () => {
+  const checkPaymentSuccess = async () => {
     const urlParams = new URLSearchParams(location.search);
     const paymentSuccess = urlParams.get('payment_success');
     const paymentError = urlParams.get('payment_error');
@@ -42,6 +49,31 @@ export const HomePage = () => {
 
     if (paymentSuccess === 'true' && paymentId) {
       const formattedAmount = amount ? (parseInt(amount) / 100).toLocaleString('vi-VN') : 'N/A';
+      
+      // Check if this is a verification payment and notify admin
+      try {
+        const payment = await apiRequest(`/api/Payment/${paymentId}`);
+        console.log('🔍 Payment details:', payment);
+        
+        if (payment && payment.PaymentType === 'Verification' && payment.ProductId) {
+          console.log('🔔 This is a verification payment, notifying admin...');
+          
+          // Notify admin about successful verification payment
+          const notificationSent = await handleVerificationPaymentSuccess(
+            paymentId,
+            payment.ProductId,
+            payment.UserId, // Seller ID
+            payment.Amount
+          );
+          
+          if (notificationSent) {
+            console.log('✅ Admin notification sent for verification payment');
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error checking payment type or notifying admin:', error);
+        // Don't show error to user, just log it
+      }
       
       showToast({
         type: 'success',
@@ -239,6 +271,7 @@ export const HomePage = () => {
 
       console.log("Loaded approved products for homepage:", sortedProducts);
       setFeaturedProducts(sortedProducts);
+      setAllProducts(sortedProducts); // Store all products for search
     } catch (err) {
       console.error("❌ Error loading featured products:", err);
       console.error("❌ Error details:", {
@@ -345,10 +378,114 @@ export const HomePage = () => {
     }
   };
 
-  const handleSearch = (e) => {
+  const handleSearch = async (e) => {
     e.preventDefault();
-    // TODO: implement search functionality
-    console.log("search clicked:", { searchQuery, productType, locationFilter });
+    
+    if (!searchQuery.trim()) {
+      showToast({
+        type: "warning",
+        title: "⚠️ Vui lòng nhập từ khóa tìm kiếm",
+        message: "Bạn cần nhập hãng xe, mẫu xe hoặc biển số để tìm kiếm",
+        duration: 3000
+      });
+      return;
+    }
+    
+    try {
+        console.log("🔍 Searching with query:", { searchQuery, productType });
+      
+      let results = [];
+      let searchType = "";
+      
+      if (productType === "license-plate") {
+        // Tìm kiếm chỉ theo biển số
+        try {
+          results = await searchProductsByLicensePlate(searchQuery.trim());
+          searchType = "biển số";
+        } catch (error) {
+          console.log("🔍 License plate API failed, searching in local data...");
+          // Fallback to local search if API fails
+          results = searchProducts(searchQuery.trim(), allProducts);
+          searchType = "biển số (tìm kiếm cục bộ)";
+        }
+      } else {
+        // Tìm kiếm tổng quát theo hãng xe, mẫu xe hoặc biển số trong dữ liệu cục bộ
+        results = searchProducts(searchQuery.trim(), allProducts);
+        searchType = "hãng xe, mẫu xe hoặc biển số";
+      }
+      
+      // Lọc theo loại sản phẩm nếu được chọn
+      if (productType && productType !== "license-plate" && productType !== "") {
+        results = results.filter(product => {
+          const productTypeLower = (product.productType || product.ProductType || "").toLowerCase();
+          return productTypeLower === productType;
+        });
+      }
+      
+      
+      console.log("🔍 Final results before display:", results);
+      console.log("🔍 Results length:", results.length);
+      console.log("🔍 Results array:", results);
+      
+        if (results && results.length > 0) {
+          // Hiển thị kết quả tìm kiếm
+          console.log("✅ Setting featured products to:", results);
+          setFeaturedProducts(results);
+          setIsSearchMode(true);
+          setCurrentPage(1); // Reset to first page when searching
+        
+        const searchDescription = productType === "license-plate" 
+          ? `biển số "${searchQuery}"`
+          : `${searchType} "${searchQuery}"`;
+          
+        console.log("✅ Showing success toast for", results.length, "products");
+        showToast({
+          type: "success",
+          title: "✅ Tìm thấy kết quả",
+          message: `Tìm thấy ${results.length} xe với ${searchDescription}`,
+          duration: 4000
+        });
+      } else {
+        console.log("❌ No results found, clearing featured products");
+        setFeaturedProducts([]);
+        setIsSearchMode(true);
+        
+        const searchDescription = productType === "license-plate" 
+          ? `biển số "${searchQuery}"`
+          : `${searchType} "${searchQuery}"`;
+          
+        console.log("❌ Showing no results toast");
+        showToast({
+          type: "info",
+          title: "🔍 Không tìm thấy kết quả",
+          message: `Không có xe nào với ${searchDescription}`,
+          duration: 4000
+        });
+      }
+    } catch (error) {
+      console.error("❌ Search error:", error);
+      showToast({
+        type: "error",
+        title: "❌ Lỗi tìm kiếm",
+        message: error.message || "Có lỗi xảy ra khi tìm kiếm",
+        duration: 5000
+      });
+    }
+  };
+
+  const showAllProductsAgain = async () => {
+    setIsSearchMode(false);
+    setProductType("");
+    setSearchQuery("");
+    setCurrentPage(1); // Reset to first page
+    // Use stored allProducts instead of reloading
+    setFeaturedProducts(allProducts);
+    showToast({
+      type: "success",
+      title: "🔄 Đã tải lại",
+      message: "Hiển thị tất cả sản phẩm",
+      duration: 3000
+    });
   };
 
   return (
@@ -433,25 +570,20 @@ export const HomePage = () => {
                   <option value="">Tất cả</option>
                   <option value="vehicle">Xe điện</option>
                   <option value="battery">Pin</option>
+                  <option value="license-plate">Biển số</option>
                 </select>
               </div>
 
-              <div className="md:col-span-1">
+              <div className="md:col-span-2">
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Hãng xe, mẫu xe..."
-                  className="search-input"
-                />
-              </div>
-
-              <div className="md:col-span-1">
-                <input
-                  type="text"
-                  value={locationFilter}
-                  onChange={(e) => setLocationFilter(e.target.value)}
-                  placeholder="Địa điểm (VD: HN)"
+                  placeholder={
+                    productType === "license-plate" 
+                      ? "Nhập biển số xe (VD: 30A-12345)" 
+                      : "Hãng xe, mẫu xe, biển số..."
+                  }
                   className="search-input"
                 />
               </div>
@@ -496,51 +628,65 @@ export const HomePage = () => {
           <div className="flex items-center justify-between mb-8">
             <div>
               <h2 className="text-3xl font-bold text-gray-900">
-                Sản phẩm nổi bật
+                {isSearchMode ? "Kết quả tìm kiếm" : "Sản phẩm nổi bật"}
               </h2>
               <p className="text-gray-600 mt-2">
-                Những sản phẩm được kiểm duyệt và giá cạnh tranh nhất
+                {isSearchMode 
+                  ? `Kết quả tìm kiếm theo ${productType === "license-plate" ? "biển số" : "từ khóa"}`
+                  : "Những sản phẩm được kiểm duyệt và giá cạnh tranh nhất"
+                }
               </p>
             </div>
             <div className="flex space-x-4">
-              <Link
-                to="/vehicles"
-                className="text-blue-600 hover:text-blue-700 font-medium flex items-center"
-              >
-                🚗 Xe điện
-                <svg
-                  className="w-5 h-5 ml-1"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+              {isSearchMode ? (
+                <button
+                  onClick={showAllProductsAgain}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
-              </Link>
-              <Link
-                to="/batteries"
-                className="text-green-600 hover:text-green-700 font-medium flex items-center"
-              >
-                🔋 Pin
-                <svg
-                  className="w-5 h-5 ml-1"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
-              </Link>
+                  🔄 Xem tất cả sản phẩm
+                </button>
+              ) : (
+                <>
+                  <Link
+                    to="/vehicles"
+                    className="text-blue-600 hover:text-blue-700 font-medium flex items-center"
+                  >
+                    🚗 Xe điện
+                    <svg
+                      className="w-5 h-5 ml-1"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 5l7 7-7 7"
+                      />
+                    </svg>
+                  </Link>
+                  <Link
+                    to="/batteries"
+                    className="text-green-600 hover:text-green-700 font-medium flex items-center"
+                  >
+                    🔋 Pin
+                    <svg
+                      className="w-5 h-5 ml-1"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 5l7 7-7 7"
+                      />
+                    </svg>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
 
@@ -552,11 +698,17 @@ export const HomePage = () => {
             </div>
           ) : featuredProducts.length > 0 ? (
             <>
+              {console.log("🎯 Rendering products section - featuredProducts:", featuredProducts.length)}
+              {console.log("🎯 Is search mode:", isSearchMode)}
+              {console.log("🎯 Selected category:", selectedCategory)}
               {/* Phân loại sản phẩm */}
               <div className="mb-8">
                 <div className="flex flex-wrap gap-4 mb-6">
                   <button
-                    onClick={() => setSelectedCategory("all")}
+                    onClick={() => {
+                      setSelectedCategory("all");
+                      setCurrentPage(1);
+                    }}
                     className={`px-4 py-2 rounded-full font-medium transition-colors ${
                       selectedCategory === "all"
                         ? "bg-blue-600 text-white"
@@ -566,7 +718,10 @@ export const HomePage = () => {
                     Tất cả ({featuredProducts.length})
                   </button>
                   <button
-                    onClick={() => setSelectedCategory("vehicle")}
+                    onClick={() => {
+                      setSelectedCategory("vehicle");
+                      setCurrentPage(1);
+                    }}
                     className={`px-4 py-2 rounded-full font-medium transition-colors ${
                       selectedCategory === "vehicle"
                         ? "bg-blue-600 text-white"
@@ -582,7 +737,10 @@ export const HomePage = () => {
                     )
                   </button>
                   <button
-                    onClick={() => setSelectedCategory("battery")}
+                    onClick={() => {
+                      setSelectedCategory("battery");
+                      setCurrentPage(1);
+                    }}
                     className={`px-4 py-2 rounded-full font-medium transition-colors ${
                       selectedCategory === "battery"
                         ? "bg-green-600 text-white"
@@ -601,71 +759,115 @@ export const HomePage = () => {
               </div>
 
               <div className="products-grid">
-                {(showAllProducts
-                  ? featuredProducts.filter((product) => {
-                      const matchesCategory =
-                        selectedCategory === "all" ||
-                        product.productType?.toLowerCase() === selectedCategory;
-                      const matchesType =
-                        !productType || product.productType === productType;
-                      return matchesCategory && matchesType;
-                    })
-                  : featuredProducts
-                      .filter((product) => {
-                        const matchesCategory =
-                          selectedCategory === "all" ||
-                          product.productType?.toLowerCase() ===
-                            selectedCategory;
-                        const matchesType =
-                          !productType || product.productType === productType;
-                        return matchesCategory && matchesType;
-                      })
-                      .slice(0, 8)
-                ).map((product, index) => (
-                  <ProductCard
-                    key={
-                      product.id ||
-                      product.productId ||
-                      product.Id ||
-                      `product-${index}`
-                    }
-                    product={product}
-                    onToggleFavorite={handleToggleFavorite}
-                    isFavorite={favorites.has(product.id || product.productId)}
-                    user={user}
-                  />
-                ))}
+                {(() => {
+                  // First filter products by category and type
+                  const filteredProducts = featuredProducts.filter((product) => {
+                    const matchesCategory =
+                      selectedCategory === "all" ||
+                      product.productType?.toLowerCase() === selectedCategory;
+                    const matchesType =
+                      !productType || product.productType === productType;
+                    return matchesCategory && matchesType;
+                  });
+                  
+                  // Calculate pagination
+                  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+                  const startIndex = (currentPage - 1) * itemsPerPage;
+                  const endIndex = startIndex + itemsPerPage;
+                  const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
+                  
+                  console.log("🎯 Filtered products for display:", filteredProducts.length);
+                  console.log("🎯 Current page:", currentPage);
+                  console.log("🎯 Total pages:", totalPages);
+                  console.log("🎯 Paginated products:", paginatedProducts.length);
+                  console.log("🎯 Show all products:", showAllProducts);
+                  console.log("🎯 Product type filter:", productType);
+                  console.log("🎯 Sample filtered product:", paginatedProducts[0]);
+                  
+                  return paginatedProducts.map((product, index) => (
+                    <ProductCard
+                      key={
+                        product.id ||
+                        product.productId ||
+                        product.Id ||
+                        `product-${index}`
+                      }
+                      product={product}
+                      onToggleFavorite={handleToggleFavorite}
+                      isFavorite={favorites.has(product.id || product.productId)}
+                      user={user}
+                    />
+                  ));
+                })()}
               </div>
 
-              {featuredProducts.length > 8 && (
-                <div className="text-center mt-8">
-                  <button
-                    onClick={() => setShowAllProducts(!showAllProducts)}
-                    className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center mx-auto space-x-2"
-                  >
-                    <span>
-                      {showAllProducts
-                        ? "Thu gọn"
-                        : `Xem tất cả (${featuredProducts.length} sản phẩm)`}
-                    </span>
-                    <svg
-                      className={`w-5 h-5 transition-transform duration-200 ${
-                        showAllProducts ? "rotate-180" : ""
-                      }`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 9l-7 7-7-7"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              )}
+              {/* Pagination */}
+              {(() => {
+                const filteredProducts = featuredProducts.filter((product) => {
+                  const matchesCategory =
+                    selectedCategory === "all" ||
+                    product.productType?.toLowerCase() === selectedCategory;
+                  const matchesType =
+                    !productType || product.productType === productType;
+                  return matchesCategory && matchesType;
+                });
+                
+                const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+                
+                if (totalPages <= 1) return null;
+                
+                return (
+                  <div className="text-center mt-8">
+                    <div className="flex justify-center items-center space-x-2">
+                      {/* Previous button */}
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
+                        className={`px-3 py-2 rounded-lg font-medium transition-colors ${
+                          currentPage === 1
+                            ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                        }`}
+                      >
+                        ← Trước
+                      </button>
+                      
+                      {/* Page numbers */}
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                        <button
+                          key={page}
+                          onClick={() => setCurrentPage(page)}
+                          className={`px-3 py-2 rounded-lg font-medium transition-colors ${
+                            currentPage === page
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      ))}
+                      
+                      {/* Next button */}
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                        disabled={currentPage === totalPages}
+                        className={`px-3 py-2 rounded-lg font-medium transition-colors ${
+                          currentPage === totalPages
+                            ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                        }`}
+                      >
+                        Sau →
+                      </button>
+                    </div>
+                    
+                    {/* Page info */}
+                    <div className="mt-4 text-sm text-gray-600">
+                      Trang {currentPage} / {totalPages} - Hiển thị {Math.min(itemsPerPage, filteredProducts.length - (currentPage - 1) * itemsPerPage)} trong {filteredProducts.length} sản phẩm
+                    </div>
+                  </div>
+                );
+              })()}
             </>
           ) : (
             <div className="text-center py-12">

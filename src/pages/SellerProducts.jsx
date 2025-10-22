@@ -328,10 +328,6 @@ export const SellerProducts = () => {
                     ).toLocaleDateString("vi-VN")}
                   </span>
                 </div>
-                <div className="flex items-center text-gray-600">
-                  <Star className="h-4 w-4 mr-1 text-yellow-400" />
-                  <span className="text-sm">4.8 (120 đánh giá)</span>
-                </div>
               </div>
             </div>
             <Link

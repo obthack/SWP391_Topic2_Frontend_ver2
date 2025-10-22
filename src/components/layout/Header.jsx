@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { NotificationBell } from "../common/NotificationBell";
+import { ChatBell } from "../common/ChatBell";
 
 export const Header = () => {
   const { user, profile, signOut, isAdmin } = useAuth();
@@ -76,6 +77,8 @@ export const Header = () => {
                 </Link>
 
                 <NotificationBell />
+
+                <ChatBell />
 
                 <div className="relative group">
                   <button className="flex items-center space-x-2 p-2 hover:bg-gray-100 rounded-lg transition-colors">

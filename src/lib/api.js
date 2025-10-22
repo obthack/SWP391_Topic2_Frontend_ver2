@@ -1,6 +1,8 @@
 // Simple API helper for backend integration
 // Reads base URL from VITE_API_BASE_URL, defaults to http://localhost:5044
 
+import tokenManager from './tokenManager';
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE || "http://localhost:5044";
 
 function getAuthToken() {
@@ -68,7 +70,8 @@ function getAuthToken() {
 }
 
 export async function apiRequest(path, { method = "GET", body, headers } = {}) {
-  const token = getAuthToken();
+  // Use TokenManager to get valid token
+  const token = await tokenManager.getValidToken();
   const url = path.startsWith("http") ? path : `${API_BASE_URL}${path}`;
 
   const isFormData = (typeof FormData !== 'undefined') && body instanceof FormData;
@@ -138,10 +141,25 @@ export async function apiRequest(path, { method = "GET", body, headers } = {}) {
     // Handle 401 Unauthorized specifically
     if (res.status === 401) {
       console.warn("🚨 401 Unauthorized - Token may be expired or invalid");
+      
+      // Try to refresh token before giving up
+      try {
+        console.log("🔄 Attempting to refresh token before redirecting...");
+        const newToken = await tokenManager.refreshToken();
+        
+        if (newToken) {
+          console.log("✅ Token refreshed successfully, retrying request...");
+          // Retry the request with new token
+          return apiRequest(path, { method, body, headers });
+        }
+      } catch (refreshError) {
+        console.warn("⚠️ Token refresh failed:", refreshError);
+      }
+      
       console.warn("🔄 Clearing auth data and redirecting to login");
       
       // Clear auth data
-      localStorage.removeItem("evtb_auth");
+      tokenManager.clearAuth();
       
       // Redirect to login after a short delay
       setTimeout(() => {

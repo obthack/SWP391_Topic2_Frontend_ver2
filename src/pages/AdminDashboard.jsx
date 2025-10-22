@@ -19,6 +19,7 @@ import {
   BarChart3,
   Activity,
   Camera,
+  Bell,
 } from "lucide-react";
 import { apiRequest } from "../lib/api";
 import { formatPrice, formatDate } from "../utils/formatters";
@@ -27,6 +28,8 @@ import { notifyPostApproved, notifyPostRejected } from "../lib/notificationApi";
 import { rejectProduct, approveProduct } from "../lib/productApi";
 import { RejectProductModal } from "../components/admin/RejectProductModal";
 import { updateVerificationStatus, getVerificationRequests } from "../lib/verificationApi";
+import { getUserNotifications, getUnreadCount, notifyUserVerificationCompleted } from "../lib/notificationApi";
+import { forceSendNotificationsForAllSuccessfulPayments, sendNotificationsForKnownPayments, sendNotificationsForVerifiedProducts } from "../lib/verificationNotificationService";
 
 export const AdminDashboard = () => {
   const { show: showToast } = useToast();
@@ -83,6 +86,13 @@ export const AdminDashboard = () => {
   const [showInspectionModal, setShowInspectionModal] = useState(false);
   const [inspectionImages, setInspectionImages] = useState([]);
   const [currentInspectionProduct, setCurrentInspectionProduct] = useState(null);
+
+  // Notification state
+  const [notifications, setNotifications] = useState([]);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [adminUserId, setAdminUserId] = useState(null);
+  const [autoNotificationsSent, setAutoNotificationsSent] = useState(false);
 
   const getId = (x) => x?.id || x?.productId || x?.Id || x?.listingId;
 
@@ -141,10 +151,157 @@ export const AdminDashboard = () => {
     await loadAdminData();
   };
 
+  // Load admin notifications
+  const loadAdminNotifications = async () => {
+    try {
+      if (!adminUserId) return;
+      
+      console.log('🔔 Loading admin notifications for user:', adminUserId);
+      const notificationData = await getUserNotifications(adminUserId);
+      setNotifications(notificationData.notifications || []);
+      
+      // Get unread count
+      const unreadCount = await getUnreadCount(adminUserId);
+      setUnreadNotificationCount(unreadCount);
+      
+      console.log('🔔 Admin notifications loaded:', notificationData.notifications?.length || 0);
+    } catch (error) {
+      console.error('❌ Error loading admin notifications:', error);
+    }
+  };
+
+  // Get admin user ID
+  const getAdminUserId = async () => {
+    try {
+      const users = await apiRequest('/api/User');
+      const adminUser = users.find(user => 
+        user.role === 'admin' || 
+        user.role === 'Admin' || 
+        user.isAdmin === true ||
+        user.email?.includes('admin') ||
+        user.fullName?.includes('Admin')
+      );
+      
+      if (adminUser) {
+        const userId = adminUser.id || adminUser.userId || adminUser.accountId;
+        setAdminUserId(userId);
+        return userId;
+      }
+      
+      // Fallback: use first user as admin
+      if (users.length > 0) {
+        const userId = users[0].id || users[0].userId || users[0].accountId;
+        setAdminUserId(userId);
+        return userId;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error getting admin user ID:', error);
+      return null;
+    }
+  };
+
+  // Handle force sending notifications for successful payments
+  const handleForceSendNotifications = async () => {
+    if (!window.confirm('Bạn có chắc muốn gửi thông báo cho tất cả thanh toán kiểm định đã thành công?')) {
+      return;
+    }
+
+    try {
+      showToast({
+        title: 'Đang xử lý...',
+        description: 'Đang gửi thông báo cho các thanh toán kiểm định thành công',
+        type: 'info',
+      });
+
+      // Try the known payments function first (more reliable)
+      let notificationsSent = await sendNotificationsForKnownPayments();
+      
+      // If no notifications sent, try the full function
+      if (notificationsSent === 0) {
+        console.log('🔧 Trying full payment function...');
+        notificationsSent = await forceSendNotificationsForAllSuccessfulPayments();
+      }
+      
+      if (notificationsSent > 0) {
+        showToast({
+          title: 'Thành công!',
+          description: `Đã gửi ${notificationsSent} thông báo cho admin`,
+          type: 'success',
+        });
+        
+        // Reload notifications
+        await loadAdminNotifications();
+      } else {
+        showToast({
+          title: 'Không có thông báo nào',
+          description: 'Không tìm thấy thanh toán kiểm định thành công nào cần gửi thông báo',
+          type: 'info',
+        });
+      }
+    } catch (error) {
+      console.error('Error force sending notifications:', error);
+      showToast({
+        title: 'Lỗi',
+        description: 'Không thể gửi thông báo. Vui lòng thử lại.',
+        type: 'error',
+      });
+    }
+  };
+
   useEffect(() => {
     console.log('🔍 AdminDashboard mounted, loading data...');
-    loadAdminData();
+    const initializeAdmin = async () => {
+      await loadAdminData();
+      await getAdminUserId();
+    };
+    initializeAdmin();
   }, []);
+
+  useEffect(() => {
+    if (adminUserId) {
+      loadAdminNotifications();
+      
+      // Auto-send notifications for successful verification payments (only once)
+      if (!autoNotificationsSent) {
+        const autoSendNotifications = async () => {
+          try {
+            console.log('🔔 Auto-checking for verification payments...');
+            const notificationsSent = await sendNotificationsForKnownPayments();
+            
+            if (notificationsSent > 0) {
+              console.log(`✅ Auto-sent ${notificationsSent} verification notifications`);
+              setAutoNotificationsSent(true); // Mark as sent
+              
+              // Reload notifications to show the new ones
+              await loadAdminNotifications();
+              
+              // Auto-show notification dropdown
+              setShowNotifications(true);
+              
+              // Show success toast
+              showToast({
+                title: '🔔 Thông báo tự động',
+                description: `Đã tự động gửi ${notificationsSent} thông báo kiểm định cho admin`,
+                type: 'success',
+              });
+              
+              // Auto-hide notification dropdown after 10 seconds
+              setTimeout(() => {
+                setShowNotifications(false);
+              }, 10000);
+            }
+          } catch (error) {
+            console.error('❌ Error auto-sending notifications:', error);
+          }
+        };
+        
+        // Run auto-send after a short delay to ensure dashboard is loaded
+        setTimeout(autoSendNotifications, 2000);
+      }
+    }
+  }, [adminUserId]);
 
   useEffect(() => {
     filterListings();
@@ -846,6 +1003,13 @@ export const AdminDashboard = () => {
       const sellerId = product?.sellerId || product?.userId;
       if (sellerId) {
         await notifyPostRejected(sellerId, product?.title || product?.name);
+        
+        // Also send verification rejection notification
+        await sendVerificationNotificationToUser(
+          productId,
+          'Rejected',
+          rejectionReason || 'Sản phẩm không đạt yêu cầu kiểm định.'
+        );
       }
 
       showToast({
@@ -929,16 +1093,58 @@ export const AdminDashboard = () => {
     }
   };
 
+  // Helper function to send verification notification to user
+  const sendVerificationNotificationToUser = async (productId, verificationResult, adminNotes = '') => {
+    try {
+      const product = allListings.find(p => getId(p) === productId);
+      if (!product) return false;
+
+      const sellerId = product.userId || product.sellerId || product.ownerId;
+      if (!sellerId) return false;
+
+      const notificationSent = await notifyUserVerificationCompleted(
+        sellerId,
+        product.title || product.name || 'Sản phẩm',
+        productId,
+        verificationResult,
+        adminNotes
+      );
+
+      if (notificationSent) {
+        console.log(`✅ Verification ${verificationResult} notification sent to user ${sellerId}`);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('❌ Failed to send verification notification to user:', error);
+      return false;
+    }
+  };
+
   const handleCompleteInspection = async (productId) => {
     try {
       console.log(`Completing inspection for product ${productId}...`);
       
+      // Get product details for notification
+      const product = allListings.find(p => getId(p) === productId);
+      if (!product) {
+        showToast("Không tìm thấy thông tin sản phẩm", "error");
+        return;
+      }
+      
       await updateVerificationStatus(productId, "Verified");
+      
+      // Send notification to user
+      await sendVerificationNotificationToUser(
+        productId, 
+        'Verified', 
+        'Xe đã được kiểm định thành công và đạt tiêu chuẩn chất lượng.'
+      );
       
       // Refresh data
       setRefreshTrigger(prev => prev + 1);
       
-      showToast("Đã hoàn thành kiểm định xe thành công!", "success");
+      showToast("Đã hoàn thành kiểm định xe thành công và gửi thông báo cho người bán!", "success");
       
     } catch (error) {
       console.error("Failed to complete inspection:", error);
@@ -1137,6 +1343,102 @@ export const AdminDashboard = () => {
               </p>
             </div>
             <div className="flex items-center space-x-2">
+              {/* Notification Bell */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowNotifications(!showNotifications)}
+                  className="relative p-2 text-gray-600 hover:text-blue-600 transition-colors"
+                  title="Thông báo"
+                >
+                  <Bell className="h-5 w-5" />
+                  {unreadNotificationCount > 0 && (
+                    <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center">
+                      {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
+                    </div>
+                  )}
+                </button>
+                
+                {/* Notification Dropdown */}
+                {showNotifications && (
+                  <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-96 overflow-y-auto">
+                    <div className="p-4 border-b border-gray-200">
+                      <h3 className="text-lg font-semibold text-gray-900">Thông báo</h3>
+                      <p className="text-sm text-gray-500">{notifications.length} thông báo</p>
+                    </div>
+                    
+                    <div className="max-h-64 overflow-y-auto">
+                      {notifications.length === 0 ? (
+                        <div className="p-4 text-center text-gray-500">
+                          <Bell className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                          <p>Không có thông báo nào</p>
+                        </div>
+                      ) : (
+                        notifications.map((notification) => (
+                          <div
+                            key={notification.id || notification.notificationId}
+                            className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
+                              !notification.isRead ? 'bg-blue-50' : ''
+                            }`}
+                            onClick={() => {
+                              // Handle notification click
+                              if (notification.notificationType === 'verification_payment_success' && notification.metadata?.productId) {
+                                // Find the product and show inspection modal
+                                const product = allListings.find(p => getId(p) === notification.metadata.productId);
+                                if (product) {
+                                  setCurrentInspectionProduct(product);
+                                  setShowInspectionModal(true);
+                                  setShowNotifications(false);
+                                }
+                              }
+                            }}
+                          >
+                            <div className="flex items-start space-x-3">
+                              <div className={`w-2 h-2 rounded-full mt-2 ${
+                                !notification.isRead ? 'bg-blue-500' : 'bg-gray-300'
+                              }`} />
+                              <div className="flex-1">
+                                <h4 className="text-sm font-medium text-gray-900">
+                                  {notification.title}
+                                </h4>
+                                <p className="text-sm text-gray-600 mt-1">
+                                  {notification.content}
+                                </p>
+                                <p className="text-xs text-gray-400 mt-2">
+                                  {notification.metadata?.formattedDate || 
+                                   formatDate(notification.createdAt || notification.created_date)}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    
+                    <div className="p-4 border-t border-gray-200">
+                      <button
+                        onClick={() => {
+                          setShowNotifications(false);
+                          // Navigate to full notifications page if needed
+                        }}
+                        className="w-full text-center text-sm text-blue-600 hover:text-blue-800"
+                      >
+                        Xem tất cả thông báo
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Auto-send notifications button - hidden as it's now automatic */}
+              {/* <button
+                onClick={handleForceSendNotifications}
+                className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                title="Gửi thông báo cho thanh toán kiểm định thành công"
+              >
+                <Bell className="h-4 w-4" />
+                <span>Gửi thông báo</span>
+              </button> */}
+
               <button
                 onClick={refreshData}
                 disabled={loading}
@@ -1313,6 +1615,51 @@ export const AdminDashboard = () => {
         </div>
             </div>
           </div>
+        )}
+
+        {/* Additional Stats Row for Inspections - Only show on dashboard */}
+        {activeTab === "dashboard" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            {/* Pending Inspections */}
+            <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-all duration-300">
+            <div className="flex items-center justify-between">
+              <div>
+                  <p className="text-gray-500 text-sm font-medium">PENDING INSPECTIONS</p>
+                  <p className="text-3xl font-bold text-gray-900 mt-2">
+                    {allListings.filter(l => l.verificationStatus === "Requested").length}
+                  </p>
+                  <p className="text-xs text-gray-600 mt-1">Awaiting Admin Action</p>
+              </div>
+                <div className="bg-yellow-100 p-4 rounded-xl">
+                  <Camera className="h-8 w-8 text-yellow-600" />
+                </div>
+              </div>
+              <div className="mt-4 space-y-1">
+                <p className="text-xs text-gray-500">In Progress: {allListings.filter(l => l.verificationStatus === "InProgress").length}</p>
+                <p className="text-xs text-gray-500">Completed: {allListings.filter(l => l.verificationStatus === "Verified").length}</p>
+            </div>
+          </div>
+
+            {/* Recent Notifications */}
+            <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-all duration-300">
+            <div className="flex items-center justify-between">
+              <div>
+                  <p className="text-gray-500 text-sm font-medium">RECENT NOTIFICATIONS</p>
+                  <p className="text-3xl font-bold text-gray-900 mt-2">
+                    {unreadNotificationCount}
+                  </p>
+                  <p className="text-xs text-gray-600 mt-1">Unread Messages</p>
+              </div>
+                <div className="bg-blue-100 p-4 rounded-xl">
+                  <Bell className="h-8 w-8 text-blue-600" />
+                </div>
+              </div>
+              <div className="mt-4 space-y-1">
+                <p className="text-xs text-gray-500">Total: {notifications.length}</p>
+                <p className="text-xs text-gray-500">Verification: {notifications.filter(n => n.notificationType === 'verification_payment_success').length}</p>
+            </div>
+          </div>
+        </div>
         )}
 
             {/* Filters and Search */}

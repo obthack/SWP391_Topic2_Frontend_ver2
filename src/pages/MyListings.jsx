@@ -652,6 +652,13 @@ export const MyListings = () => {
 
                       <div className="mylistings-card-actions">
                         <Link
+                          to={`/product/${getListingId(listing)}`}
+                          className="mylistings-view-button"
+                        >
+                          <Eye className="mylistings-view-icon" />
+                          Xem
+                        </Link>
+                        <Link
                           to={`/listing/${getListingId(listing)}/edit`}
                           className="mylistings-edit-button"
                         >
