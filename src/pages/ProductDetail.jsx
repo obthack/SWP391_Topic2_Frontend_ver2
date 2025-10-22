@@ -12,7 +12,6 @@ import {
   Battery,
   Car,
   Shield,
-  Star,
   ChevronLeft,
   ChevronRight,
   CheckCircle,
@@ -159,11 +158,11 @@ export const ProductDetail = () => {
 
         // Separate product images from document images based on Name field
         const productImages = allImages.filter((img) => {
-          const imageName = img.name || img.Name;
+          const imageName = (img.name || img.Name || "").toLowerCase();
           console.log(`🔍 Image name for ${img.id || "unknown"}:`, imageName);
 
-          // Check if this is a product image based on Name field
-          if (imageName === "Vehicle" || imageName === "Battery") {
+          // Check if this is a product image based on Name field (case insensitive)
+          if (imageName === "vehicle" || imageName === "battery" || imageName === "car" || imageName === "product") {
             console.log(
               `🔍 Image ${img.id}: treating as PRODUCT (${imageName})`
             );
@@ -187,11 +186,11 @@ export const ProductDetail = () => {
         });
 
         const docImages = allImages.filter((img) => {
-          const imageName = img.name || img.Name;
+          const imageName = (img.name || img.Name || "").toLowerCase();
           console.log(`🔍 Image name for ${img.id || "unknown"}:`, imageName);
 
-          // Check if this is a document image based on Name field
-          if (imageName === "Document") {
+          // Check if this is a document image based on Name field (case insensitive)
+          if (imageName === "document" || imageName === "doc" || imageName === "paperwork") {
             console.log(
               `🔍 Image ${img.id}: treating as DOCUMENT (${imageName})`
             );
@@ -880,12 +879,6 @@ export const ProductDetail = () => {
                     <MapPin className="h-4 w-4 inline mr-1" />
                     {product.location || "Hà Nội"}
                   </p>
-                  <div className="flex items-center mt-1">
-                    <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                    <span className="text-sm text-gray-600 ml-1">
-                      4.8 (120 đánh giá)
-                    </span>
-                  </div>
                 </div>
                 <div className="flex flex-col space-y-2">
                   <button

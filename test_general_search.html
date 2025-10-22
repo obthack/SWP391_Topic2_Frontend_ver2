@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test General Search - EV Market</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            font-weight: 700;
+        }
+        .header p {
+            margin: 10px 0 0 0;
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 40px;
+        }
+        .search-section {
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border: 1px solid #e2e8f0;
+        }
+        .search-form {
+            display: flex;
+            gap: 15px;
+            align-items: end;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            flex: 1;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #374151;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+        .search-btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .search-btn:hover {
+            background: #2563eb;
+        }
+        .search-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #6b7280;
+        }
+        .loading.show {
+            display: block;
+        }
+        .results {
+            margin-top: 30px;
+        }
+        .results h3 {
+            color: #374151;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+        .product-card {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .product-card h4 {
+            color: #1f2937;
+            margin: 0 0 10px 0;
+            font-size: 1.2rem;
+        }
+        .product-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        .info-label {
+            font-weight: 600;
+            color: #6b7280;
+        }
+        .info-value {
+            color: #374151;
+        }
+        .no-results {
+            text-align: center;
+            padding: 40px;
+            color: #6b7280;
+        }
+        .no-results h4 {
+            color: #374151;
+            margin-bottom: 10px;
+        }
+        .error {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .success {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            color: #16a34a;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .demo-info {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: #1e40af;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        .demo-info h4 {
+            margin: 0 0 10px 0;
+            color: #1e40af;
+        }
+        .demo-info ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .demo-info li {
+            margin: 5px 0;
+        }
+        .test-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .test-btn {
+            background: #e5e7eb;
+            color: #374151;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .test-btn:hover {
+            background: #d1d5db;
+        }
+        .highlight {
+            background: #fef3c7;
+            padding: 2px 4px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Test General Search</h1>
+            <p>Kiểm tra chức năng tìm kiếm theo hãng xe, mẫu xe và biển số</p>
+        </div>
+        
+        <div class="content">
+            <div class="demo-info">
+                <h4>📋 Hướng dẫn sử dụng:</h4>
+                <ul>
+                    <li><strong>Tìm kiếm theo hãng xe:</strong> Nhập "Honda", "Toyota", "Mercedes", v.v.</li>
+                    <li><strong>Tìm kiếm theo mẫu xe:</strong> Nhập "Civic", "Camry", "C-Class", v.v.</li>
+                    <li><strong>Tìm kiếm theo biển số:</strong> Nhập "30A-12345", "51G-67890", v.v.</li>
+                    <li><strong>Lọc theo loại:</strong> Chọn "Xe điện" hoặc "Pin" để lọc kết quả</li>
+                    <li><strong>Lọc theo địa điểm:</strong> Nhập "HN", "HCM", "ĐN", v.v.</li>
+                </ul>
+            </div>
+
+            <div class="search-section">
+                <h3>🚗 Tìm kiếm xe</h3>
+                <form class="search-form" id="searchForm">
+                    <div class="form-group">
+                        <label for="productType">Loại sản phẩm:</label>
+                        <select id="productType">
+                            <option value="">Tất cả</option>
+                            <option value="vehicle">Xe điện</option>
+                            <option value="battery">Pin</option>
+                            <option value="license-plate">Biển số</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="searchQuery">Từ khóa tìm kiếm:</label>
+                        <input 
+                            type="text" 
+                            id="searchQuery" 
+                            placeholder="Hãng xe, mẫu xe, biển số..." 
+                            required
+                        >
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="locationFilter">Địa điểm:</label>
+                        <input 
+                            type="text" 
+                            id="locationFilter" 
+                            placeholder="VD: HN, HCM, ĐN"
+                        >
+                    </div>
+                    
+                    <button type="submit" class="search-btn" id="searchBtn">
+                        🔍 Tìm kiếm
+                    </button>
+                </form>
+                
+                <div class="test-buttons">
+                    <button class="test-btn" onclick="testSearch('Honda', 'vehicle', '')">Test Honda</button>
+                    <button class="test-btn" onclick="testSearch('Toyota', 'vehicle', '')">Test Toyota</button>
+                    <button class="test-btn" onclick="testSearch('Mercedes', 'vehicle', '')">Test Mercedes</button>
+                    <button class="test-btn" onclick="testSearch('Civic', '', '')">Test Civic</button>
+                    <button class="test-btn" onclick="testSearch('30A-12345', 'license-plate', '')">Test Biển số</button>
+                    <button class="test-btn" onclick="testSearch('Tesla', 'vehicle', 'HN')">Test Tesla + HN</button>
+                </div>
+                
+                <div class="loading" id="loading">
+                    <p>⏳ Đang tìm kiếm xe...</p>
+                </div>
+            </div>
+
+            <div class="results" id="results" style="display: none;">
+                <h3>📋 Kết quả tìm kiếm</h3>
+                <div id="resultsContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5044';
+        
+        document.getElementById('searchForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const productType = document.getElementById('productType').value;
+            const searchQuery = document.getElementById('searchQuery').value.trim();
+            const locationFilter = document.getElementById('locationFilter').value.trim();
+            const searchBtn = document.getElementById('searchBtn');
+            const loading = document.getElementById('loading');
+            const results = document.getElementById('results');
+            const resultsContent = document.getElementById('resultsContent');
+            
+            if (!searchQuery) {
+                alert('Vui lòng nhập từ khóa tìm kiếm!');
+                return;
+            }
+            
+            // Show loading state
+            searchBtn.disabled = true;
+            searchBtn.innerHTML = '⏳ Đang tìm...';
+            loading.classList.add('show');
+            results.style.display = 'none';
+            
+            try {
+                console.log('🔍 Searching with:', { productType, searchQuery, locationFilter });
+                
+                let searchResults = [];
+                
+                if (productType === 'license-plate') {
+                    // Search by license plate only
+                    const response = await fetch(`${API_BASE_URL}/api/Product/search/license-plate/${encodeURIComponent(searchQuery)}`);
+                    if (response.ok) {
+                        searchResults = await response.json();
+                    }
+                } else {
+                    // General search
+                    try {
+                        // First try license plate search
+                        const licenseResponse = await fetch(`${API_BASE_URL}/api/Product/search/license-plate/${encodeURIComponent(searchQuery)}`);
+                        if (licenseResponse.ok) {
+                            const licenseResults = await licenseResponse.json();
+                            if (licenseResults && licenseResults.length > 0) {
+                                searchResults = licenseResults;
+                            }
+                        }
+                    } catch (e) {
+                        console.log('No license plate results, trying general search...');
+                    }
+                    
+                    // If no license plate results, try general search
+                    if (searchResults.length === 0) {
+                        const generalResponse = await fetch(`${API_BASE_URL}/api/Product/search?query=${encodeURIComponent(searchQuery)}`);
+                        if (generalResponse.ok) {
+                            const generalResults = await generalResponse.json();
+                            searchResults = Array.isArray(generalResults) ? generalResults : (generalResults.items || generalResults.data || []);
+                        }
+                    }
+                }
+                
+                // Filter by product type
+                if (productType && productType !== 'license-plate' && productType !== '') {
+                    searchResults = searchResults.filter(product => {
+                        const productTypeLower = (product.productType || product.ProductType || '').toLowerCase();
+                        return productTypeLower === productType;
+                    });
+                }
+                
+                // Filter by location
+                if (locationFilter) {
+                    searchResults = searchResults.filter(product => {
+                        const location = (product.location || product.Location || '').toLowerCase();
+                        return location.includes(locationFilter.toLowerCase());
+                    });
+                }
+                
+                console.log('✅ Final search results:', searchResults);
+                
+                // Display results
+                if (searchResults.length > 0) {
+                    displayResults(searchResults, searchQuery, productType);
+                } else {
+                    displayNoResults(searchQuery, productType);
+                }
+                
+            } catch (error) {
+                console.error('❌ Search error:', error);
+                displayError(error.message);
+            } finally {
+                // Reset UI state
+                searchBtn.disabled = false;
+                searchBtn.innerHTML = '🔍 Tìm kiếm';
+                loading.classList.remove('show');
+                results.style.display = 'block';
+            }
+        });
+        
+        function testSearch(query, type, location) {
+            document.getElementById('searchQuery').value = query;
+            document.getElementById('productType').value = type;
+            document.getElementById('locationFilter').value = location;
+            document.getElementById('searchForm').dispatchEvent(new Event('submit'));
+        }
+        
+        function displayResults(products, searchQuery, productType) {
+            const resultsContent = document.getElementById('resultsContent');
+            
+            const searchType = productType === 'license-plate' ? 'biển số' : 'hãng xe, mẫu xe hoặc biển số';
+            
+            let html = `<div class="success">
+                <strong>✅ Tìm thấy ${products.length} xe với ${searchType} "${searchQuery}"</strong>
+            </div>`;
+            
+            products.forEach((product, index) => {
+                const brand = product.brand || product.Brand || 'N/A';
+                const model = product.model || product.Model || 'N/A';
+                const licensePlate = product.licensePlate || product.LicensePlate || 'N/A';
+                
+                // Highlight matching text
+                const highlightedBrand = highlightText(brand, searchQuery);
+                const highlightedModel = highlightText(model, searchQuery);
+                const highlightedLicensePlate = highlightText(licensePlate, searchQuery);
+                
+                html += `
+                    <div class="product-card">
+                        <h4>${product.title || product.Title || `${brand} ${model}`}</h4>
+                        <div class="product-info">
+                            <div class="info-item">
+                                <span class="info-label">ID sản phẩm:</span>
+                                <span class="info-value">${product.productId || product.ProductId || 'N/A'}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Hãng xe:</span>
+                                <span class="info-value">${highlightedBrand}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Mẫu xe:</span>
+                                <span class="info-value">${highlightedModel}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Biển số:</span>
+                                <span class="info-value">${highlightedLicensePlate}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Giá:</span>
+                                <span class="info-value">${formatPrice(product.price || product.Price)}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Năm sản xuất:</span>
+                                <span class="info-value">${product.manufactureYear || product.ManufactureYear || 'N/A'}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Số km:</span>
+                                <span class="info-value">${product.mileage || product.Mileage || 'N/A'} km</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Tình trạng:</span>
+                                <span class="info-value">${product.condition || product.Condition || 'N/A'}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Trạng thái:</span>
+                                <span class="info-value">${product.status || product.Status || 'N/A'}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Kiểm định:</span>
+                                <span class="info-value">${product.verificationStatus || product.VerificationStatus || 'N/A'}</span>
+                            </div>
+                        </div>
+                        ${product.description || product.Description ? `
+                            <div style="margin-top: 15px;">
+                                <strong>Mô tả:</strong>
+                                <p style="margin: 5px 0; color: #6b7280;">${product.description || product.Description}</p>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            });
+            
+            resultsContent.innerHTML = html;
+        }
+        
+        function highlightText(text, searchQuery) {
+            if (!text || !searchQuery) return text;
+            
+            const regex = new RegExp(`(${searchQuery})`, 'gi');
+            return text.replace(regex, '<span class="highlight">$1</span>');
+        }
+        
+        function displayNoResults(searchQuery, productType) {
+            const resultsContent = document.getElementById('resultsContent');
+            const searchType = productType === 'license-plate' ? 'biển số' : 'hãng xe, mẫu xe hoặc biển số';
+            
+            resultsContent.innerHTML = `
+                <div class="no-results">
+                    <h4>🔍 Không tìm thấy kết quả</h4>
+                    <p>Không có xe nào với ${searchType} "<strong>${searchQuery}</strong>"</p>
+                    <div style="margin-top: 20px; text-align: left; background: #f9fafb; padding: 15px; border-radius: 8px;">
+                        <strong>💡 Gợi ý:</strong>
+                        <ul style="margin: 10px 0; padding-left: 20px;">
+                            <li>Kiểm tra lại cách viết từ khóa</li>
+                            <li>Thử tìm kiếm với từ khóa khác</li>
+                            <li>Xe có thể chưa được đăng trên hệ thống</li>
+                            <li>Thử tìm kiếm với một phần của từ khóa</li>
+                        </ul>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function displayError(message) {
+            const resultsContent = document.getElementById('resultsContent');
+            
+            resultsContent.innerHTML = `
+                <div class="error">
+                    <strong>❌ Lỗi tìm kiếm</strong>
+                    <p>${message}</p>
+                    <div style="margin-top: 15px;">
+                        <strong>🔧 Khắc phục:</strong>
+                        <ul style="margin: 10px 0; padding-left: 20px;">
+                            <li>Kiểm tra kết nối mạng</li>
+                            <li>Đảm bảo backend đang chạy trên port 5044</li>
+                            <li>Thử lại sau vài giây</li>
+                        </ul>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function formatPrice(price) {
+            if (!price) return 'N/A';
+            return new Intl.NumberFormat('vi-VN', {
+                style: 'currency',
+                currency: 'VND'
+            }).format(price);
+        }
+        
+        // Update placeholder based on product type
+        document.getElementById('productType').addEventListener('change', function() {
+            const searchQuery = document.getElementById('searchQuery');
+            if (this.value === 'license-plate') {
+                searchQuery.placeholder = 'Nhập biển số xe (VD: 30A-12345)';
+            } else {
+                searchQuery.placeholder = 'Hãng xe, mẫu xe, biển số...';
+            }
+        });
+    </script>
+</body>
+</html>

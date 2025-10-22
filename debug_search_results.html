@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Search Results - EV Market</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            font-weight: 700;
+        }
+        .header p {
+            margin: 10px 0 0 0;
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 40px;
+        }
+        .debug-section {
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border: 1px solid #e2e8f0;
+        }
+        .debug-section h3 {
+            color: #374151;
+            margin-bottom: 20px;
+        }
+        .debug-info {
+            background: #f0f9ff;
+            border: 1px solid #0ea5e9;
+            color: #0c4a6e;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .debug-info h4 {
+            margin: 0 0 10px 0;
+            color: #0c4a6e;
+        }
+        .debug-info pre {
+            background: #e0f2fe;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        .test-btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin: 5px;
+        }
+        .test-btn:hover {
+            background: #2563eb;
+        }
+        .test-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+        .results-section {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        .product-card {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .product-card h4 {
+            color: #1f2937;
+            margin: 0 0 10px 0;
+        }
+        .product-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            font-size: 14px;
+        }
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        .info-label {
+            font-weight: 600;
+            color: #6b7280;
+        }
+        .info-value {
+            color: #374151;
+        }
+        .highlight {
+            background: #fef3c7;
+            padding: 2px 4px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Debug Search Results</h1>
+            <p>Kiểm tra tìm kiếm và hiển thị kết quả</p>
+        </div>
+        
+        <div class="content">
+            <div class="debug-section">
+                <h3>📊 Debug Information</h3>
+                
+                <div class="debug-info">
+                    <h4>🔍 Console Logs:</h4>
+                    <p>Mở Developer Tools (F12) và xem Console để thấy debug logs:</p>
+                    <ul>
+                        <li><strong>🔍 Searching with query:</strong> Thông tin tìm kiếm</li>
+                        <li><strong>✅ Found X products matching:</strong> Số sản phẩm tìm thấy</li>
+                        <li><strong>🎯 Rendering products section:</strong> Thông tin render</li>
+                        <li><strong>🎯 Filtered products for display:</strong> Số sản phẩm sau lọc</li>
+                    </ul>
+                </div>
+                
+                <div class="debug-info">
+                    <h4>🧪 Test Cases:</h4>
+                    <p>Thử các từ khóa sau để test tìm kiếm:</p>
+                    <button class="test-btn" onclick="testSearch('VF8')">Test VF8</button>
+                    <button class="test-btn" onclick="testSearch('Honda')">Test Honda</button>
+                    <button class="test-btn" onclick="testSearch('Toyota')">Test Toyota</button>
+                    <button class="test-btn" onclick="testSearch('Mercedes')">Test Mercedes</button>
+                    <button class="test-btn" onclick="testSearch('Tesla')">Test Tesla</button>
+                    <button class="test-btn" onclick="testSearch('Civic')">Test Civic</button>
+                </div>
+                
+                <div class="debug-info">
+                    <h4>🔧 Troubleshooting:</h4>
+                    <p>Nếu không thấy kết quả, kiểm tra:</p>
+                    <ul>
+                        <li>Console có hiển thị "✅ Found X products matching" không?</li>
+                        <li>Console có hiển thị "🎯 Filtered products for display: X" không?</li>
+                        <li>X có > 0 không?</li>
+                        <li>Có lỗi JavaScript nào không?</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="results-section">
+                <h3>📋 Kết quả tìm kiếm</h3>
+                <div id="searchResults">
+                    <p>Nhấn một trong các nút test ở trên để xem kết quả...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5044';
+        let allProducts = [];
+        
+        async function loadProducts() {
+            try {
+                console.log('📦 Loading products from API...');
+                const response = await fetch(`${API_BASE_URL}/api/Product`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                const products = Array.isArray(data) ? data : data?.items || [];
+                
+                console.log('📦 Raw products from API:', products);
+                
+                // Filter approved products
+                const approvedProducts = products.filter(product => {
+                    const status = String(product.status || product.Status || "").toLowerCase().trim();
+                    return status === "approved" || status === "active" || status === "verified";
+                });
+                
+                console.log('✅ Approved products:', approvedProducts.length);
+                console.log('✅ Sample product:', approvedProducts[0]);
+                
+                allProducts = approvedProducts;
+                return approvedProducts;
+                
+            } catch (error) {
+                console.error('❌ Error loading products:', error);
+                throw error;
+            }
+        }
+        
+        function searchProducts(searchQuery, allProducts = []) {
+            console.log("🔍 Searching products by query:", searchQuery);
+            
+            if (!searchQuery || searchQuery.trim() === '') {
+                return [];
+            }
+            
+            const query = searchQuery.trim().toLowerCase();
+            console.log("🔍 Search query normalized:", query);
+            
+            // Filter products that match the search query
+            const matchingProducts = allProducts.filter(product => {
+                const brand = (product.brand || product.Brand || '').toLowerCase();
+                const model = (product.model || product.Model || '').toLowerCase();
+                const licensePlate = (product.licensePlate || product.LicensePlate || '').toLowerCase();
+                const title = (product.title || product.Title || '').toLowerCase();
+                const description = (product.description || product.Description || '').toLowerCase();
+                
+                // Check if query matches any of these fields
+                const matchesBrand = brand.includes(query);
+                const matchesModel = model.includes(query);
+                const matchesLicensePlate = licensePlate.includes(query);
+                const matchesTitle = title.includes(query);
+                const matchesDescription = description.includes(query);
+                
+                const isMatch = matchesBrand || matchesModel || matchesLicensePlate || matchesTitle || matchesDescription;
+                
+                if (isMatch) {
+                    console.log(`✅ Product ${product.productId || product.ProductId} matches:`, {
+                        brand: brand,
+                        model: model,
+                        licensePlate: licensePlate,
+                        title: title,
+                        matchesBrand,
+                        matchesModel,
+                        matchesLicensePlate,
+                        matchesTitle,
+                        matchesDescription
+                    });
+                }
+                
+                return isMatch;
+            });
+            
+            console.log(`✅ Found ${matchingProducts.length} products matching "${searchQuery}"`);
+            return matchingProducts;
+        }
+        
+        async function testSearch(query) {
+            const resultsDiv = document.getElementById('searchResults');
+            resultsDiv.innerHTML = '<p>⏳ Đang tìm kiếm...</p>';
+            
+            try {
+                // Load products if not already loaded
+                if (allProducts.length === 0) {
+                    await loadProducts();
+                }
+                
+                console.log('🔍 Testing search for:', query);
+                const results = searchProducts(query, allProducts);
+                
+                console.log('🔍 Final results:', results);
+                console.log('🔍 Results length:', results.length);
+                
+                if (results.length > 0) {
+                    displayResults(results, query);
+                } else {
+                    resultsDiv.innerHTML = `
+                        <div style="text-align: center; padding: 40px; color: #6b7280;">
+                            <h4>🔍 Không tìm thấy kết quả</h4>
+                            <p>Không có xe nào với từ khóa "<strong>${query}</strong>"</p>
+                        </div>
+                    `;
+                }
+                
+            } catch (error) {
+                console.error('❌ Test search error:', error);
+                resultsDiv.innerHTML = `
+                    <div style="background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; padding: 15px; border-radius: 8px;">
+                        <strong>❌ Lỗi tìm kiếm</strong>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+        
+        function displayResults(products, searchQuery) {
+            const resultsDiv = document.getElementById('searchResults');
+            
+            let html = `
+                <div style="background: #f0fdf4; border: 1px solid #bbf7d0; color: #16a34a; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <strong>✅ Tìm thấy ${products.length} xe với từ khóa "${searchQuery}"</strong>
+                </div>
+            `;
+            
+            products.forEach((product, index) => {
+                const brand = product.brand || product.Brand || 'N/A';
+                const model = product.model || product.Model || 'N/A';
+                const licensePlate = product.licensePlate || product.LicensePlate || 'N/A';
+                
+                // Highlight matching text
+                const highlightedBrand = highlightText(brand, searchQuery);
+                const highlightedModel = highlightText(model, searchQuery);
+                const highlightedLicensePlate = highlightText(licensePlate, searchQuery);
+                
+                html += `
+                    <div class="product-card">
+                        <h4>${product.title || product.Title || `${brand} ${model}`}</h4>
+                        <div class="product-info">
+                            <div class="info-item">
+                                <span class="info-label">ID:</span>
+                                <span class="info-value">${product.productId || product.ProductId || 'N/A'}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Hãng xe:</span>
+                                <span class="info-value">${highlightedBrand}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Mẫu xe:</span>
+                                <span class="info-value">${highlightedModel}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Biển số:</span>
+                                <span class="info-value">${highlightedLicensePlate}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Giá:</span>
+                                <span class="info-value">${formatPrice(product.price || product.Price)}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Năm:</span>
+                                <span class="info-value">${product.manufactureYear || product.ManufactureYear || 'N/A'}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Km:</span>
+                                <span class="info-value">${product.mileage || product.Mileage || 'N/A'}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Trạng thái:</span>
+                                <span class="info-value">${product.status || product.Status || 'N/A'}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            resultsDiv.innerHTML = html;
+        }
+        
+        function highlightText(text, searchQuery) {
+            if (!text || !searchQuery) return text;
+            
+            const regex = new RegExp(`(${searchQuery})`, 'gi');
+            return text.replace(regex, '<span class="highlight">$1</span>');
+        }
+        
+        function formatPrice(price) {
+            if (!price) return 'N/A';
+            return new Intl.NumberFormat('vi-VN', {
+                style: 'currency',
+                currency: 'VND'
+            }).format(price);
+        }
+        
+        // Auto-load products on page load
+        window.addEventListener('load', async () => {
+            try {
+                await loadProducts();
+                console.log('✅ Products loaded successfully for testing');
+            } catch (error) {
+                console.error('❌ Failed to load products:', error);
+            }
+        });
+    </script>
+</body>
+</html>

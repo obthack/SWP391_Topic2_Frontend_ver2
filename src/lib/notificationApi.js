@@ -8,6 +8,8 @@ export const NOTIFICATION_TYPES = {
   POST_SOLD: "post_sold",
   MESSAGE_RECEIVED: "message_received",
   SYSTEM_ANNOUNCEMENT: "system_announcement",
+  VERIFICATION_PAYMENT_SUCCESS: "verification_payment_success",
+  VERIFICATION_COMPLETED: "verification_completed", // NEW - Admin completed verification
   TEST: "test"
 };
 
@@ -297,6 +299,106 @@ export const notifyPostRejected = async (userId, postTitle) => {
     return true;
   } catch (error) {
     console.error('Error sending post rejected notification:', error);
+    return false;
+  }
+};
+
+/**
+ * Send notification to admin for successful verification payment
+ * @param {number} adminUserId - Admin User ID
+ * @param {string} productTitle - Product title
+ * @param {number} productId - Product ID
+ * @param {string} sellerName - Seller name
+ * @param {number} amount - Payment amount
+ * @returns {Promise<boolean>} Success status
+ */
+export const notifyAdminVerificationPaymentSuccess = async (adminUserId, productTitle, productId, sellerName, amount, paymentDate = null) => {
+  try {
+    // Format payment date for display
+    let formattedDate = '';
+    if (paymentDate) {
+      try {
+        const date = new Date(paymentDate);
+        formattedDate = date.toLocaleString('vi-VN', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        });
+      } catch (dateError) {
+        console.warn('Error formatting payment date:', dateError);
+        formattedDate = paymentDate.toString();
+      }
+    }
+
+    await createNotification({
+      userId: adminUserId,
+      notificationType: NOTIFICATION_TYPES.VERIFICATION_PAYMENT_SUCCESS,
+      title: '💰 Thanh toán kiểm định thành công',
+      content: `Sản phẩm "${productTitle}" (ID: ${productId}) của người bán "${sellerName}" đã thanh toán ${amount.toLocaleString('vi-VN')} VNĐ cho dịch vụ kiểm định. Vui lòng thực hiện kiểm định xe.${formattedDate ? `\n\n📅 Thời gian thanh toán: ${formattedDate}` : ''}`,
+      metadata: {
+        productId: productId,
+        sellerName: sellerName,
+        amount: amount,
+        paymentDate: paymentDate,
+        formattedDate: formattedDate,
+        actionRequired: 'inspection'
+      }
+    });
+    return true;
+  } catch (error) {
+    console.error('Error sending verification payment success notification to admin:', error);
+    return false;
+  }
+};
+
+/**
+ * Send notification to user when admin completed verification
+ * @param {number} userId - User ID (seller)
+ * @param {string} productTitle - Product title
+ * @param {number} productId - Product ID
+ * @param {string} verificationResult - Verification result (Verified/Rejected)
+ * @param {string} adminNotes - Admin notes (optional)
+ * @returns {Promise<boolean>} Success status
+ */
+export const notifyUserVerificationCompleted = async (userId, productTitle, productId, verificationResult, adminNotes = '') => {
+  try {
+    const isVerified = verificationResult === 'Verified';
+    const emoji = isVerified ? '✅' : '❌';
+    const title = isVerified ? 'Kiểm định xe thành công' : 'Kiểm định xe không đạt';
+    const statusText = isVerified ? 'đã được kiểm định thành công' : 'không đạt yêu cầu kiểm định';
+    
+    let content = `Sản phẩm "${productTitle}" (ID: ${productId}) của bạn ${statusText}.`;
+    
+    if (adminNotes) {
+      content += `\n\n📝 Ghi chú từ admin: ${adminNotes}`;
+    }
+    
+    if (isVerified) {
+      content += `\n\n🎉 Sản phẩm của bạn giờ đã có chứng nhận kiểm định và sẽ được ưu tiên hiển thị trên trang chủ!`;
+    } else {
+      content += `\n\n💡 Bạn có thể liên hệ admin để được hướng dẫn khắc phục và kiểm định lại.`;
+    }
+
+    await createNotification({
+      userId: userId,
+      notificationType: NOTIFICATION_TYPES.VERIFICATION_COMPLETED,
+      title: `${emoji} ${title}`,
+      content: content,
+      metadata: {
+        productId: productId,
+        productTitle: productTitle,
+        verificationResult: verificationResult,
+        adminNotes: adminNotes,
+        isVerified: isVerified,
+        actionRequired: isVerified ? 'view_product' : 'contact_admin'
+      }
+    });
+    return true;
+  } catch (error) {
+    console.error('Error sending verification completed notification to user:', error);
     return false;
   }
 };
