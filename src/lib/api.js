@@ -15,38 +15,15 @@ function getAuthToken() {
     }
     const parsed = JSON.parse(raw);
     const token = parsed?.token || null;
-    
-    // DEMO MODE: Skip token expiration check for presentation
-    const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true' || 
-                      localStorage.getItem('evtb_demo_mode') === 'true';
-    
-    if (isDemoMode) {
-      console.log("🎭 DEMO MODE: Skipping token expiration check");
-      console.log("🔍 Auth token check (DEMO):", { 
-        hasAuth: !!raw, 
-        hasToken: !!token, 
-        tokenLength: token?.length || 0,
-        demoMode: true,
-        parsedKeys: Object.keys(parsed || {}),
-        parsedData: parsed
-      });
-      return token;
-    }
 
-    // FORCE DEMO MODE for development - bypass token expiration
-    if (token && token.length > 10) {
-      console.log("🎭 FORCE DEMO MODE: Bypassing token expiration for development");
-      return token;
-    }
-    
-    // Check if token is expired (only in production)
+    // Check if token is expired
     if (token) {
       try {
         // Decode JWT token to check expiration
         const payload = JSON.parse(atob(token.split('.')[1]));
         const currentTime = Math.floor(Date.now() / 1000);
         const isExpired = payload.exp && payload.exp < currentTime;
-        
+
         if (isExpired) {
           console.warn("⚠️ Token is expired, but keeping it for development");
           // Don't clear auth data in development
@@ -55,10 +32,10 @@ function getAuthToken() {
           console.log("🎭 DEVELOPMENT MODE: Keeping expired token");
           return token;
         }
-        
-        console.log("🔍 Auth token check:", { 
-          hasAuth: !!raw, 
-          hasToken: !!token, 
+
+        console.log("🔍 Auth token check:", {
+          hasAuth: !!raw,
+          hasToken: !!token,
           tokenLength: token?.length || 0,
           isExpired: isExpired,
           expiresAt: payload.exp ? new Date(payload.exp * 1000).toISOString() : 'No expiration',
@@ -71,7 +48,7 @@ function getAuthToken() {
         return null;
       }
     }
-    
+
     return token;
   } catch (error) {
     console.error("🔍 Error getting auth token:", error);
@@ -85,7 +62,7 @@ export async function apiRequest(path, { method = "GET", body, headers } = {}) {
   const url = path.startsWith("http") ? path : `${API_BASE_URL}${path}`;
 
   const isFormData = (typeof FormData !== 'undefined') && body instanceof FormData;
-  
+
   // Debug logging for all requests with token
   if (token) {
     console.log('=== API REQUEST DEBUG ===');
@@ -96,7 +73,7 @@ export async function apiRequest(path, { method = "GET", body, headers } = {}) {
     console.log('Token:', token ? 'Present' : 'Missing');
     console.log('Token length:', token?.length || 0);
   }
-  
+
   const res = await fetch(url, {
     method,
     headers: {
@@ -147,42 +124,46 @@ export async function apiRequest(path, { method = "GET", body, headers } = {}) {
 
   if (!res.ok) {
     let message;
-    
+
     // Handle 401 Unauthorized specifically
     if (res.status === 401) {
       console.warn("🚨 401 Unauthorized - Token may be expired or invalid");
-      
-      // Try to refresh token before giving up
-      try {
-        console.log("🔄 Attempting to refresh token before redirecting...");
-        const newToken = await tokenManager.refreshToken();
-        
-        if (newToken) {
-          console.log("✅ Token refreshed successfully, retrying request...");
-          // Retry the request with new token
-          return apiRequest(path, { method, body, headers });
+
+      // Skip refresh for login/register endpoints
+      const isAuthEndpoint = path.includes('/login') || path.includes('/register') || path.includes('/forgot-password');
+
+      if (!isAuthEndpoint) {
+        console.warn("🔄 Token invalid, clearing auth and redirecting to login");
+
+        // Clear auth data
+        tokenManager.clearAuth();
+
+        // Redirect to login after a short delay (only if not already on login page)
+        if (!window.location.pathname.includes('/login')) {
+          setTimeout(() => {
+            window.location.href = '/login';
+          }, 1000);
         }
-      } catch (refreshError) {
-        console.warn("⚠️ Token refresh failed:", refreshError);
+      } else {
+        console.warn("🔐 Login/Auth endpoint failed - check credentials");
+        // Use backend message for auth endpoints
+        if (data && typeof data === 'object') {
+          message = data.message || data.error || data.detail || data.title || 'Invalid email or password.';
+        } else if (typeof data === 'string' && data.trim()) {
+          message = data;
+        } else {
+          message = 'Invalid email or password.';
+        }
+        throw Object.assign(new Error(message), { status: res.status, data, response: res });
       }
-      
-      console.warn("🔄 Clearing auth data and redirecting to login");
-      
-      // Clear auth data
-      tokenManager.clearAuth();
-      
-      // Redirect to login after a short delay
-      setTimeout(() => {
-        window.location.href = '/login';
-      }, 1000);
-      
+
       message = "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
     } else {
       // Try to extract meaningful error message
       if (data && typeof data === 'object') {
         // Handle validation errors specifically
         if (data.errors && Array.isArray(data.errors)) {
-          const validationErrors = data.errors.map(err => 
+          const validationErrors = data.errors.map(err =>
             `${err.field || 'Field'}: ${err.message || err}`
           ).join(', ');
           message = `Validation errors: ${validationErrors}`;
@@ -219,7 +200,7 @@ export async function apiRequest(path, { method = "GET", body, headers } = {}) {
         }
       }
     }
-    
+
     const error = new Error(message);
     error.status = res.status;
     error.data = data;

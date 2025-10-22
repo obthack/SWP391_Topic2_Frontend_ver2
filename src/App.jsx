@@ -41,6 +41,7 @@ import PaymentExample from "./pages/PaymentExample";
 import ApiTest from "./components/ApiTest";
 import UserDebug from "./components/UserDebug";
 import { ToastProvider } from "./contexts/ToastContext";
+import { ChatHistory } from "./pages/ChatHistory";
 
 const PublicRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -245,6 +246,17 @@ const AppContent = () => {
           <Route path="/brands" element={<Brands />} />
           <Route path="/deals" element={<Deals />} />
           <Route path="/reviews" element={<Reviews />} />
+          
+          {/* Chat Routes */}
+          <Route
+            path="/chats"
+            element={
+              <ProtectedRoute>
+                <ChatHistory />
+              </ProtectedRoute>
+            }
+          />
+          
           <Route path="/help" element={<Help />} />
           <Route path="/faq" element={<FAQ />} />
           <Route path="/contact" element={<Contact />} />

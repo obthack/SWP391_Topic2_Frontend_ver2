@@ -47,22 +47,7 @@ function getAuthToken() {
         const parsed = JSON.parse(raw);
         const token = parsed?.token || null;
 
-        // DEMO MODE: Skip token expiration check for presentation
-        const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true' ||
-            localStorage.getItem('evtb_demo_mode') === 'true';
-
-        if (isDemoMode) {
-            console.log("🎭 DEMO MODE: Skipping token expiration check");
-            return token;
-        }
-
-        // FORCE DEMO MODE for development - bypass token expiration
-        if (token && token.length > 10) {
-            console.log("🎭 FORCE DEMO MODE: Bypassing token expiration for development");
-            return token;
-        }
-
-        // Check if token is expired (only in production)
+        // Check if token is expired
         if (token) {
             try {
                 const payload = JSON.parse(atob(token.split('.')[1]));
@@ -146,25 +131,24 @@ async function apiRequest(path, { method = "GET", body, headers } = {}) {
         if (res.status === 401) {
             console.warn("🚨 401 Unauthorized - Token may be expired or invalid");
 
-            // Try to refresh token before giving up
-            try {
-                console.log("🔄 Attempting to refresh token...");
-                const newToken = await tokenManager.refreshToken();
+            // Skip refresh for login/register endpoints
+            const isAuthEndpoint = path.includes('/login') || path.includes('/register') || path.includes('/forgot-password');
 
-                if (newToken) {
-                    console.log("✅ Token refreshed successfully, retrying request...");
-                    return apiRequest(path, { method, body, headers });
+            if (!isAuthEndpoint) {
+                console.warn("🔄 Token invalid, clearing auth and redirecting to login");
+
+                // Clear auth data
+                tokenManager.clearAuth();
+
+                // Redirect to login after a short delay (only if not already on login page)
+                if (!window.location.pathname.includes('/login')) {
+                    setTimeout(() => {
+                        window.location.href = '/login';
+                    }, 1000);
                 }
-            } catch (refreshError) {
-                console.warn("⚠️ Token refresh failed:", refreshError);
+            } else {
+                console.warn("🔐 Login/Auth endpoint failed - check credentials");
             }
-
-            console.warn("🔄 Clearing auth data and redirecting to login");
-            tokenManager.clearAuth();
-
-            setTimeout(() => {
-                window.location.href = '/login';
-            }, 1000);
 
             message = "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
         } else {

@@ -77,6 +77,7 @@ export const ProductDetail = () => {
   const [seller, setSeller] = useState(null);
   const [images, setImages] = useState([]);
   const [documentImages, setDocumentImages] = useState([]);
+  const [inspectedSet, setInspectedSet] = useState(new Set());
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
@@ -217,16 +218,38 @@ export const ProductDetail = () => {
         console.log("🔍 Product images:", productImages.length);
         console.log("🔍 Document images:", docImages.length);
 
-        setImages(
-          productImages.map((img) => img.imageData || img.imageUrl || img.url)
-        );
-        setDocumentImages(
-          docImages.map((img) => img.imageData || img.imageUrl || img.url)
-        );
+        // Detect inspected images (uploaded by admin verification)
+        const getStr = (v) => (typeof v === "string" ? v.toLowerCase() : "");
+        const isInspected = (img) => {
+          const tag = getStr(img.tag || img.Tag || img.label || img.Label);
+          const type = getStr(img.imageType || img.type || img.image_type || img.category);
+          const name = getStr(img.name || img.Name);
+          return (
+            tag.includes("kiểm định") ||
+            tag.includes("admin") ||
+            type.includes("kiểm định") ||
+            type.includes("admin") ||
+            name.includes("kiểm định")
+          );
+        };
+
+        const urlOf = (img) => img.imageData || img.imageUrl || img.url;
+        const productUrls = productImages.map(urlOf).filter(Boolean);
+        const docUrls = docImages.map(urlOf).filter(Boolean);
+
+        // Put inspected images first in the gallery
+        const inspectedUrls = productImages.filter(isInspected).map(urlOf).filter(Boolean);
+        const inspectedUrlSet = new Set(inspectedUrls);
+        const otherUrls = productUrls.filter((u) => !inspectedUrlSet.has(u));
+
+        setImages([...inspectedUrls, ...otherUrls]);
+        setInspectedSet(new Set(inspectedUrls));
+        setDocumentImages(docUrls);
       } catch (imageError) {
         console.log("No images found for product");
         setImages([]);
         setDocumentImages([]);
+        setInspectedSet(new Set());
       }
 
       // Check if product is favorited by current user
@@ -623,6 +646,12 @@ export const ProductDetail = () => {
                 </div>
               )}
 
+              {currentImage && inspectedSet.has(currentImage) && (
+                <div className="absolute top-4 left-4 bg-green-600 text-white px-3 py-1 rounded-full text-xs shadow">
+                  ảnh đã được kiểm định
+                </div>
+              )}
+
               {images.length > 1 && (
                 <>
                   <button
@@ -646,7 +675,7 @@ export const ProductDetail = () => {
             </div>
 
             {/* Thumbnail Gallery */}
-            {images.length > 1 && (
+              {images.length > 1 && (
               <div className="flex space-x-2 overflow-x-auto pb-2">
                 {images.map((image, index) => (
                   <button
@@ -666,6 +695,11 @@ export const ProductDetail = () => {
                         e.target.style.display = "none";
                       }}
                     />
+                      {inspectedSet.has(image) && (
+                        <div className="absolute top-1 left-1 bg-green-600 text-white px-2 py-0.5 rounded text-[10px]">
+                          đã kiểm định
+                        </div>
+                      )}
                   </button>
                 ))}
               </div>

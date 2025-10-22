@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fix Login Issue - EVTB</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            max-width: 600px;
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 32px;
+            text-align: center;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            text-align: center;
+            font-size: 16px;
+        }
+
+        .issue {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 6px;
+        }
+
+        .issue h3 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+
+        .issue p {
+            color: #856404;
+            line-height: 1.6;
+        }
+
+        .solution {
+            background: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 6px;
+        }
+
+        .solution h3 {
+            color: #0c5460;
+            margin-bottom: 10px;
+        }
+
+        .solution p {
+            color: #0c5460;
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 15px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            transition: all 0.3s;
+        }
+
+        .btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-danger {
+            background: #dc3545;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn-success {
+            background: #28a745;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .status {
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 20px;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .info-box {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 6px;
+            margin-top: 20px;
+        }
+
+        .info-box h4 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .info-box p {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 8px;
+        }
+
+        .code {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+
+        .steps {
+            counter-reset: step-counter;
+            list-style: none;
+            padding: 0;
+        }
+
+        .steps li {
+            counter-increment: step-counter;
+            padding: 15px;
+            margin-bottom: 10px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            position: relative;
+            padding-left: 50px;
+        }
+
+        .steps li:before {
+            content: counter(step-counter);
+            position: absolute;
+            left: 15px;
+            top: 15px;
+            background: #667eea;
+            color: white;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🔧 Fix Login Issue</h1>
+        <p class="subtitle">Sửa lỗi không đăng nhập được</p>
+
+        <div class="issue">
+            <h3>⚠️ Vấn đề</h3>
+            <p>Token đã hết hạn và hệ thống cố gắng refresh nhưng backend chưa hỗ trợ endpoint refresh. Điều này gây ra
+                loop và không cho phép đăng nhập lại.</p>
+        </div>
+
+        <div class="solution">
+            <h3>✅ Giải pháp</h3>
+            <p><strong>Đã fix code:</strong></p>
+            <ol class="steps">
+                <li>Vô hiệu hóa auto token refresh (backend chưa có endpoint)</li>
+                <li>Không tự động xóa token khi expired (để backend xử lý 401)</li>
+                <li>Cho phép login lại bằng cách skip token check cho login endpoint</li>
+            </ol>
+        </div>
+
+        <div class="info-box">
+            <h4>🔨 Hành động ngay:</h4>
+            <p>Click nút bên dưới để xóa token cũ và đăng nhập lại:</p>
+        </div>
+
+        <button class="btn btn-danger" onclick="clearAuthData()">
+            🗑️ Xóa Token Cũ & Auth Data
+        </button>
+
+        <button class="btn btn-success" onclick="checkStatus()">
+            🔍 Kiểm tra trạng thái
+        </button>
+
+        <button class="btn" onclick="goToLogin()">
+            🔐 Đi đến trang Login
+        </button>
+
+        <div id="status" class="hidden"></div>
+
+        <div class="info-box" style="margin-top: 30px;">
+            <h4>📝 Các thay đổi đã thực hiện:</h4>
+            <div class="code">
+                // tokenManager.js
+                - Disabled auto token refresh (backend không hỗ trợ)
+                - Token expired sẽ vẫn được trả về, để backend response 401
+                - Không tự động clear auth khi token expired
+
+                // api.js
+                - Skip token refresh cho login/register endpoints
+                - Chỉ clear auth khi thực sự nhận 401 từ backend
+                - Không redirect nếu đang ở trang login
+            </div>
+        </div>
+
+        <div class="info-box">
+            <h4>🎯 Sau khi fix:</h4>
+            <ol class="steps">
+                <li>Click "Xóa Token Cũ" ở trên</li>
+                <li>Reload trang web (F5)</li>
+                <li>Đăng nhập lại bình thường</li>
+                <li>Token mới sẽ hoạt động cho đến khi backend response 401</li>
+            </ol>
+        </div>
+
+        <div class="info-box">
+            <h4>💡 Lưu ý:</h4>
+            <p><strong>Token Lifetime:</strong> Token hiện tại sẽ hoạt động cho đến khi backend thực sự từ chối (401).
+                Khi đó user cần đăng nhập lại.</p>
+            <p><strong>Future Enhancement:</strong> Khi backend có endpoint <code>/api/auth/refresh</code>, uncomment
+                code trong <code>tokenManager.js</code> để enable auto refresh.</p>
+        </div>
+    </div>
+
+    <script>
+        function clearAuthData() {
+            try {
+                // Clear all auth-related data
+                localStorage.removeItem('evtb_auth');
+                localStorage.removeItem('evtb_demo_mode');
+
+                // Clear any other auth data
+                Object.keys(localStorage).forEach(key => {
+                    if (key.includes('auth') || key.includes('token')) {
+                        localStorage.removeItem(key);
+                    }
+                });
+
+                showStatus('✅ Đã xóa token cũ thành công! Bây giờ bạn có thể đăng nhập lại.', 'success');
+
+                // Auto redirect after 2 seconds
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 2000);
+            } catch (error) {
+                showStatus('❌ Lỗi khi xóa: ' + error.message, 'error');
+            }
+        }
+
+        function checkStatus() {
+            try {
+                const authData = localStorage.getItem('evtb_auth');
+
+                if (!authData) {
+                    showStatus('✅ Không có token cũ. Bạn có thể đăng nhập bình thường.', 'success');
+                    return;
+                }
+
+                const parsed = JSON.parse(authData);
+                const hasToken = !!parsed?.token;
+                const hasUser = !!parsed?.user;
+                const tokenLength = parsed?.token?.length || 0;
+
+                let statusMsg = `📊 Trạng thái hiện tại:\n\n`;
+                statusMsg += `• Token: ${hasToken ? '✅ Có' : '❌ Không'}\n`;
+                statusMsg += `• Token length: ${tokenLength}\n`;
+                statusMsg += `• User: ${hasUser ? '✅ Có' : '❌ Không'}\n`;
+
+                if (hasUser) {
+                    statusMsg += `• User ID: ${parsed.user.userId || parsed.user.id || 'N/A'}\n`;
+                    statusMsg += `• Email: ${parsed.user.email || 'N/A'}\n`;
+                }
+
+                // Check token expiration
+                if (hasToken) {
+                    try {
+                        const payload = JSON.parse(atob(parsed.token.split('.')[1]));
+                        const exp = payload.exp;
+                        const now = Math.floor(Date.now() / 1000);
+                        const isExpired = exp < now;
+                        const timeLeft = exp - now;
+
+                        statusMsg += `\n• Token expired: ${isExpired ? '❌ Yes' : '✅ No'}\n`;
+
+                        if (!isExpired) {
+                            const hours = Math.floor(timeLeft / 3600);
+                            const minutes = Math.floor((timeLeft % 3600) / 60);
+                            statusMsg += `• Time left: ${hours}h ${minutes}m\n`;
+                        } else {
+                            statusMsg += `• Expired: ${Math.floor((now - exp) / 60)} minutes ago\n`;
+                        }
+                    } catch (e) {
+                        statusMsg += `\n⚠️ Token format invalid\n`;
+                    }
+                }
+
+                statusMsg += `\n💡 Khuyến nghị: ${hasToken && parsed?.token?.length > 0 ? 'Xóa token cũ và đăng nhập lại' : 'Có thể đăng nhập bình thường'}`;
+
+                showStatus(statusMsg, 'info');
+            } catch (error) {
+                showStatus('❌ Lỗi khi kiểm tra: ' + error.message, 'error');
+            }
+        }
+
+        function goToLogin() {
+            window.location.href = '/login';
+        }
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = 'status ' + type;
+            statusDiv.innerHTML = message.replace(/\n/g, '<br>');
+            statusDiv.classList.remove('hidden');
+        }
+
+        // Auto check status on load
+        window.addEventListener('load', () => {
+            checkStatus();
+        });
+    </script>
+</body>
+
+</html>
