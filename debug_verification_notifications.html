@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Verification Payment Notifications</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #2563eb;
+            margin-bottom: 10px;
+        }
+        .debug-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+        }
+        .debug-section h3 {
+            color: #374151;
+            margin-bottom: 15px;
+        }
+        .debug-button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        .debug-button:hover {
+            background: #1d4ed8;
+        }
+        .debug-button.success {
+            background: #059669;
+        }
+        .debug-button.success:hover {
+            background: #047857;
+        }
+        .debug-button.warning {
+            background: #d97706;
+        }
+        .debug-button.warning:hover {
+            background: #b45309;
+        }
+        .debug-button.danger {
+            background: #dc2626;
+        }
+        .debug-button.danger:hover {
+            background: #b91c1c;
+        }
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .result.success {
+            background: #d1fae5;
+            border: 1px solid #a7f3d0;
+            color: #065f46;
+        }
+        .result.error {
+            background: #fee2e2;
+            border: 1px solid #fecaca;
+            color: #991b1b;
+        }
+        .result.info {
+            background: #dbeafe;
+            border: 1px solid #bfdbfe;
+            color: #1e40af;
+        }
+        .result.warning {
+            background: #fef3c7;
+            border: 1px solid #fde68a;
+            color: #92400e;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-indicator.success {
+            background: #10b981;
+        }
+        .status-indicator.error {
+            background: #ef4444;
+        }
+        .status-indicator.warning {
+            background: #f59e0b;
+        }
+        .status-indicator.info {
+            background: #3b82f6;
+        }
+        .payment-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        .payment-table th,
+        .payment-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .payment-table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        .payment-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .payment-table tr:hover {
+            background-color: #f5f5f5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Debug Verification Payment Notifications</h1>
+            <p>Kiểm tra và gửi thông báo cho các thanh toán kiểm định đã thành công</p>
+        </div>
+
+        <div class="debug-section">
+            <h3>🔍 Step 1: Kiểm tra thanh toán kiểm định trong database</h3>
+            <button class="debug-button" onclick="checkVerificationPayments()">
+                Kiểm tra thanh toán kiểm định
+            </button>
+            <button class="debug-button success" onclick="checkAdminNotifications()">
+                Kiểm tra thông báo admin
+            </button>
+            <div id="payment-check-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="debug-section">
+            <h3>🔔 Step 2: Gửi thông báo cho thanh toán đã thành công</h3>
+            <button class="debug-button warning" onclick="sendNotificationsForSuccessfulPayments()">
+                Gửi thông báo cho tất cả thanh toán thành công
+            </button>
+            <button class="debug-button" onclick="sendNotificationForSpecificPayment()">
+                Gửi thông báo cho thanh toán cụ thể
+            </button>
+            <div id="notification-send-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="debug-section">
+            <h3>🛠️ Step 3: Debug và sửa lỗi</h3>
+            <button class="debug-button" onclick="debugAdminUser()">
+                Debug Admin User
+            </button>
+            <button class="debug-button" onclick="debugNotificationAPI()">
+                Debug Notification API
+            </button>
+            <button class="debug-button danger" onclick="clearAllNotifications()">
+                Xóa tất cả thông báo (Test)
+            </button>
+            <div id="debug-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="debug-section">
+            <h3>📊 Step 4: Kiểm tra kết quả</h3>
+            <button class="debug-button success" onclick="refreshAdminDashboard()">
+                Làm mới Admin Dashboard
+            </button>
+            <button class="debug-button" onclick="openAdminDashboard()">
+                Mở Admin Dashboard
+            </button>
+            <div id="result-check" class="result" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5000/api';
+        const FRONTEND_BASE = 'http://localhost:5173';
+
+        function showResult(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.className = `result ${type}`;
+            element.textContent = message;
+        }
+
+        async function checkVerificationPayments() {
+            try {
+                showResult('payment-check-result', 'Đang kiểm tra thanh toán kiểm định...', 'info');
+                
+                const response = await fetch(`${API_BASE}/Payment`);
+                
+                if (response.ok) {
+                    const payments = await response.json();
+                    const verificationPayments = payments.filter(p => p.PaymentType === 'Verification');
+                    const successfulPayments = verificationPayments.filter(p => p.PaymentStatus === 'Success');
+                    
+                    let result = `✅ Tìm thấy ${verificationPayments.length} thanh toán kiểm định:\n\n`;
+                    result += `- Thành công: ${successfulPayments.length}\n`;
+                    result += `- Thất bại: ${verificationPayments.length - successfulPayments.length}\n\n`;
+                    
+                    if (successfulPayments.length > 0) {
+                        result += `📋 Chi tiết thanh toán thành công:\n`;
+                        result += `ID\t\tProductId\tAmount\t\tStatus\t\tCreatedAt\n`;
+                        result += `---\t\t---------\t------\t\t------\t\t---------\n`;
+                        
+                        successfulPayments.forEach(payment => {
+                            result += `${payment.PaymentId}\t${payment.ProductId}\t\t${payment.Amount}\t\t${payment.PaymentStatus}\t\t${payment.CreatedAt}\n`;
+                        });
+                    }
+                    
+                    showResult('payment-check-result', result, 'success');
+                } else {
+                    const error = await response.text();
+                    showResult('payment-check-result', `❌ Lỗi: ${error}`, 'error');
+                }
+            } catch (error) {
+                showResult('payment-check-result', `❌ Lỗi: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkAdminNotifications() {
+            try {
+                showResult('payment-check-result', 'Đang kiểm tra thông báo admin...', 'info');
+                
+                // First get admin user ID
+                const usersResponse = await fetch(`${API_BASE}/User`);
+                const users = await usersResponse.json();
+                const adminUser = users.find(user => 
+                    user.role === 'admin' || 
+                    user.role === 'Admin' || 
+                    user.isAdmin === true ||
+                    user.email?.includes('admin') ||
+                    user.fullName?.includes('Admin')
+                );
+                
+                const adminUserId = adminUser ? (adminUser.id || adminUser.userId || adminUser.accountId) : (users[0]?.id || users[0]?.userId || users[0]?.accountId || 1);
+                
+                const response = await fetch(`${API_BASE}/Notification/user/${adminUserId}`);
+                
+                if (response.ok) {
+                    const notifications = await response.json();
+                    const verificationNotifications = notifications.filter(n => n.notificationType === 'verification_payment_success');
+                    const unreadNotifications = notifications.filter(n => !n.isRead);
+                    
+                    let result = `✅ Thông báo admin (User ID: ${adminUserId}):\n\n`;
+                    result += `- Tổng thông báo: ${notifications.length}\n`;
+                    result += `- Chưa đọc: ${unreadNotifications.length}\n`;
+                    result += `- Thông báo kiểm định: ${verificationNotifications.length}\n\n`;
+                    
+                    if (verificationNotifications.length > 0) {
+                        result += `📋 Chi tiết thông báo kiểm định:\n`;
+                        verificationNotifications.forEach(notification => {
+                            result += `- ${notification.title}\n`;
+                            result += `  Content: ${notification.content}\n`;
+                            result += `  Created: ${notification.createdAt}\n`;
+                            result += `  Read: ${notification.isRead ? 'Yes' : 'No'}\n\n`;
+                        });
+                    }
+                    
+                    showResult('payment-check-result', result, 'success');
+                } else {
+                    const error = await response.text();
+                    showResult('payment-check-result', `❌ Lỗi: ${error}`, 'error');
+                }
+            } catch (error) {
+                showResult('payment-check-result', `❌ Lỗi: ${error.message}`, 'error');
+            }
+        }
+
+        async function sendNotificationsForSuccessfulPayments() {
+            try {
+                showResult('notification-send-result', 'Đang gửi thông báo cho thanh toán thành công...', 'info');
+                
+                // Get all successful verification payments
+                const paymentsResponse = await fetch(`${API_BASE}/Payment`);
+                const payments = await paymentsResponse.json();
+                const successfulPayments = payments.filter(p => 
+                    p.PaymentType === 'Verification' && 
+                    p.PaymentStatus === 'Success' && 
+                    p.ProductId
+                );
+                
+                // Get admin user ID
+                const usersResponse = await fetch(`${API_BASE}/User`);
+                const users = await usersResponse.json();
+                const adminUser = users.find(user => 
+                    user.role === 'admin' || 
+                    user.role === 'Admin' || 
+                    user.isAdmin === true ||
+                    user.email?.includes('admin') ||
+                    user.fullName?.includes('Admin')
+                );
+                const adminUserId = adminUser ? (adminUser.id || adminUser.userId || adminUser.accountId) : (users[0]?.id || users[0]?.userId || users[0]?.accountId || 1);
+                
+                let result = `🔔 Gửi thông báo cho ${successfulPayments.length} thanh toán thành công:\n\n`;
+                let successCount = 0;
+                
+                for (const payment of successfulPayments) {
+                    try {
+                        // Get product info
+                        const productResponse = await fetch(`${API_BASE}/Product/${payment.ProductId}`);
+                        const product = productResponse.ok ? await productResponse.json() : { title: 'Sản phẩm không xác định' };
+                        
+                        // Get seller info
+                        const sellerResponse = await fetch(`${API_BASE}/User/${payment.UserId}`);
+                        const seller = sellerResponse.ok ? await sellerResponse.json() : { fullName: 'Người bán không xác định' };
+                        
+                        // Create notification
+                        const notificationData = {
+                            userId: adminUserId,
+                            notificationType: 'verification_payment_success',
+                            title: '💰 Thanh toán kiểm định thành công',
+                            content: `Sản phẩm "${product.title || product.name || 'Sản phẩm không xác định'}" (ID: ${payment.ProductId}) của người bán "${seller.fullName || seller.name || seller.full_name || 'Người bán không xác định'}" đã thanh toán ${payment.Amount.toLocaleString('vi-VN')} VNĐ cho dịch vụ kiểm định. Vui lòng thực hiện kiểm định xe.`,
+                            metadata: {
+                                productId: payment.ProductId,
+                                sellerName: seller.fullName || seller.name || seller.full_name || 'Người bán không xác định',
+                                amount: payment.Amount,
+                                actionRequired: 'inspection'
+                            }
+                        };
+                        
+                        const notificationResponse = await fetch(`${API_BASE}/Notification`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(notificationData)
+                        });
+                        
+                        if (notificationResponse.ok) {
+                            result += `✅ Payment ${payment.PaymentId}: Notification sent successfully\n`;
+                            successCount++;
+                        } else {
+                            result += `❌ Payment ${payment.PaymentId}: Failed to send notification\n`;
+                        }
+                    } catch (error) {
+                        result += `❌ Payment ${payment.PaymentId}: Error - ${error.message}\n`;
+                    }
+                }
+                
+                result += `\n📊 Kết quả: ${successCount}/${successfulPayments.length} thông báo được gửi thành công`;
+                
+                showResult('notification-send-result', result, successCount > 0 ? 'success' : 'error');
+            } catch (error) {
+                showResult('notification-send-result', `❌ Lỗi: ${error.message}`, 'error');
+            }
+        }
+
+        async function sendNotificationForSpecificPayment() {
+            const paymentId = prompt('Nhập Payment ID cần gửi thông báo:');
+            if (!paymentId) return;
+            
+            try {
+                showResult('notification-send-result', `Đang gửi thông báo cho Payment ID: ${paymentId}...`, 'info');
+                
+                // Get payment details
+                const paymentResponse = await fetch(`${API_BASE}/Payment/${paymentId}`);
+                if (!paymentResponse.ok) {
+                    showResult('notification-send-result', `❌ Không tìm thấy payment với ID: ${paymentId}`, 'error');
+                    return;
+                }
+                
+                const payment = await paymentResponse.json();
+                
+                if (payment.PaymentType !== 'Verification' || payment.PaymentStatus !== 'Success') {
+                    showResult('notification-send-result', `❌ Payment ${paymentId} không phải là thanh toán kiểm định thành công`, 'error');
+                    return;
+                }
+                
+                // Get admin user ID
+                const usersResponse = await fetch(`${API_BASE}/User`);
+                const users = await usersResponse.json();
+                const adminUser = users.find(user => 
+                    user.role === 'admin' || 
+                    user.role === 'Admin' || 
+                    user.isAdmin === true ||
+                    user.email?.includes('admin') ||
+                    user.fullName?.includes('Admin')
+                );
+                const adminUserId = adminUser ? (adminUser.id || adminUser.userId || adminUser.accountId) : (users[0]?.id || users[0]?.userId || users[0]?.accountId || 1);
+                
+                // Get product and seller info
+                const productResponse = await fetch(`${API_BASE}/Product/${payment.ProductId}`);
+                const product = productResponse.ok ? await productResponse.json() : { title: 'Sản phẩm không xác định' };
+                
+                const sellerResponse = await fetch(`${API_BASE}/User/${payment.UserId}`);
+                const seller = sellerResponse.ok ? await sellerResponse.json() : { fullName: 'Người bán không xác định' };
+                
+                // Create notification
+                const notificationData = {
+                    userId: adminUserId,
+                    notificationType: 'verification_payment_success',
+                    title: '💰 Thanh toán kiểm định thành công',
+                    content: `Sản phẩm "${product.title || product.name || 'Sản phẩm không xác định'}" (ID: ${payment.ProductId}) của người bán "${seller.fullName || seller.name || seller.full_name || 'Người bán không xác định'}" đã thanh toán ${payment.Amount.toLocaleString('vi-VN')} VNĐ cho dịch vụ kiểm định. Vui lòng thực hiện kiểm định xe.`,
+                    metadata: {
+                        productId: payment.ProductId,
+                        sellerName: seller.fullName || seller.name || seller.full_name || 'Người bán không xác định',
+                        amount: payment.Amount,
+                        actionRequired: 'inspection'
+                    }
+                };
+                
+                const notificationResponse = await fetch(`${API_BASE}/Notification`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(notificationData)
+                });
+                
+                if (notificationResponse.ok) {
+                    const result = await notificationResponse.json();
+                    showResult('notification-send-result', `✅ Thông báo đã được gửi thành công!\n\nResponse: ${JSON.stringify(result, null, 2)}`, 'success');
+                } else {
+                    const error = await notificationResponse.text();
+                    showResult('notification-send-result', `❌ Lỗi gửi thông báo: ${error}`, 'error');
+                }
+            } catch (error) {
+                showResult('notification-send-result', `❌ Lỗi: ${error.message}`, 'error');
+            }
+        }
+
+        async function debugAdminUser() {
+            try {
+                showResult('debug-result', 'Đang debug admin user...', 'info');
+                
+                const response = await fetch(`${API_BASE}/User`);
+                const users = await response.json();
+                
+                let result = `👥 Tất cả users (${users.length}):\n\n`;
+                users.forEach((user, index) => {
+                    result += `${index + 1}. ID: ${user.id || user.userId || user.accountId}\n`;
+                    result += `   Name: ${user.fullName || user.name || user.full_name || 'N/A'}\n`;
+                    result += `   Email: ${user.email || 'N/A'}\n`;
+                    result += `   Role: ${user.role || 'N/A'}\n`;
+                    result += `   IsAdmin: ${user.isAdmin || false}\n\n`;
+                });
+                
+                const adminUser = users.find(user => 
+                    user.role === 'admin' || 
+                    user.role === 'Admin' || 
+                    user.isAdmin === true ||
+                    user.email?.includes('admin') ||
+                    user.fullName?.includes('Admin')
+                );
+                
+                if (adminUser) {
+                    result += `✅ Admin user found:\n`;
+                    result += `ID: ${adminUser.id || adminUser.userId || adminUser.accountId}\n`;
+                    result += `Name: ${adminUser.fullName || adminUser.name || adminUser.full_name}\n`;
+                    result += `Email: ${adminUser.email}\n`;
+                } else {
+                    result += `⚠️ No admin user found, will use first user as admin\n`;
+                    result += `Admin ID will be: ${users[0]?.id || users[0]?.userId || users[0]?.accountId || 1}\n`;
+                }
+                
+                showResult('debug-result', result, 'info');
+            } catch (error) {
+                showResult('debug-result', `❌ Lỗi: ${error.message}`, 'error');
+            }
+        }
+
+        async function debugNotificationAPI() {
+            try {
+                showResult('debug-result', 'Đang debug notification API...', 'info');
+                
+                // Test creating a simple notification
+                const testNotification = {
+                    userId: 1,
+                    notificationType: 'test',
+                    title: 'Test Notification',
+                    content: 'This is a test notification to verify API is working'
+                };
+                
+                const response = await fetch(`${API_BASE}/Notification`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(testNotification)
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    showResult('debug-result', `✅ Notification API is working!\n\nResponse: ${JSON.stringify(result, null, 2)}`, 'success');
+                } else {
+                    const error = await response.text();
+                    showResult('debug-result', `❌ Notification API error: ${error}`, 'error');
+                }
+            } catch (error) {
+                showResult('debug-result', `❌ Lỗi: ${error.message}`, 'error');
+            }
+        }
+
+        async function clearAllNotifications() {
+            if (!confirm('Bạn có chắc muốn xóa tất cả thông báo? (Chỉ dùng để test)')) {
+                return;
+            }
+            
+            try {
+                showResult('debug-result', 'Đang xóa tất cả thông báo...', 'warning');
+                
+                // Get all users and delete their notifications
+                const usersResponse = await fetch(`${API_BASE}/User`);
+                const users = await usersResponse.json();
+                
+                let deletedCount = 0;
+                
+                for (const user of users) {
+                    const userId = user.id || user.userId || user.accountId;
+                    const notificationsResponse = await fetch(`${API_BASE}/Notification/user/${userId}`);
+                    
+                    if (notificationsResponse.ok) {
+                        const notifications = await notificationsResponse.json();
+                        
+                        for (const notification of notifications) {
+                            const deleteResponse = await fetch(`${API_BASE}/Notification/${notification.id || notification.notificationId}`, {
+                                method: 'DELETE'
+                            });
+                            
+                            if (deleteResponse.ok) {
+                                deletedCount++;
+                            }
+                        }
+                    }
+                }
+                
+                showResult('debug-result', `✅ Đã xóa ${deletedCount} thông báo`, 'success');
+            } catch (error) {
+                showResult('debug-result', `❌ Lỗi: ${error.message}`, 'error');
+            }
+        }
+
+        function refreshAdminDashboard() {
+            showResult('result-check', 'Đang làm mới Admin Dashboard...', 'info');
+            
+            // Open admin dashboard in new tab
+            const adminUrl = `${FRONTEND_BASE}/admin`;
+            window.open(adminUrl, '_blank');
+            
+            showResult('result-check', `✅ Admin Dashboard đã được mở trong tab mới\n\nURL: ${adminUrl}\n\nVui lòng kiểm tra:\n- Bell icon có hiển thị số thông báo không\n- Dropdown thông báo có hiển thị thông báo kiểm định không\n- Stats cards có cập nhật không`, 'success');
+        }
+
+        function openAdminDashboard() {
+            window.open(`${FRONTEND_BASE}/admin`, '_blank');
+        }
+    </script>
+</body>
+</html>
+

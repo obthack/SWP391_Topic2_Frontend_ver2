@@ -4,7 +4,7 @@ import { apiRequest } from '../lib/api';
 import { useToast } from '../contexts/ToastContext';
 import { 
   Edit3, Save, X, User, Mail, Phone, Calendar, 
-  Package, Eye, Heart, Star, Award, Shield, 
+  Package, Eye, Heart, Award, Shield, 
   Settings, Camera, CheckCircle, AlertCircle,
   TrendingUp, Users, MessageSquare, Clock
 } from 'lucide-react';
@@ -26,8 +26,7 @@ export const Profile = () => {
     activeListings: 0,
     totalViews: 0,
     memberSince: '',
-    responseRate: 95,
-    rating: 4.8
+    responseRate: 95
   });
 
   useEffect(() => {
@@ -84,8 +83,7 @@ export const Profile = () => {
           activeListings,
           totalViews,
           memberSince: user?.createdAt || profile?.createdAt || new Date().toISOString().split('T')[0],
-          responseRate: 95,
-          rating: 4.8
+          responseRate: 95
         });
       }
     } catch (error) {
@@ -211,10 +209,6 @@ export const Profile = () => {
                     <Calendar className="h-4 w-4 mr-1" />
                     Thành viên từ {new Date(userStats.memberSince).toLocaleDateString('vi-VN')}
                   </span>
-                  <span className="flex items-center">
-                    <Star className="h-4 w-4 mr-1 text-yellow-400" />
-                    {userStats.rating}/5
-                  </span>
                 </div>
               </div>
             </div>
@@ -233,7 +227,7 @@ export const Profile = () => {
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           <div className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
@@ -266,18 +260,6 @@ export const Profile = () => {
               </div>
               <div className="p-3 bg-purple-100 rounded-full">
                 <Eye className="h-6 w-6 text-purple-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 border border-gray-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Đánh giá</p>
-                <p className="text-2xl font-bold text-yellow-600">{userStats.rating}/5</p>
-              </div>
-              <div className="p-3 bg-yellow-100 rounded-full">
-                <Star className="h-6 w-6 text-yellow-600" />
               </div>
             </div>
           </div>
