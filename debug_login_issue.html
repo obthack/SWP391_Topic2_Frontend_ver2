@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Login Issue - EV Trading Platform</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .warning { background-color: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        .clear-btn { background: #dc3545; }
+        .clear-btn:hover { background: #c82333; }
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            border: 1px solid #e9ecef;
+        }
+        .test-section {
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug Login Issue - EV Trading Platform</h1>
+    
+    <div class="container">
+        <h2>📊 Current Auth Status</h2>
+        <div id="authStatus">Loading...</div>
+        <button onclick="checkAuthStatus()">🔄 Refresh Status</button>
+        <button onclick="clearAuth()" class="clear-btn">🗑️ Clear Auth</button>
+    </div>
+
+    <div class="container">
+        <h2>🧪 Test Login Flow</h2>
+        <div class="test-section">
+            <h3>Test Login API</h3>
+            <input type="email" id="testEmail" placeholder="Email" value="thach2548@gmail.com" style="width: 200px; padding: 8px; margin: 5px;">
+            <input type="password" id="testPassword" placeholder="Password" value="123456" style="width: 200px; padding: 8px; margin: 5px;">
+            <button onclick="testLogin()">🔐 Test Login</button>
+        </div>
+        
+        <div class="test-section">
+            <h3>Test Token Validation</h3>
+            <button onclick="testTokenValidation()">🔍 Validate Token</button>
+            <button onclick="testTokenRefresh()">🔄 Refresh Token</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>📝 Debug Logs</h2>
+        <div id="debugLogs"></div>
+        <button onclick="clearLogs()">🗑️ Clear Logs</button>
+    </div>
+
+    <div class="container">
+        <h2>🔧 Quick Fixes</h2>
+        <div class="test-section">
+            <button onclick="fixAuthPersistence()">🛠️ Fix Auth Persistence</button>
+            <button onclick="simulateLogin()">🎭 Simulate Login</button>
+            <button onclick="testPageRefresh()">🔄 Test Page Refresh</button>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'https://ev-and-battery-trading-platform-be.onrender.com';
+        let debugLogs = [];
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            debugLogs.push({ message: logEntry, type });
+            updateDebugLogs();
+            console.log(logEntry);
+        }
+
+        function updateDebugLogs() {
+            const container = document.getElementById('debugLogs');
+            container.innerHTML = debugLogs.map(log => 
+                `<div class="status ${log.type}">${log.message}</div>`
+            ).join('');
+        }
+
+        function clearLogs() {
+            debugLogs = [];
+            updateDebugLogs();
+        }
+
+        function checkAuthStatus() {
+            log('🔍 Checking auth status...', 'info');
+            
+            try {
+                const raw = localStorage.getItem('evtb_auth');
+                if (!raw) {
+                    log('❌ No auth data found in localStorage', 'error');
+                    updateAuthStatus('No auth data found', 'error');
+                    return;
+                }
+
+                const parsed = JSON.parse(raw);
+                log(`✅ Auth data found: ${Object.keys(parsed).join(', ')}`, 'success');
+                
+                // Check token
+                if (parsed.token) {
+                    log(`🔑 Token present: ${parsed.token.length} characters`, 'success');
+                    
+                    // Check token expiration
+                    try {
+                        const payload = JSON.parse(atob(parsed.token.split('.')[1]));
+                        const currentTime = Math.floor(Date.now() / 1000);
+                        const isExpired = payload.exp && payload.exp < currentTime;
+                        
+                        if (isExpired) {
+                            log('⚠️ Token is EXPIRED', 'warning');
+                        } else {
+                            const timeLeft = payload.exp - currentTime;
+                            log(`✅ Token valid for ${Math.floor(timeLeft / 60)} minutes`, 'success');
+                        }
+                    } catch (e) {
+                        log('⚠️ Cannot decode token', 'warning');
+                    }
+                } else {
+                    log('❌ No token found', 'error');
+                }
+
+                // Check user
+                if (parsed.user) {
+                    log(`👤 User found: ${parsed.user.email || 'No email'}`, 'success');
+                } else {
+                    log('❌ No user found', 'error');
+                }
+
+                updateAuthStatus('Auth data found', 'success');
+                
+            } catch (error) {
+                log(`❌ Error checking auth: ${error.message}`, 'error');
+                updateAuthStatus('Error checking auth', 'error');
+            }
+        }
+
+        function updateAuthStatus(message, type) {
+            const status = document.getElementById('authStatus');
+            status.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        function clearAuth() {
+            localStorage.removeItem('evtb_auth');
+            log('🗑️ Auth data cleared', 'info');
+            checkAuthStatus();
+        }
+
+        async function testLogin() {
+            const email = document.getElementById('testEmail').value;
+            const password = document.getElementById('testPassword').value;
+            
+            if (!email || !password) {
+                log('❌ Please enter email and password', 'error');
+                return;
+            }
+
+            log(`🔐 Testing login for ${email}...`, 'info');
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/User/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    log('✅ Login API successful', 'success');
+                    log(`📦 Response: ${JSON.stringify(data, null, 2)}`, 'info');
+                    
+                    // Test saving to localStorage
+                    const session = {
+                        token: data.token || data.accessToken || data.jwt,
+                        user: data.user || { email, id: data.userId || data.id }
+                    };
+                    
+                    if (session.token && session.user) {
+                        localStorage.setItem('evtb_auth', JSON.stringify(session));
+                        log('✅ Session saved to localStorage', 'success');
+                        checkAuthStatus();
+                    } else {
+                        log('❌ Missing token or user in response', 'error');
+                    }
+                } else {
+                    log(`❌ Login failed: ${data.message || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Login error: ${error.message}`, 'error');
+            }
+        }
+
+        function testTokenValidation() {
+            log('🔍 Testing token validation...', 'info');
+            
+            try {
+                const raw = localStorage.getItem('evtb_auth');
+                if (!raw) {
+                    log('❌ No auth data to validate', 'error');
+                    return;
+                }
+
+                const parsed = JSON.parse(raw);
+                if (!parsed.token) {
+                    log('❌ No token to validate', 'error');
+                    return;
+                }
+
+                // Test API call with token
+                fetch(`${API_BASE_URL}/api/User`, {
+                    headers: {
+                        'Authorization': `Bearer ${parsed.token}`
+                    }
+                })
+                .then(response => {
+                    if (response.ok) {
+                        log('✅ Token is valid - API call successful', 'success');
+                    } else {
+                        log(`❌ Token invalid - API call failed: ${response.status}`, 'error');
+                    }
+                })
+                .catch(error => {
+                    log(`❌ Token validation error: ${error.message}`, 'error');
+                });
+                
+            } catch (error) {
+                log(`❌ Token validation error: ${error.message}`, 'error');
+            }
+        }
+
+        function testTokenRefresh() {
+            log('🔄 Testing token refresh...', 'info');
+            
+            try {
+                const raw = localStorage.getItem('evtb_auth');
+                if (!raw) {
+                    log('❌ No auth data to refresh', 'error');
+                    return;
+                }
+
+                const parsed = JSON.parse(raw);
+                if (!parsed.refreshToken) {
+                    log('❌ No refresh token available', 'error');
+                    return;
+                }
+
+                fetch(`${API_BASE_URL}/api/Auth/refresh`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ refreshToken: parsed.refreshToken })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.token) {
+                        log('✅ Token refreshed successfully', 'success');
+                        // Update localStorage
+                        parsed.token = data.token;
+                        localStorage.setItem('evtb_auth', JSON.stringify(parsed));
+                        checkAuthStatus();
+                    } else {
+                        log('❌ Token refresh failed', 'error');
+                    }
+                })
+                .catch(error => {
+                    log(`❌ Token refresh error: ${error.message}`, 'error');
+                });
+                
+            } catch (error) {
+                log(`❌ Token refresh error: ${error.message}`, 'error');
+            }
+        }
+
+        function fixAuthPersistence() {
+            log('🛠️ Applying auth persistence fixes...', 'info');
+            
+            try {
+                const raw = localStorage.getItem('evtb_auth');
+                if (!raw) {
+                    log('❌ No auth data to fix', 'error');
+                    return;
+                }
+
+                const parsed = JSON.parse(raw);
+                
+                // Ensure we have both token and user
+                if (!parsed.token || !parsed.user) {
+                    log('❌ Invalid auth data - missing token or user', 'error');
+                    return;
+                }
+
+                // Create a clean session object
+                const cleanSession = {
+                    token: parsed.token,
+                    user: {
+                        id: parsed.user.id || parsed.user.userId,
+                        email: parsed.user.email,
+                        fullName: parsed.user.fullName || parsed.user.full_name,
+                        phone: parsed.user.phone,
+                        roleId: parsed.user.roleId,
+                        roleName: parsed.user.roleName
+                    },
+                    profile: parsed.profile || null
+                };
+
+                localStorage.setItem('evtb_auth', JSON.stringify(cleanSession));
+                log('✅ Auth data cleaned and saved', 'success');
+                checkAuthStatus();
+                
+            } catch (error) {
+                log(`❌ Fix error: ${error.message}`, 'error');
+            }
+        }
+
+        function simulateLogin() {
+            log('🎭 Simulating login...', 'info');
+            
+            const mockSession = {
+                token: `mock_token_${Date.now()}`,
+                user: {
+                    id: 1,
+                    email: 'test@example.com',
+                    fullName: 'Test User',
+                    phone: '0123456789',
+                    roleId: 2,
+                    roleName: 'User'
+                },
+                profile: null
+            };
+
+            localStorage.setItem('evtb_auth', JSON.stringify(mockSession));
+            log('✅ Mock session created', 'success');
+            checkAuthStatus();
+        }
+
+        function testPageRefresh() {
+            log('🔄 Testing page refresh...', 'info');
+            log('Page will refresh in 3 seconds...', 'warning');
+            
+            setTimeout(() => {
+                window.location.reload();
+            }, 3000);
+        }
+
+        // Auto-check on load
+        window.onload = function() {
+            log('🚀 Debug tool loaded', 'success');
+            checkAuthStatus();
+        };
+    </script>
+</body>
+</html>
+
+
+
+
+
+

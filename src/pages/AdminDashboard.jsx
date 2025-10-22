@@ -2366,46 +2366,30 @@ export const AdminDashboard = () => {
                           return;
                         }
 
-                        // Upload inspection images to the server
                         console.log('Uploading inspection images:', inspectionImages);
-                        
-                        // Upload each image using the ProductImage API
-                        const uploadedImages = [];
+
+                        // Prepare files
+                        const files = [];
                         for (let i = 0; i < inspectionImages.length; i++) {
                           const imageUrl = inspectionImages[i];
-                          try {
-                            // Convert blob URL to file if needed
-                            const response = await fetch(imageUrl);
-                            const blob = await response.blob();
-                            const file = new File([blob], `inspection_${i + 1}.jpg`, { type: 'image/jpeg' });
-                            
-                            // Create FormData for file upload
-                            const formData = new FormData();
-                            formData.append('file', file);
-                            formData.append('type', 'inspection');
-                            formData.append('description', `Hình ảnh kiểm định ${i + 1} - Admin`);
-                            
-                            // Upload to ProductImage API
-                            const uploadResponse = await apiRequest(`/api/ProductImage/${currentInspectionProduct.id}`, {
-                              method: 'PUT',
-                              body: formData
-                            });
-                            
-                            uploadedImages.push({
-                              url: imageUrl,
-                              type: 'inspection',
-                              uploadedBy: 'admin',
-                              uploadedAt: new Date().toISOString(),
-                              description: `Hình ảnh kiểm định ${i + 1} - Admin`,
-                              id: uploadResponse.id || `inspection_${i + 1}`
-                            });
-                            
-                            console.log(`✅ Uploaded inspection image ${i + 1}:`, uploadResponse);
-                          } catch (uploadError) {
-                            console.error(`❌ Failed to upload image ${i + 1}:`, uploadError);
-                            // Continue with other images even if one fails
-                          }
+                          const response = await fetch(imageUrl);
+                          const blob = await response.blob();
+                          const file = new File([blob], `inspection_${i + 1}.jpg`, { type: 'image/jpeg' });
+                          files.push(file);
                         }
+
+                        // Build FormData for multiple upload
+                        const formData = new FormData();
+                        formData.append('productId', currentInspectionProduct.id);
+                        files.forEach((f) => formData.append('images', f));
+                        formData.append('imageType', 'ảnh được admin kiểm định');
+                        formData.append('tag', 'ảnh được admin kiểm định');
+
+                        // Upload all at once to /api/ProductImage/multiple
+                        await apiRequest(`/api/ProductImage/multiple`, {
+                          method: 'POST',
+                          body: formData
+                        });
 
                         // Update product verification status
                         await apiRequest(`/api/Product/${currentInspectionProduct.id}`, {
@@ -2416,14 +2400,14 @@ export const AdminDashboard = () => {
                             inspectionCompletedBy: 'admin'
                           })
                         });
-                        
-                        // Close modal and refresh data
+
+                        // Close modal and refresh
                         setShowInspectionModal(false);
                         setInspectionImages([]);
                         setCurrentInspectionProduct(null);
-                        await loadAdminData(); // Refresh main data
-                        
-                        showToast(`Đã hoàn thành kiểm định xe thành công! Đã upload ${uploadedImages.length} hình ảnh vào tin đăng.`, "success");
+                        await loadAdminData();
+
+                        showToast("Đã kiểm định thành công", "success");
                       } catch (error) {
                         console.error("Failed to complete inspection:", error);
                         showToast("Không thể hoàn thành kiểm định. Vui lòng thử lại.", "error");

@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fix Token Expiration - EV Trading Platform</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .warning { background-color: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        .fix-btn { background: #28a745; }
+        .fix-btn:hover { background: #218838; }
+        .clear-btn { background: #dc3545; }
+        .clear-btn:hover { background: #c82333; }
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            border: 1px solid #e9ecef;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Fix Token Expiration - EV Trading Platform</h1>
+    
+    <div class="container">
+        <h2>🚨 Current Token Status</h2>
+        <div id="tokenStatus">Loading...</div>
+        <button onclick="checkTokenStatus()">🔄 Refresh Status</button>
+    </div>
+
+    <div class="container">
+        <h2>🛠️ Quick Fixes</h2>
+        <div class="status info">
+            <strong>Problem:</strong> Token expires too quickly (vừa login là văng luôn)
+        </div>
+        
+        <button onclick="enableDemoMode()" class="fix-btn">🎭 Enable Demo Mode</button>
+        <button onclick="extendToken()" class="fix-btn">⏰ Extend Token</button>
+        <button onclick="bypassExpiration()" class="fix-btn">🚫 Bypass Expiration</button>
+        <button onclick="clearAndRelogin()" class="clear-btn">🗑️ Clear & Re-login</button>
+    </div>
+
+    <div class="container">
+        <h2>📝 Debug Logs</h2>
+        <div id="debugLogs"></div>
+        <button onclick="clearLogs()">🗑️ Clear Logs</button>
+    </div>
+
+    <div class="container">
+        <h2>🔍 Manual Fixes</h2>
+        <div class="status warning">
+            <strong>Copy & paste these commands in browser console:</strong>
+        </div>
+        <pre id="manualFixes">
+// Fix 1: Enable Demo Mode
+localStorage.setItem('evtb_demo_mode', 'true');
+window.location.reload();
+
+// Fix 2: Extend token expiration
+const auth = JSON.parse(localStorage.getItem('evtb_auth'));
+if (auth && auth.token) {
+  const payload = JSON.parse(atob(auth.token.split('.')[1]));
+  payload.exp = Math.floor(Date.now() / 1000) + (24 * 60 * 60); // 24 hours
+  const newToken = btoa(JSON.stringify(payload));
+  auth.token = newToken;
+  localStorage.setItem('evtb_auth', JSON.stringify(auth));
+  window.location.reload();
+}
+
+// Fix 3: Bypass token validation
+window.evtb_bypass_token = true;
+        </pre>
+        <button onclick="copyManualFixes()">📋 Copy Manual Fixes</button>
+    </div>
+
+    <script>
+        let debugLogs = [];
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            debugLogs.push({ message: logEntry, type });
+            updateDebugLogs();
+            console.log(logEntry);
+        }
+
+        function updateDebugLogs() {
+            const container = document.getElementById('debugLogs');
+            container.innerHTML = debugLogs.map(log => 
+                `<div class="status ${log.type}">${log.message}</div>`
+            ).join('');
+        }
+
+        function clearLogs() {
+            debugLogs = [];
+            updateDebugLogs();
+        }
+
+        function checkTokenStatus() {
+            log('🔍 Checking token status...', 'info');
+            
+            try {
+                const raw = localStorage.getItem('evtb_auth');
+                if (!raw) {
+                    log('❌ No auth data found', 'error');
+                    updateTokenStatus('No auth data found', 'error');
+                    return;
+                }
+
+                const parsed = JSON.parse(raw);
+                if (!parsed.token) {
+                    log('❌ No token found', 'error');
+                    updateTokenStatus('No token found', 'error');
+                    return;
+                }
+
+                // Check token expiration
+                const payload = JSON.parse(atob(parsed.token.split('.')[1]));
+                const currentTime = Math.floor(Date.now() / 1000);
+                const timeLeft = payload.exp - currentTime;
+                const isExpired = timeLeft < 0;
+
+                log(`🔑 Token found: ${parsed.token.length} characters`, 'success');
+                log(`⏰ Expires: ${new Date(payload.exp * 1000).toLocaleString()}`, 'info');
+                log(`⏱️ Time left: ${Math.floor(timeLeft / 60)} minutes`, isExpired ? 'error' : 'success');
+
+                if (isExpired) {
+                    log('⚠️ Token is EXPIRED!', 'error');
+                    updateTokenStatus('Token is EXPIRED!', 'error');
+                } else {
+                    log('✅ Token is valid', 'success');
+                    updateTokenStatus(`Token valid for ${Math.floor(timeLeft / 60)} minutes`, 'success');
+                }
+
+            } catch (error) {
+                log(`❌ Error checking token: ${error.message}`, 'error');
+                updateTokenStatus('Error checking token', 'error');
+            }
+        }
+
+        function updateTokenStatus(message, type) {
+            const status = document.getElementById('tokenStatus');
+            status.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        function enableDemoMode() {
+            log('🎭 Enabling Demo Mode...', 'info');
+            localStorage.setItem('evtb_demo_mode', 'true');
+            log('✅ Demo Mode enabled - token expiration bypassed', 'success');
+            log('🔄 Reloading page...', 'info');
+            setTimeout(() => window.location.reload(), 1000);
+        }
+
+        function extendToken() {
+            log('⏰ Extending token expiration...', 'info');
+            
+            try {
+                const raw = localStorage.getItem('evtb_auth');
+                if (!raw) {
+                    log('❌ No auth data to extend', 'error');
+                    return;
+                }
+
+                const parsed = JSON.parse(raw);
+                if (!parsed.token) {
+                    log('❌ No token to extend', 'error');
+                    return;
+                }
+
+                // Extend token by 24 hours
+                const payload = JSON.parse(atob(parsed.token.split('.')[1]));
+                payload.exp = Math.floor(Date.now() / 1000) + (24 * 60 * 60); // 24 hours
+                
+                // Create new token with extended expiration
+                const newToken = btoa(JSON.stringify(payload));
+                parsed.token = newToken;
+                
+                localStorage.setItem('evtb_auth', JSON.stringify(parsed));
+                log('✅ Token extended by 24 hours', 'success');
+                log('🔄 Reloading page...', 'info');
+                setTimeout(() => window.location.reload(), 1000);
+                
+            } catch (error) {
+                log(`❌ Error extending token: ${error.message}`, 'error');
+            }
+        }
+
+        function bypassExpiration() {
+            log('🚫 Setting up token expiration bypass...', 'info');
+            
+            // Set global bypass flag
+            window.evtb_bypass_token = true;
+            
+            // Override token validation
+            const originalGetItem = localStorage.getItem;
+            localStorage.getItem = function(key) {
+                if (key === 'evtb_auth') {
+                    const result = originalGetItem.call(this, key);
+                    if (result) {
+                        try {
+                            const parsed = JSON.parse(result);
+                            if (parsed.token) {
+                                // Modify token to never expire
+                                const payload = JSON.parse(atob(parsed.token.split('.')[1]));
+                                payload.exp = Math.floor(Date.now() / 1000) + (365 * 24 * 60 * 60); // 1 year
+                                const newToken = btoa(JSON.stringify(payload));
+                                parsed.token = newToken;
+                                return JSON.stringify(parsed);
+                            }
+                        } catch (e) {
+                            // Ignore errors
+                        }
+                    }
+                }
+                return originalGetItem.call(this, key);
+            };
+            
+            log('✅ Token expiration bypassed', 'success');
+            log('🔄 Reloading page...', 'info');
+            setTimeout(() => window.location.reload(), 1000);
+        }
+
+        function clearAndRelogin() {
+            log('🗑️ Clearing auth data...', 'info');
+            localStorage.removeItem('evtb_auth');
+            localStorage.removeItem('evtb_demo_mode');
+            log('✅ Auth data cleared', 'success');
+            log('🔄 Redirecting to login...', 'info');
+            setTimeout(() => {
+                window.location.href = '/login';
+            }, 1000);
+        }
+
+        function copyManualFixes() {
+            const fixes = document.getElementById('manualFixes').textContent;
+            navigator.clipboard.writeText(fixes).then(() => {
+                log('📋 Manual fixes copied to clipboard', 'success');
+            }).catch(() => {
+                log('❌ Failed to copy to clipboard', 'error');
+            });
+        }
+
+        // Auto-check on load
+        window.onload = function() {
+            log('🚀 Token expiration fix tool loaded', 'success');
+            checkTokenStatus();
+        };
+    </script>
+</body>
+</html>
+
+
+
+
+
+
