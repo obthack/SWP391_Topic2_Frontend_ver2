@@ -85,6 +85,7 @@ export const AdminDashboard = () => {
   // Inspection modal state
   const [showInspectionModal, setShowInspectionModal] = useState(false);
   const [inspectionImages, setInspectionImages] = useState([]);
+  const [inspectionFiles, setInspectionFiles] = useState([]);
   const [currentInspectionProduct, setCurrentInspectionProduct] = useState(null);
 
   // Notification state
@@ -1039,57 +1040,27 @@ export const AdminDashboard = () => {
 
   const handleStartInspection = async (productId) => {
     try {
-      console.log(`Starting inspection for product ${productId}...`);
+      console.log(`📋 Opening inspection modal for product ${productId}...`);
       
-      // Try multiple API endpoints to update verification status
-      let response = null;
-      
-      try {
-        // Try the verify endpoint first
-        response = await apiRequest(`/api/Product/verify/${productId}`, {
-        method: 'PUT'
-      });
-        console.log("✅ Used verify endpoint:", response);
-      } catch (verifyError) {
-        console.warn("⚠️ Verify endpoint failed, trying direct product update...");
-        
-        try {
-          // Fallback: try direct product update
-          response = await apiRequest(`/api/Product/${productId}`, {
-            method: 'PUT',
-            body: JSON.stringify({
-              verificationStatus: 'InProgress'
-            })
-          });
-          console.log("✅ Used direct product update:", response);
-        } catch (directError) {
-          console.warn("⚠️ Direct update failed, trying alternative approach...");
-          
-          // Final fallback: try with different field names
-          response = await apiRequest(`/api/Product/${productId}`, {
-            method: 'PUT',
-            body: JSON.stringify({
-              inspectionRequested: false,
-              inspectionCompleted: true
-            })
-          });
-          console.log("✅ Used alternative approach:", response);
-        }
-      }
-      
-      // Open inspection modal for image upload
+      // Lấy thông tin sản phẩm hiện tại
       const product = allListings.find(p => getId(p) === productId);
-      if (product) {
-        setCurrentInspectionProduct(product);
-        setInspectionImages([]);
-        setShowInspectionModal(true);
+      if (!product) {
+        showToast("Không tìm thấy thông tin sản phẩm", "error");
+        return;
       }
       
-      showToast("Mở modal kiểm định. Vui lòng upload hình ảnh để hoàn thành kiểm định.", "info");
+      // ✅ CHỈ MỞ MODAL - KHÔNG GỌI API, KHÔNG THAY ĐỔI STATUS
+      // Trạng thái chỉ thay đổi khi admin bấm "Hoàn thành kiểm định"
+      setCurrentInspectionProduct(product);
+      setInspectionImages([]);
+      setInspectionFiles([]);
+      setShowInspectionModal(true);
+      
+      showToast("Vui lòng upload hình ảnh kiểm định để hoàn thành.", "info");
       
     } catch (error) {
-      console.error("Failed to start inspection:", error);
-      showToast("Không thể bắt đầu kiểm định xe. Vui lòng thử lại.", "error");
+      console.error("Failed to open inspection modal:", error);
+      showToast("Không thể mở modal kiểm định. Vui lòng thử lại.", "error");
     }
   };
 
@@ -1121,34 +1092,214 @@ export const AdminDashboard = () => {
     }
   };
 
+  const uploadAdminVerificationImages = async (productId, files) => {
+    try {
+      const uploadPromises = files.map(async (file) => {
+        const formData = new FormData();
+        formData.append('productId', productId);
+        formData.append('imageFile', file);
+        
+        const response = await apiRequest('/api/ProductImage/admin-verification', {
+          method: 'POST',
+          body: formData
+        });
+        
+        return response;
+      });
+      
+      const results = await Promise.all(uploadPromises);
+      console.log("✅ Admin verification images uploaded:", results);
+      return results;
+    } catch (error) {
+      console.error("❌ Failed to upload admin verification images:", error);
+      throw error;
+    }
+  };
+
+  // ✅ Function to add watermark to image
+  const addWatermarkToImage = async (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      
+      reader.onload = (e) => {
+        const img = new Image();
+        
+        img.onload = () => {
+          // Create canvas
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          // Set canvas size to image size
+          canvas.width = img.width;
+          canvas.height = img.height;
+          
+          // Draw original image
+          ctx.drawImage(img, 0, 0);
+          
+          // Add watermark "VERIFIED" to đùng ở giữa ảnh
+          const fontSize = Math.max(60, img.width / 8); // Large font size
+          ctx.font = `bold ${fontSize}px Arial`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          
+          const watermarkText = 'VERIFIED';
+          
+          // Vẽ ở giữa ảnh
+          const centerX = canvas.width / 2;
+          const centerY = canvas.height / 2;
+          
+          // Shadow để text nổi bật hơn
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+          ctx.shadowBlur = 10;
+          ctx.shadowOffsetX = 5;
+          ctx.shadowOffsetY = 5;
+          
+          // Viền trắng dày
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+          ctx.lineWidth = Math.max(8, fontSize / 10);
+          ctx.strokeText(watermarkText, centerX, centerY);
+          
+          // Chữ xanh dương
+          ctx.fillStyle = 'rgba(37, 99, 235, 0.85)';
+          ctx.fillText(watermarkText, centerX, centerY);
+          
+          // Convert canvas to blob
+          canvas.toBlob((blob) => {
+            if (blob) {
+              const watermarkedFile = new File([blob], file.name, { type: file.type });
+              resolve(watermarkedFile);
+            } else {
+              reject(new Error('Failed to create watermarked image'));
+            }
+          }, file.type);
+        };
+        
+        img.onerror = () => {
+          reject(new Error('Failed to load image'));
+        };
+        
+        img.src = e.target.result;
+      };
+      
+      reader.onerror = () => {
+        reject(new Error('Failed to read file'));
+      };
+      
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleCompleteInspection = async (productId) => {
     try {
-      console.log(`Completing inspection for product ${productId}...`);
+      console.log(`📋 Completing inspection for product ${productId}...`);
       
-      // Get product details for notification
+      // Validate inspection files
+      if (!inspectionFiles || inspectionFiles.length === 0) {
+        showToast("Vui lòng upload ít nhất một hình ảnh kiểm định!", "error");
+        return;
+      }
+      
+      // Get product details
       const product = allListings.find(p => getId(p) === productId);
       if (!product) {
         showToast("Không tìm thấy thông tin sản phẩm", "error");
         return;
       }
       
-      await updateVerificationStatus(productId, "Verified");
+      // ✅ BƯỚC 1: Ảnh đã được watermark ngay khi upload, không cần watermark lại
+      console.log(`📋 Images already watermarked during upload. Preparing to upload ${inspectionFiles.length} images...`);
+      const watermarkedFiles = inspectionFiles; // Đã có watermark rồi
       
-      // Send notification to user
-      await sendVerificationNotificationToUser(
-        productId, 
-        'Verified', 
-        'Xe đã được kiểm định thành công và đạt tiêu chuẩn chất lượng.'
+      // ✅ BƯỚC 2: Upload ảnh kiểm định qua API /api/ProductImage/multiple
+      console.log(`🔄 Uploading ${watermarkedFiles.length} watermarked admin inspection images...`);
+      try {
+        // Tạo FormData cho multiple upload
+        const formData = new FormData();
+        formData.append('productId', productId);
+        formData.append('name', 'Vehicle'); // ✅ Tên loại ảnh (Vehicle/Battery/Document)
+        
+        // Thêm tất cả file đã watermark vào FormData
+        watermarkedFiles.forEach((file, index) => {
+          // Rename file để đánh dấu là ảnh admin kiểm định
+          const adminFileName = `ADMIN-INSPECTION-${Date.now()}-${index + 1}-${file.name}`;
+          const renamedFile = new File([file], adminFileName, { type: file.type });
+          formData.append('images', renamedFile);
+          console.log(`  📎 Added watermarked file ${index + 1}:`, adminFileName, file.size, 'bytes');
+        });
+        
+        // Gọi API upload multiple images
+        const uploadResponse = await apiRequest('/api/ProductImage/multiple', {
+          method: 'POST',
+          body: formData,
+          // Không set Content-Type header, browser sẽ tự động set cho FormData
+        });
+        
+        console.log(`✅ Uploaded ${uploadResponse.length} admin inspection images:`, uploadResponse);
+        showToast(`Đã upload ${uploadResponse.length} hình ảnh kiểm định thành công!`, "success");
+        
+      } catch (uploadError) {
+        console.error("❌ Failed to upload admin inspection images:", uploadError);
+        showToast("Không thể upload hình ảnh kiểm định. Vui lòng thử lại.", "error");
+        return; // Dừng lại nếu upload thất bại
+      }
+      
+      // ✅ BƯỚC 3: Cập nhật VerificationStatus thành "Verified" bằng API verify
+      console.log(`🔄 Calling verify API for product ${productId}...`);
+      try {
+        const verifyResponse = await apiRequest(`/api/Product/verify/${productId}`, {
+          method: 'PUT'
+        });
+        console.log("✅ Product verified successfully:", verifyResponse);
+      } catch (updateError) {
+        console.error("❌ Failed to verify product:", updateError);
+        showToast("Không thể hoàn thành kiểm định. Vui lòng thử lại.", "error");
+        return;
+      }
+      
+      // ✅ BƯỚC 4: Cập nhật local state
+      setAllListings((prev) =>
+        prev.map((item) =>
+          getId(item) === productId
+            ? { ...item, verificationStatus: "Verified" }
+            : item
+        )
       );
       
-      // Refresh data
-      setRefreshTrigger(prev => prev + 1);
+      // ✅ BƯỚC 5: Gửi thông báo cho người bán (nếu có)
+      try {
+        await sendVerificationNotificationToUser(
+          productId, 
+          'Verified', 
+          'Xe đã được kiểm định thành công và đạt tiêu chuẩn chất lượng.'
+        );
+      } catch (notifError) {
+        console.warn("⚠️ Failed to send notification:", notifError);
+        // Không dừng lại nếu gửi thông báo thất bại
+      }
       
-      showToast("Đã hoàn thành kiểm định xe thành công và gửi thông báo cho người bán!", "success");
+      // ✅ BƯỚC 6: Đóng modal và reset state
+      console.log("🔄 Closing inspection modal and resetting state...");
+      setShowInspectionModal(false);
+      setCurrentInspectionProduct(null);
+      setInspectionImages([]);
+      setInspectionFiles([]);
+      setShowNotifications(false);
+      
+      // Refresh data
+      await loadAdminData();
+      
+      showToast(`✅ Đã hoàn thành kiểm định xe thành công! ${watermarkedFiles.length} hình ảnh đã được thêm watermark "VERIFIED" và lưu vào tin đăng.`, "success");
       
     } catch (error) {
-      console.error("Failed to complete inspection:", error);
-      showToast("Không thể hoàn thành kiểm định xe. Vui lòng thử lại.", "error");
+      console.error("❌ Failed to complete inspection:", error);
+      showToast("Không thể hoàn thành kiểm định. Vui lòng thử lại.", "error");
+      
+      // Đóng modal ngay cả khi có lỗi
+      setShowInspectionModal(false);
+      setCurrentInspectionProduct(null);
+      setInspectionImages([]);
+      setInspectionFiles([]);
+      setShowNotifications(false);
     }
   };
 
@@ -1820,15 +1971,19 @@ export const AdminDashboard = () => {
                           <Eye className="h-4 w-4" />
                       </button>
                       
-                      {/* Inspection button for products with Requested verification status */}
-                      {listing.verificationStatus === "Requested" && (
+                      {/* Inspection button for products with Requested or InProgress verification status */}
+                      {(listing.verificationStatus === "Requested" || listing.verificationStatus === "InProgress") && (
                         <button
                           onClick={() => handleStartInspection(listing.id)}
-                          className="bg-blue-600 text-white px-3 py-1 rounded-lg text-xs hover:bg-blue-700 flex items-center space-x-1"
-                          title="Bắt đầu kiểm định"
+                          className={`px-3 py-1 rounded-lg text-xs flex items-center space-x-1 ${
+                            listing.verificationStatus === "InProgress" 
+                              ? "bg-orange-600 text-white hover:bg-orange-700" 
+                              : "bg-blue-600 text-white hover:bg-blue-700"
+                          }`}
+                          title={listing.verificationStatus === "InProgress" ? "Tiếp tục kiểm định" : "Bắt đầu kiểm định"}
                         >
                           <Camera className="h-3 w-3" />
-                          <span>Kiểm định</span>
+                          <span>{listing.verificationStatus === "InProgress" ? "Tiếp tục" : "Kiểm định"}</span>
                         </button>
                       )}
                         
@@ -2293,10 +2448,29 @@ export const AdminDashboard = () => {
                       type="file"
                       multiple
                       accept="image/*"
-                      onChange={(e) => {
+                      onChange={async (e) => {
                         const files = Array.from(e.target.files);
-                        const imageUrls = files.map(file => URL.createObjectURL(file));
-                        setInspectionImages(prev => [...prev, ...imageUrls]);
+                        
+                        // ✅ Thêm watermark ngay khi upload
+                        console.log(`🎨 Adding watermarks to ${files.length} images...`);
+                        for (const file of files) {
+                          try {
+                            // Add watermark to image
+                            const watermarkedFile = await addWatermarkToImage(file);
+                            
+                            // Create preview URL from watermarked image
+                            const imageUrl = URL.createObjectURL(watermarkedFile);
+                            
+                            // Add to state
+                            setInspectionImages(prev => [...prev, imageUrl]);
+                            setInspectionFiles(prev => [...prev, watermarkedFile]);
+                            
+                            console.log(`  ✓ Watermarked and added: ${file.name}`);
+                          } catch (error) {
+                            console.error(`  ❌ Failed to watermark ${file.name}:`, error);
+                            showToast(`Không thể thêm watermark vào ${file.name}`, "error");
+                          }
+                        }
                       }}
                       className="hidden"
                       id="inspection-image-upload"
@@ -2324,6 +2498,7 @@ export const AdminDashboard = () => {
                             <button
                               onClick={() => {
                                 setInspectionImages(prev => prev.filter((_, i) => i !== index));
+                                setInspectionFiles(prev => prev.filter((_, i) => i !== index));
                               }}
                               className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600"
                             >
@@ -2344,12 +2519,14 @@ export const AdminDashboard = () => {
                         if (window.confirm("Bạn có chắc muốn hủy kiểm định? Hình ảnh đã upload sẽ bị mất và trạng thái xe không thay đổi.")) {
                           setShowInspectionModal(false);
                           setInspectionImages([]);
+                          setInspectionFiles([]);
                           setCurrentInspectionProduct(null);
                           showToast("Đã hủy kiểm định. Trạng thái xe không thay đổi.", "info");
                         }
                       } else {
                         setShowInspectionModal(false);
                         setInspectionImages([]);
+                        setInspectionFiles([]);
                         setCurrentInspectionProduct(null);
                         showToast("Đã hủy kiểm định. Trạng thái xe không thay đổi.", "info");
                       }
@@ -2360,58 +2537,13 @@ export const AdminDashboard = () => {
                   </button>
                   <button
                     onClick={async () => {
-                      try {
-                        if (inspectionImages.length === 0) {
-                          showToast("Vui lòng upload ít nhất một hình ảnh kiểm định!", "error");
-                          return;
-                        }
-
-                        console.log('Uploading inspection images:', inspectionImages);
-
-                        // Prepare files
-                        const files = [];
-                        for (let i = 0; i < inspectionImages.length; i++) {
-                          const imageUrl = inspectionImages[i];
-                          const response = await fetch(imageUrl);
-                          const blob = await response.blob();
-                          const file = new File([blob], `inspection_${i + 1}.jpg`, { type: 'image/jpeg' });
-                          files.push(file);
-                        }
-
-                        // Build FormData for multiple upload
-                        const formData = new FormData();
-                        formData.append('productId', currentInspectionProduct.id);
-                        files.forEach((f) => formData.append('images', f));
-                        formData.append('imageType', 'ảnh được admin kiểm định');
-                        formData.append('tag', 'ảnh được admin kiểm định');
-
-                        // Upload all at once to /api/ProductImage/multiple
-                        await apiRequest(`/api/ProductImage/multiple`, {
-                          method: 'POST',
-                          body: formData
-                        });
-
-                        // Update product verification status
-                        await apiRequest(`/api/Product/${currentInspectionProduct.id}`, {
-                          method: 'PUT',
-                          body: JSON.stringify({
-                            verificationStatus: 'Verified',
-                            inspectionCompletedAt: new Date().toISOString(),
-                            inspectionCompletedBy: 'admin'
-                          })
-                        });
-
-                        // Close modal and refresh
-                        setShowInspectionModal(false);
-                        setInspectionImages([]);
-                        setCurrentInspectionProduct(null);
-                        await loadAdminData();
-
-                        showToast("Đã kiểm định thành công", "success");
-                      } catch (error) {
-                        console.error("Failed to complete inspection:", error);
-                        showToast("Không thể hoàn thành kiểm định. Vui lòng thử lại.", "error");
+                      if (inspectionImages.length === 0) {
+                        showToast("Vui lòng upload ít nhất một hình ảnh kiểm định!", "error");
+                        return;
                       }
+
+                      // Sử dụng hàm handleCompleteInspection mới
+                      await handleCompleteInspection(currentInspectionProduct.id);
                     }}
                     disabled={inspectionImages.length === 0}
                     className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"

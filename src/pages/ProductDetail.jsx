@@ -224,6 +224,14 @@ export const ProductDetail = () => {
           const tag = getStr(img.tag || img.Tag || img.label || img.Label);
           const type = getStr(img.imageType || img.type || img.image_type || img.category);
           const name = getStr(img.name || img.Name);
+          const imageUrl = getStr(img.imageData || img.ImageData || img.url || img.imageUrl);
+          
+          // ✅ Check if filename contains ADMIN-INSPECTION prefix
+          if (imageUrl.includes("admin-inspection")) {
+            console.log(`🔍 Image ${img.id}: ADMIN INSPECTION detected (filename)`);
+            return true;
+          }
+          
           return (
             tag.includes("kiểm định") ||
             tag.includes("admin") ||
@@ -647,8 +655,8 @@ export const ProductDetail = () => {
               )}
 
               {currentImage && inspectedSet.has(currentImage) && (
-                <div className="absolute top-4 left-4 bg-green-600 text-white px-3 py-1 rounded-full text-xs shadow">
-                  ảnh đã được kiểm định
+                <div className="absolute top-4 left-4 bg-blue-600 text-white px-3 py-1 rounded-full text-xs shadow-lg font-medium">
+                  ✓ Ảnh do Admin kiểm định
                 </div>
               )}
 
@@ -696,8 +704,8 @@ export const ProductDetail = () => {
                       }}
                     />
                       {inspectedSet.has(image) && (
-                        <div className="absolute top-1 left-1 bg-green-600 text-white px-2 py-0.5 rounded text-[10px]">
-                          đã kiểm định
+                        <div className="absolute top-1 left-1 bg-blue-600 text-white px-2 py-0.5 rounded text-[10px] font-medium">
+                          ✓ Admin
                         </div>
                       )}
                   </button>
@@ -735,14 +743,22 @@ export const ProductDetail = () => {
                   </h1>
 
                   {/* Verification Status Badge */}
-                  {product.verificationStatus === "Verified" && (
-                    <div className="mb-3">
+                  <div className="mb-3 flex flex-wrap gap-2">
+                    {product.verificationStatus === "Verified" && (
                       <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 border border-green-200">
                         <CheckCircle className="h-4 w-4 mr-1" />
                         Đã kiểm định
                       </span>
-                    </div>
-                  )}
+                    )}
+                    
+                    {/* Admin Inspection Images Badge */}
+                    {inspectedSet.size > 0 && (
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                        <CheckCircle className="h-4 w-4 mr-1" />
+                        Có {inspectedSet.size} ảnh do Admin kiểm định
+                      </span>
+                    )}
+                  </div>
 
                   <p className="text-gray-600">
                     {product.licensePlate ||
