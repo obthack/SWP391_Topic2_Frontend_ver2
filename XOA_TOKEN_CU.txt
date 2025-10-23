@@ -1,0 +1,48 @@
+========================================
+  XÓA TOKEN CŨ - FIX LOGIN
+========================================
+
+BẠN CÓ TOKEN CŨ → GÂY LỖI!
+Cần xóa để login lại lấy token MỚI.
+
+========================================
+CÁCH 1: NHANH NHẤT (Copy & Paste)
+========================================
+
+1. Nhấn F12 (mở Console)
+
+2. Copy đoạn này và Paste vào Console:
+
+localStorage.clear(); location.reload();
+
+3. Enter → Xong!
+
+========================================
+SAU ĐÓ:
+========================================
+
+1. Trang tự động reload
+2. Vào trang Login
+3. Đăng nhập lại
+4. Có token MỚI → OK!
+
+========================================
+TẠI SAO PHẢI XÓA?
+========================================
+
+Token CŨ:
+❌ Đã hết hạn
+❌ Gây lỗi loop refresh
+❌ Không cho login lại
+❌ Nhiều lỗi trong Console
+
+Token MỚI (sau khi xóa & login):
+✅ Còn hạn
+✅ Không lỗi
+✅ Login được
+✅ Hoạt động tốt
+
+========================================
+
+
+

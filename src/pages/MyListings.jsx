@@ -77,19 +77,34 @@ export const MyListings = () => {
       // Use seller-specific API (now has productType field)
       console.log("🔄 Using seller-specific API (has productType)");
       const sellerData = await apiRequest(`/api/Product/seller/${sellerId}`);
-      console.log("✅ Seller API successful:", sellerData.length, "items");
-
       const sellerItems = Array.isArray(sellerData)
         ? sellerData
         : sellerData?.items || [];
+      console.log("✅ Seller API successful:", sellerItems.length, "items");
 
-      console.log("🔍 Seller data loaded:", sellerItems.length, "items");
+      // Fallback: if seller endpoint returns empty, fetch all and filter by sellerId
+      let sourceItems = sellerItems;
+      if (sellerId && sellerItems.length === 0) {
+        try {
+          console.log("🛠️ Fallback: fetching all products and filtering by sellerId", sellerId);
+          const allResponse = await apiRequest(`/api/Product`);
+          const allItems = Array.isArray(allResponse) ? allResponse : allResponse?.items || [];
+          sourceItems = allItems.filter(
+            (p) => (p.sellerId || p.SellerId || p.ownerId || p.createdBy) == sellerId
+          );
+          console.log("✅ Fallback filtered items:", sourceItems.length);
+        } catch (fallbackErr) {
+          console.warn("⚠️ Fallback fetch failed:", fallbackErr);
+        }
+      }
+
+      console.log("🔍 Seller data loaded:", sourceItems.length, "items");
 
       // Classify products - use single pass to avoid duplicates
       const vehiclesData = [];
       const batteriesData = [];
 
-      sellerItems.forEach((item) => {
+      sourceItems.forEach((item) => {
         // PRIORITY 1: Check productType field first (most reliable)
         if (item.productType === "vehicle" || item.productType === "Vehicle") {
           console.log(
