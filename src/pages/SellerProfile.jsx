@@ -15,6 +15,7 @@ import {
   Award,
   MessageCircle,
   Heart,
+  Clock,
 } from "lucide-react";
 import { apiRequest } from "../lib/api";
 import { formatPrice } from "../utils/formatters";
@@ -55,6 +56,33 @@ export const SellerProfile = () => {
     if (id) {
       loadSellerData();
     }
+    
+    // ✅ Listen for reload events (e.g., after admin confirms transaction)
+    const handleStorageChange = (e) => {
+      if (e.key === 'seller_profile_reload') {
+        console.log('🔄 Reloading seller profile due to admin confirmation...');
+        loadSellerData();
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    
+    // ✅ Also check localStorage periodically for same-tab updates
+    const checkReload = setInterval(() => {
+      const lastReload = localStorage.getItem('seller_profile_reload');
+      const lastCheck = sessionStorage.getItem('seller_profile_last_check');
+      
+      if (lastReload && lastReload !== lastCheck) {
+        console.log('🔄 Reloading seller profile (same tab)...');
+        sessionStorage.setItem('seller_profile_last_check', lastReload);
+        loadSellerData();
+      }
+    }, 3000); // Check every 3 seconds
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(checkReload);
+    };
   }, [id]);
 
   const loadSellerData = async () => {
@@ -69,20 +97,27 @@ export const SellerProfile = () => {
       const productsData = await apiRequest(`/api/Product/seller/${id}`);
       const productsList = Array.isArray(productsData) ? productsData : productsData?.items || [];
       
+      // ✅ Add seller name to all products
+      const sellerName = sellerData?.fullName || sellerData?.name || "Người bán";
+      const productsWithSellerName = productsList.map(product => ({
+        ...product,
+        sellerName: sellerName
+      }));
+      
       // Filter approved products (still available)
-      const approvedProducts = productsList.filter(product => {
+      const approvedProducts = productsWithSellerName.filter(product => {
         const status = String(product.status || product.Status || "").toLowerCase();
         return status === "approved" || status === "active";
       });
       
       // Filter reserved products (after deposit payment)
-      const reservedProducts = productsList.filter(product => {
+      const reservedProducts = productsWithSellerName.filter(product => {
         const status = String(product.status || product.Status || "").toLowerCase();
         return status === "reserved";
       });
       
       // Filter sold products
-      const soldProductsList = productsList.filter(product => {
+      const soldProductsList = productsWithSellerName.filter(product => {
         const status = String(product.status || product.Status || "").toLowerCase();
         return status === "sold";
       });

@@ -151,3 +151,15 @@ D:\Term 5\SWP301\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\refint\EVT
 D:\Term 5\SWP301\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\EVTB_Backend.pdb
 D:\Term 5\SWP301\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\EVTB_Backend.genruntimeconfig.cache
 D:\Term 5\SWP301\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\ref\EVTB_Backend.dll
+D:\FPT\ki5\SWP\Frontend\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\EVTB_Backend.csproj.AssemblyReference.cache
+D:\FPT\ki5\SWP\Frontend\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\rpswa.dswa.cache.json
+D:\FPT\ki5\SWP\Frontend\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\EVTB_Backend.GeneratedMSBuildEditorConfig.editorconfig
+D:\FPT\ki5\SWP\Frontend\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\EVTB_Backend.AssemblyInfoInputs.cache
+D:\FPT\ki5\SWP\Frontend\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\EVTB_Backend.AssemblyInfo.cs
+D:\FPT\ki5\SWP\Frontend\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\EVTB_Backend.csproj.CoreCompileInputs.cache
+D:\FPT\ki5\SWP\Frontend\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\EVTB_Backend.MvcApplicationPartsAssemblyInfo.cs
+D:\FPT\ki5\SWP\Frontend\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\EVTB_Backend.MvcApplicationPartsAssemblyInfo.cache
+D:\FPT\ki5\SWP\Frontend\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\EVTB_Backend.sourcelink.json
+D:\FPT\ki5\SWP\Frontend\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\EVTB_Backend.dll
+D:\FPT\ki5\SWP\Frontend\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\refint\EVTB_Backend.dll
+D:\FPT\ki5\SWP\Frontend\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\EVTB_Backend.pdb

@@ -59,10 +59,12 @@ export const SellerProducts = () => {
         return status === "approved" || status === "active" || status === "verified";
       });
 
-      // Load images for each product
+      // Load images for each product and add seller name
       console.log("🔍 Loading images for products:", approvedProducts.length);
       const productsWithImages = await Promise.all(
         approvedProducts.map(async (product, index) => {
+          // ✅ Add seller name to each product
+          const sellerName = sellerData?.fullName || sellerData?.name || "Người bán";
           console.log(`🔍 Processing product ${index + 1}:`, {
             id: product.id || product.productId || product.Id,
             title: product.title,
@@ -129,15 +131,14 @@ export const SellerProducts = () => {
                 }`
               );
 
-              // Add delay between API calls to prevent DbContext conflicts
-              if (index > 0) {
-                await new Promise((resolve) => setTimeout(resolve, 100));
-              }
-
+              // ✅ NO MORE DELAYS - Load images in parallel with timeout
               const productId = product.id || product.productId || product.Id;
-              const imagesData = await apiRequest(
-                `/api/ProductImage/product/${productId}`
+              const imagePromise = apiRequest(`/api/ProductImage/product/${productId}`);
+              const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Timeout')), 3000)
               );
+              
+              const imagesData = await Promise.race([imagePromise, timeoutPromise]);
 
               console.log(
                 `🔍 API response for product ${productId}:`,
@@ -190,6 +191,7 @@ export const SellerProducts = () => {
           return {
             ...product,
             images: images,
+            sellerName: sellerName, // ✅ Add seller name to product
           };
         })
       );

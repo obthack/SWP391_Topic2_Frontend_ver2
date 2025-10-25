@@ -29,15 +29,39 @@ export const HomePage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(4); // 4 products per page
 
+  // Cache for seller names to prevent them from disappearing
+  // Load from localStorage on mount
+  const [sellerCache, setSellerCache] = useState(() => {
+    try {
+      const cached = localStorage.getItem('sellerNameCache');
+      return cached ? JSON.parse(cached) : {};
+    } catch (error) {
+      console.warn('Failed to load seller cache from localStorage:', error);
+      return {};
+    }
+  });
+
+  // Extract stable user ID to prevent unnecessary reloads
+  const userId = user?.id || user?.userId || user?.accountId;
+
+  // Persist seller cache to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('sellerNameCache', JSON.stringify(sellerCache));
+    } catch (error) {
+      console.warn('Failed to save seller cache to localStorage:', error);
+    }
+  }, [sellerCache]);
+
   useEffect(() => {
     loadFeaturedProducts();
-    if (user) {
+    if (userId) {
       loadFavorites();
     }
     
     // Check for payment success parameters
     checkPaymentSuccess();
-  }, [user]);
+  }, [userId]); // Only reload when userId changes, not when user object reference changes
 
   const checkPaymentSuccess = async () => {
     const urlParams = new URLSearchParams(location.search);
@@ -46,28 +70,36 @@ export const HomePage = () => {
     const paymentId = urlParams.get('payment_id');
     const amount = urlParams.get('amount');
     const transactionNo = urlParams.get('transaction_no');
+    const paymentType = urlParams.get('payment_type'); // ✅ Get payment type from URL
 
     if (paymentSuccess === 'true' && paymentId) {
       const formattedAmount = amount ? (parseInt(amount) / 100).toLocaleString('vi-VN') : 'N/A';
+      
+      // ✅ Determine payment type (from URL or API)
+      let finalPaymentType = paymentType || 'Deposit';
       
       // Check if this is a verification payment and notify admin
       try {
         const payment = await apiRequest(`/api/Payment/${paymentId}`);
         console.log('🔍 Payment details:', payment);
         
-        if (payment && payment.PaymentType === 'Verification' && payment.ProductId) {
-          console.log('🔔 This is a verification payment, notifying admin...');
+        if (payment) {
+          finalPaymentType = payment.PaymentType || payment.paymentType || finalPaymentType;
           
-          // Notify admin about successful verification payment
-          const notificationSent = await handleVerificationPaymentSuccess(
-            paymentId,
-            payment.ProductId,
-            payment.UserId, // Seller ID
-            payment.Amount
-          );
-          
-          if (notificationSent) {
-            console.log('✅ Admin notification sent for verification payment');
+          if (finalPaymentType === 'Verification' && payment.ProductId) {
+            console.log('🔔 This is a verification payment, notifying admin...');
+            
+            // Notify admin about successful verification payment
+            const notificationSent = await handleVerificationPaymentSuccess(
+              paymentId,
+              payment.ProductId,
+              payment.UserId, // Seller ID
+              payment.Amount
+            );
+            
+            if (notificationSent) {
+              console.log('✅ Admin notification sent for verification payment');
+            }
           }
         }
       } catch (error) {
@@ -75,12 +107,22 @@ export const HomePage = () => {
         // Don't show error to user, just log it
       }
       
-      showToast({
-        type: 'success',
-        title: '🎉 Thanh toán thành công!',
-        message: `Giao dịch ${paymentId} đã được xử lý thành công. Số tiền: ${formattedAmount} VND`,
-        duration: 8000
-      });
+      // ✅ Show specific notification based on payment type
+      if (finalPaymentType === 'Verification') {
+        showToast({
+          type: 'success',
+          title: '✅ Thanh toán kiểm định thành công!',
+          message: `Yêu cầu kiểm định đã được thanh toán (${formattedAmount} VND). Admin sẽ xác nhận trong thời gian sớm nhất.`,
+          duration: 10000
+        });
+      } else {
+        showToast({
+          type: 'success',
+          title: '🎉 Thanh toán đặt cọc thành công!',
+          message: `Bạn đã đặt cọc thành công (${formattedAmount} VND). Vui lòng liên hệ người bán để hoàn tất giao dịch.`,
+          duration: 10000
+        });
+      }
 
       // Clear URL parameters after showing notification
       const newUrl = window.location.pathname;
@@ -169,45 +211,134 @@ export const HomePage = () => {
         productType: p.productType
       })));
 
-      // Load images for each approved product with delay to avoid DbContext conflicts
+      // ✅ OPTIMIZED: Load images and seller info without delays
       const productsWithImages = await Promise.all(
         approvedProducts.map(async (product, index) => {
+          // ✅ DECLARE sellerName OUTSIDE try block so it's accessible in catch block
+          let sellerName = null;
+          
           try {
-            // Add delay to avoid DbContext conflicts
-            if (index > 0) {
-              await new Promise((resolve) => setTimeout(resolve, 500 * index));
+            // ✅ NO MORE DELAYS - Process all products in parallel
+            
+            // ✅ Get seller info - try COMPREHENSIVE approaches
+            sellerName = product.sellerName || 
+                           product.seller?.fullName || 
+                           product.seller?.name ||
+                           product.seller?.userName ||
+                           product.sellerFullName ||
+                           product.seller_name ||
+                           product.ownerName ||
+                           product.userName;
+            
+            // Debug: Log product data to see what fields are available
+            if (index < 5) { // Only log first 5 products to avoid spam
+              console.log(`🔍 Product ${product.id || product.productId} data:`, {
+                sellerName: product.sellerName,
+                seller: product.seller,
+                sellerId: product.sellerId,
+                seller_id: product.seller_id,
+                SellerId: product.SellerId,
+                userId: product.userId,
+                user_id: product.user_id,
+                UserId: product.UserId,
+                createdBy: product.createdBy,
+                created_by: product.created_by,
+                CreatedBy: product.CreatedBy,
+                allKeys: Object.keys(product)
+              });
+            }
+            
+            // If no seller name but has sellerId, try to load from API or cache
+            // Try MANY possible field names for seller ID
+            const possibleSellerIdFields = [
+              'sellerId', 'seller_id', 'SellerId', 'SellerID', 
+              'userId', 'user_id', 'UserId', 'UserID',
+              'createdBy', 'created_by', 'CreatedBy', 'CreatedByUserId',
+              'ownerId', 'owner_id', 'OwnerId'
+            ];
+            
+            let sellerId = null;
+            for (const field of possibleSellerIdFields) {
+              if (product[field]) {
+                sellerId = product[field];
+                console.log(`✅ Found sellerId in field "${field}": ${sellerId}`);
+                break;
+              }
+            }
+            
+            if (!sellerName && sellerId) {
+              // ✅ CHECK CACHE FIRST before making API call
+              if (sellerCache[sellerId]) {
+                sellerName = sellerCache[sellerId];
+                console.log(`📦 Loaded seller from cache for product ${product.id}:`, sellerName);
+              } else {
+                // Only call API if not in cache
+                try {
+                  const sellerPromise = apiRequest(`/api/User/${sellerId}`);
+                  const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Timeout')), 8000) // Increased timeout to 8 seconds
+                  );
+                  const sellerData = await Promise.race([sellerPromise, timeoutPromise]);
+                  sellerName = sellerData?.fullName || 
+                             sellerData?.full_name || 
+                             sellerData?.name || 
+                             sellerData?.userName || 
+                             sellerData?.user_name ||
+                             sellerData?.UserName;
+                  
+                  // ✅ SAVE TO CACHE for future use
+                  if (sellerName) {
+                    setSellerCache(prev => ({
+                      ...prev,
+                      [sellerId]: sellerName
+                    }));
+                    console.log(`✅ Loaded seller from API and cached for product ${product.id}:`, sellerName);
+                  }
+                } catch (sellerError) {
+                  console.warn(`❌ Could not load seller from API for product ${product.id} (sellerId: ${sellerId}):`, sellerError.message);
+                }
+              }
+            }
+            
+            // Final fallback
+            if (!sellerName) {
+              sellerName = "Người bán";
+              console.warn(`⚠️ No seller name found for product ${product.id}, using fallback. Product data:`, product);
             }
 
-            const imagesData = await apiRequest(
-              `/api/ProductImage/product/${
-                product.id || product.productId || product.Id
-              }`
-            );
+            // ✅ Try to load images from API (with timeout to prevent hanging)
+            let imagesData = null;
+            try {
+              const imagePromise = apiRequest(
+                `/api/ProductImage/product/${product.id || product.productId || product.Id}`
+              );
+              const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Timeout')), 3000)
+              );
+              imagesData = await Promise.race([imagePromise, timeoutPromise]);
+            } catch (imageError) {
+              console.warn(`Could not load images for product ${product.id}:`, imageError.message);
+              imagesData = null;
+            }
             
-            console.log(`🖼️ Product ${product.id} images data:`, {
-              rawData: imagesData,
-              isArray: Array.isArray(imagesData),
-              hasItems: !!imagesData?.items,
-              imageDataField: imagesData?.imageData
-            });
-
+            // ✅ Reduced logging for better performance
+            
             // Handle different response formats
             let images = [];
-            if (Array.isArray(imagesData)) {
-              images = imagesData;
-            } else if (imagesData?.items && Array.isArray(imagesData.items)) {
-              images = imagesData.items;
-            } else if (imagesData && typeof imagesData === 'object') {
-              // Single object response - wrap in array
-              images = [imagesData];
+            if (imagesData) {
+              if (Array.isArray(imagesData)) {
+                images = imagesData;
+              } else if (imagesData?.items && Array.isArray(imagesData.items)) {
+                images = imagesData.items;
+              } else if (typeof imagesData === 'object') {
+                images = [imagesData];
+              }
             }
 
             // Map images - only use real product images
             const mappedImages = images.map(
               (img) => img.imageData || img.imageUrl || img.url
-            ).filter(img => img && img.trim() !== ''); // Filter out empty/null images
-
-            console.log(`🖼️ Product ${product.id} mapped images:`, mappedImages);
+            ).filter(Boolean);
 
             // If no images found from ProductImage API, try to get from product fields
             let finalImages = mappedImages;
@@ -221,14 +352,11 @@ export const HomePage = () => {
               for (const field of possibleImageFields) {
                 if (product[field]) {
                   if (Array.isArray(product[field])) {
-                    finalImages = product[field].filter(img => img && img.trim() !== '');
-                  } else if (typeof product[field] === 'string' && product[field].trim() !== '') {
+                    finalImages = product[field].filter(Boolean);
+                  } else if (typeof product[field] === 'string' && product[field].trim()) {
                     finalImages = [product[field]];
                   }
-                  if (finalImages.length > 0) {
-                    console.log(`🖼️ Found images in product.${field}:`, finalImages);
-                    break;
-                  }
+                  if (finalImages.length > 0) break;
                 }
               }
             }
@@ -236,6 +364,7 @@ export const HomePage = () => {
             return {
               ...product,
               images: finalImages, // Only real images, no placeholder
+              sellerName: sellerName, // Add seller name
             };
           } catch (error) {
             console.warn(
@@ -251,9 +380,12 @@ export const HomePage = () => {
               productId: product.id || product.productId || product.Id
             });
             // Return product with no images if API fails
+            // ✅ Still need to include sellerName even if image loading fails
+            // Use the computed sellerName from above, with fallback
             return {
               ...product,
               images: [], // No placeholder, only real images
+              sellerName: sellerName || "Người bán", // Include seller name in error case too
             };
           }
         })
