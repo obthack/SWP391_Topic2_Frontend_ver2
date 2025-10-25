@@ -21,6 +21,8 @@ import {
   Users,
   Package,
   X,
+  XCircle,
+  Clock,
 } from "lucide-react";
 import { apiRequest } from "../lib/api";
 import { createOrder } from "../lib/orderApi";
@@ -118,6 +120,22 @@ export const ProductDetail = () => {
 
       console.log("[ProductDetail] Raw product data:", productData);
       console.log("[ProductDetail] Normalized product:", normalizedProduct);
+
+      // Check if product is sold or reserved
+      const productStatus = String(normalizedProduct.status || "").toLowerCase();
+      if (productStatus === "sold") {
+        console.log("[ProductDetail] Product is sold, showing sold message");
+        // Set product with sold status
+        setProduct({ ...normalizedProduct, status: "Sold" });
+        setLoading(false);
+        return;
+      } else if (productStatus === "reserved") {
+        console.log("[ProductDetail] Product is reserved, showing reserved message");
+        // Set product with reserved status
+        setProduct({ ...normalizedProduct, status: "Reserved" });
+        setLoading(false);
+        return;
+      }
 
       setProduct(normalizedProduct);
 
@@ -795,37 +813,60 @@ export const ProductDetail = () => {
 
               {/* Action Buttons */}
               <div className="space-y-3">
-                {/* ✅ Only show payment button if user is not the seller */}
-                {(() => {
-                  const currentUserId =
-                    user?.id || user?.userId || user?.accountId;
-                  const productSellerId =
-                    product?.sellerId || product?.seller_id;
-                  const isOwnProduct =
-                    currentUserId &&
-                    productSellerId &&
-                    currentUserId == productSellerId;
+                {/* Show sold message if product is sold */}
+                {product.status === "Sold" || product.status === "sold" ? (
+                  <div className="w-full bg-red-50 border border-red-200 text-red-800 py-4 px-6 rounded-lg text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                      <XCircle className="h-6 w-6" />
+                      <span className="font-semibold text-lg">Sản phẩm đã được bán</span>
+                    </div>
+                    <p className="text-sm">
+                      Sản phẩm này đã được khách hàng khác đặt cọc thành công và không còn khả dụng.
+                    </p>
+                  </div>
+                ) : product.status === "Reserved" || product.status === "reserved" ? (
+                  <div className="w-full bg-yellow-50 border border-yellow-200 text-yellow-800 py-4 px-6 rounded-lg text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                      <Clock className="h-6 w-6" />
+                      <span className="font-semibold text-lg">Sản phẩm đang trong quá trình thanh toán</span>
+                    </div>
+                    <p className="text-sm">
+                      Sản phẩm này đã được khách hàng đặt cọc thành công và đang chờ seller xác nhận.
+                    </p>
+                  </div>
+                ) : (
+                  /* ✅ Only show payment button if user is not the seller */
+                  (() => {
+                    const currentUserId =
+                      user?.id || user?.userId || user?.accountId;
+                    const productSellerId =
+                      product?.sellerId || product?.seller_id;
+                    const isOwnProduct =
+                      currentUserId &&
+                      productSellerId &&
+                      currentUserId == productSellerId;
 
-                  if (isOwnProduct) {
+                    if (isOwnProduct) {
+                      return (
+                        <div className="w-full bg-gray-100 text-gray-500 py-3 px-6 rounded-lg font-medium text-center">
+                          <CreditCard className="h-5 w-5 mr-2 inline" />
+                          Sản phẩm của bạn
+                        </div>
+                      );
+                    }
+
                     return (
-                      <div className="w-full bg-gray-100 text-gray-500 py-3 px-6 rounded-lg font-medium text-center">
-                        <CreditCard className="h-5 w-5 mr-2 inline" />
-                        Sản phẩm của bạn
-                      </div>
+                      <button
+                        onClick={handleCreateOrder}
+                        disabled={product.status === "sold"}
+                        className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
+                      >
+                        <CreditCard className="h-5 w-5 mr-2" />
+                        Tạo đơn hàng
+                      </button>
                     );
-                  }
-
-                  return (
-                    <button
-                      onClick={handleCreateOrder}
-                      disabled={product.status === "sold"}
-                      className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
-                    >
-                      <CreditCard className="h-5 w-5 mr-2" />
-                      Tạo đơn hàng
-                    </button>
-                  );
-                })()}
+                  })()
+                )}
 
                 {/* ✅ Only show contact button if user is not the seller */}
                 {(() => {

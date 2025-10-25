@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sửa Product ID 19 và 20 thành Reserved</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px;
+            font-size: 16px;
+        }
+        .button:hover {
+            background: #0056b3;
+        }
+        .button.success {
+            background: #28a745;
+        }
+        .button.success:hover {
+            background: #218838;
+        }
+        .button.danger {
+            background: #dc3545;
+        }
+        .button.danger:hover {
+            background: #c82333;
+        }
+        .button.warning {
+            background: #ffc107;
+            color: #212529;
+        }
+        .button.warning:hover {
+            background: #e0a800;
+        }
+        .result {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success {
+            background: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .warning {
+            background: #fff3cd;
+            border-color: #ffeaa7;
+            color: #856404;
+        }
+        .info {
+            background: #d1ecf1;
+            border-color: #bee5eb;
+            color: #0c5460;
+        }
+        .sql-code {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #495057;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Sửa Product ID 19 và 20 thành "Đang trong quá trình thanh toán"</h1>
+        <p>Thay đổi từ "Đang chờ duyệt" thành "Đang trong quá trình thanh toán"</p>
+        
+        <div>
+            <button class="button" onclick="checkProducts()">Kiểm tra Product ID 19 và 20</button>
+            <button class="button danger" onclick="fixProductsToReserved()">Sửa thành Reserved</button>
+            <button class="button warning" onclick="showSQLScript()">Hiển thị Script SQL</button>
+            <button class="button success" onclick="openAdminDashboard()">Mở Admin Dashboard</button>
+        </div>
+
+        <div id="result" class="result" style="display: none;"></div>
+        <div id="sqlScript" class="sql-code" style="display: none;"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5044/api';
+
+        async function apiRequest(endpoint, options = {}) {
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    },
+                    ...options
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return await response.json();
+            } catch (error) {
+                console.error('API Error:', error);
+                throw error;
+            }
+        }
+
+        function showResult(message, type = 'success') {
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            resultDiv.className = `result ${type}`;
+            resultDiv.textContent = message;
+        }
+
+        function showSQLScript() {
+            const sqlDiv = document.getElementById('sqlScript');
+            sqlDiv.style.display = 'block';
+            sqlDiv.innerHTML = `-- Script SQL để sửa Product ID 19 và 20 thành Reserved
+-- Chạy script này trong SQL Server Management Studio
+
+-- 1. Kiểm tra trạng thái hiện tại
+SELECT 
+    ProductId,
+    Title,
+    Status,
+    Price,
+    SellerId,
+    CreatedAt,
+    UpdatedAt
+FROM Products 
+WHERE ProductId IN (19, 20);
+
+-- 2. Cập nhật thành Reserved (Đang trong quá trình thanh toán)
+UPDATE Products 
+SET Status = 'Reserved'
+WHERE ProductId IN (19, 20);
+
+-- 3. Kiểm tra kết quả
+SELECT 
+    ProductId,
+    Title,
+    Status,
+    Price,
+    SellerId,
+    CreatedAt,
+    UpdatedAt
+FROM Products 
+WHERE ProductId IN (19, 20);
+
+-- 4. Kiểm tra tổng quan
+SELECT 
+    Status,
+    COUNT(*) as Count
+FROM Products 
+GROUP BY Status
+ORDER BY Status;`;
+        }
+
+        async function checkProducts() {
+            try {
+                showResult('Đang kiểm tra Product ID 19 và 20...');
+                
+                const product19 = await apiRequest('/Product/19');
+                const product20 = await apiRequest('/Product/20');
+                
+                let message = `🔍 KIỂM TRA PRODUCT ID 19 VÀ 20:\n\n`;
+                
+                message += `📋 PRODUCT ID 19:\n`;
+                message += `- Title: ${product19.title || product19.name}\n`;
+                message += `- Status: ${product19.status}\n`;
+                message += `- Price: ${product19.price}\n`;
+                message += `- Seller ID: ${product19.sellerId}\n\n`;
+                
+                message += `📋 PRODUCT ID 20:\n`;
+                message += `- Title: ${product20.title || product20.name}\n`;
+                message += `- Status: ${product20.status}\n`;
+                message += `- Price: ${product20.price}\n`;
+                message += `- Seller ID: ${product20.sellerId}\n\n`;
+                
+                const status19 = String(product19.status || '').toLowerCase();
+                const status20 = String(product20.status || '').toLowerCase();
+                
+                if (status19 === 'reserved' && status20 === 'reserved') {
+                    message += `✅ CẢ HAI SẢN PHẨM ĐÃ CÓ STATUS = "Reserved"`;
+                    message += `\nSẽ hiển thị "Đang trong quá trình thanh toán" trong Admin Dashboard.`;
+                } else {
+                    message += `❌ SẢN PHẨM VẪN CÓ STATUS KHÔNG ĐÚNG:`;
+                    message += `\n- Product 19: ${product19.status} ${status19 === 'reserved' ? '✅' : '❌'}`;
+                    message += `\n- Product 20: ${product20.status} ${status20 === 'reserved' ? '✅' : '❌'}`;
+                    message += `\nCần sửa thành "Reserved" để hiển thị đúng.`;
+                }
+                
+                showResult(message, (status19 === 'reserved' && status20 === 'reserved') ? 'success' : 'warning');
+            } catch (error) {
+                showResult(`Lỗi: ${error.message}`, 'error');
+            }
+        }
+
+        async function fixProductsToReserved() {
+            try {
+                showResult('Đang sửa Product ID 19 và 20 thành Reserved...');
+                
+                try {
+                    // Cập nhật Product 19
+                    await apiRequest('/Product/19/status', {
+                        method: 'PUT',
+                        body: JSON.stringify({
+                            status: 'Reserved'
+                        })
+                    });
+                    
+                    // Cập nhật Product 20
+                    await apiRequest('/Product/20/status', {
+                        method: 'PUT',
+                        body: JSON.stringify({
+                            status: 'Reserved'
+                        })
+                    });
+                    
+                    let message = `✅ ĐÃ SỬA THÀNH CÔNG!\n\n`;
+                    message += `Product ID 19 và 20 đã được cập nhật:\n`;
+                    message += `- Status: Pending → Reserved\n`;
+                    message += `- Label: "Đang chờ duyệt" → "Đang trong quá trình thanh toán"\n\n`;
+                    message += `🎯 KẾT QUẢ:\n`;
+                    message += `- Admin Dashboard sẽ hiển thị "Đang trong quá trình thanh toán"\n`;
+                    message += `- Seller Profile sẽ hiển thị "Đang trong quá trình thanh toán"\n`;
+                    message += `- Sản phẩm sẽ ẨN khỏi HomePage\n`;
+                    message += `- Seller có thể click "Xác nhận bán" để chuyển thành "Sold"\n\n`;
+                    message += `🎉 HOÀN THÀNH! Hãy làm mới Admin Dashboard để kiểm tra.`;
+                    
+                    showResult(message, 'success');
+                } catch (apiError) {
+                    // Nếu API không hoạt động, hướng dẫn sửa thủ công
+                    let manualFix = `❌ API endpoint không hoạt động.\n\n`;
+                    manualFix += `🔧 HƯỚNG DẪN SỬA THỦ CÔNG:\n\n`;
+                    manualFix += `1. Mở SQL Server Management Studio\n`;
+                    manualFix += `2. Kết nối đến database\n`;
+                    manualFix += `3. Chạy lệnh SQL sau:\n\n`;
+                    manualFix += `UPDATE Products \n`;
+                    manualFix += `SET Status = 'Reserved' \n`;
+                    manualFix += `WHERE ProductId IN (19, 20);\n\n`;
+                    manualFix += `4. Khởi động lại Backend server\n`;
+                    manualFix += `5. Làm mới Admin Dashboard để kiểm tra\n\n`;
+                    manualFix += `Lỗi API: ${apiError.message}`;
+                    
+                    showResult(manualFix, 'warning');
+                }
+            } catch (error) {
+                showResult(`Lỗi: ${error.message}`, 'error');
+            }
+        }
+
+        function openAdminDashboard() {
+            window.open('http://localhost:5173/admin-dashboard', '_blank');
+            showResult('✅ Đã mở Admin Dashboard trong tab mới\nHãy vào tab "Transaction Management" để xem Product ID 19 và 20 với label "Đang trong quá trình thanh toán"', 'success');
+        }
+    </script>
+</body>
+</html>
+

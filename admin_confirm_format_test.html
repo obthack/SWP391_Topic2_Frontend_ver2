@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Confirm Request Format Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        button { padding: 10px 20px; margin: 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .result { margin: 20px 0; padding: 15px; border-radius: 4px; white-space: pre-wrap; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Admin Confirm Request Format Test</h1>
+    
+    <div class="test-section">
+        <h3>Step 1: Get Admin Token</h3>
+        <button onclick="getAdminToken()">Get Admin Token</button>
+        <div id="tokenResult" class="result" style="display: none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Step 2: Test Different Request Formats</h3>
+        <button onclick="testDirectFormat()">Test Direct Format: {ProductId: 1}</button>
+        <button onclick="testWrapperFormat()">Test Wrapper Format: {Request: {ProductId: 1}}</button>
+        <div id="formatResult" class="result" style="display: none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Step 3: Test with Real Product</h3>
+        <input type="number" id="productId" placeholder="Product ID" value="1" style="padding: 8px; margin-right: 10px;">
+        <button onclick="testWithRealProduct()">Test with Real Product</button>
+        <div id="realProductResult" class="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5044';
+        let adminToken = '';
+
+        function showResult(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `result ${type}`;
+            element.style.display = 'block';
+        }
+
+        async function getAdminToken() {
+            showResult('tokenResult', 'Getting admin token...', 'info');
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/user/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: 'admin@gmail.com',
+                        password: '123456'
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    adminToken = data.token;
+                    showResult('tokenResult', `✅ Admin token obtained!\n\nToken: ${adminToken.substring(0, 50)}...`, 'success');
+                } else {
+                    const errorData = await response.text();
+                    showResult('tokenResult', `❌ Failed to get admin token!\n\nStatus: ${response.status}\nResponse: ${errorData}`, 'error');
+                }
+            } catch (error) {
+                showResult('tokenResult', `❌ Error getting admin token!\n\nError: ${error.message}`, 'error');
+            }
+        }
+
+        async function testDirectFormat() {
+            if (!adminToken) {
+                showResult('formatResult', 'Please get admin token first!', 'error');
+                return;
+            }
+
+            showResult('formatResult', 'Testing direct format: {ProductId: 1}...', 'info');
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/payment/admin-confirm`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${adminToken}`
+                    },
+                    body: JSON.stringify({
+                        ProductId: 1
+                    })
+                });
+                
+                const data = await response.text();
+                let jsonData;
+                try {
+                    jsonData = JSON.parse(data);
+                } catch {
+                    jsonData = data;
+                }
+                
+                if (response.ok) {
+                    showResult('formatResult', `✅ Direct format works!\n\nResponse: ${JSON.stringify(jsonData, null, 2)}`, 'success');
+                } else {
+                    showResult('formatResult', `❌ Direct format failed!\n\nStatus: ${response.status}\nResponse: ${JSON.stringify(jsonData, null, 2)}`, 'error');
+                }
+            } catch (error) {
+                showResult('formatResult', `❌ Direct format error!\n\nError: ${error.message}`, 'error');
+            }
+        }
+
+        async function testWrapperFormat() {
+            if (!adminToken) {
+                showResult('formatResult', 'Please get admin token first!', 'error');
+                return;
+            }
+
+            showResult('formatResult', 'Testing wrapper format: {Request: {ProductId: 1}}...', 'info');
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/payment/admin-confirm`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${adminToken}`
+                    },
+                    body: JSON.stringify({
+                        Request: {
+                            ProductId: 1
+                        }
+                    })
+                });
+                
+                const data = await response.text();
+                let jsonData;
+                try {
+                    jsonData = JSON.parse(data);
+                } catch {
+                    jsonData = data;
+                }
+                
+                if (response.ok) {
+                    showResult('formatResult', `✅ Wrapper format works!\n\nResponse: ${JSON.stringify(jsonData, null, 2)}`, 'success');
+                } else {
+                    showResult('formatResult', `❌ Wrapper format failed!\n\nStatus: ${response.status}\nResponse: ${JSON.stringify(jsonData, null, 2)}`, 'error');
+                }
+            } catch (error) {
+                showResult('formatResult', `❌ Wrapper format error!\n\nError: ${error.message}`, 'error');
+            }
+        }
+
+        async function testWithRealProduct() {
+            if (!adminToken) {
+                showResult('realProductResult', 'Please get admin token first!', 'error');
+                return;
+            }
+
+            const productId = document.getElementById('productId').value || 1;
+            showResult('realProductResult', `Testing with product ID ${productId}...`, 'info');
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/payment/admin-confirm`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${adminToken}`
+                    },
+                    body: JSON.stringify({
+                        Request: {
+                            ProductId: parseInt(productId)
+                        }
+                    })
+                });
+                
+                const data = await response.text();
+                let jsonData;
+                try {
+                    jsonData = JSON.parse(data);
+                } catch {
+                    jsonData = data;
+                }
+                
+                if (response.ok) {
+                    showResult('realProductResult', `✅ Admin confirm successful!\n\nResponse: ${JSON.stringify(jsonData, null, 2)}`, 'success');
+                } else {
+                    showResult('realProductResult', `❌ Admin confirm failed!\n\nStatus: ${response.status}\nResponse: ${JSON.stringify(jsonData, null, 2)}`, 'error');
+                }
+            } catch (error) {
+                showResult('realProductResult', `❌ Admin confirm error!\n\nError: ${error.message}`, 'error');
+            }
+        }
+
+        // Auto-get token on load
+        window.onload = function() {
+            setTimeout(getAdminToken, 1000);
+        };
+    </script>
+</body>
+</html>

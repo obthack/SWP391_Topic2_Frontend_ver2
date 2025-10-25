@@ -96,7 +96,7 @@ export async function apiRequest(path, { method = "GET", body, headers } = {}) {
       // Don't spread headers here to avoid overriding Authorization
       ...(headers && !headers.Authorization ? headers : {}),
     },
-    body: body ? (isFormData ? body : JSON.stringify(body)) : undefined,
+    body: body ? (isFormData ? body : (typeof body === 'string' ? body : JSON.stringify(body))) : undefined,
   });
 
   // Debug logging for registration requests

@@ -62,6 +62,7 @@ export const MyListings = () => {
     )
       return "approved";
     if (raw.includes("reject") || raw.includes("từ chối")) return "rejected";
+    if (raw.includes("reserved") || raw.includes("thanh toán")) return "reserved";
     if (raw.includes("sold") || raw.includes("đã bán")) return "sold";
     return raw || "pending";
   };
@@ -398,6 +399,7 @@ export const MyListings = () => {
     setShowRejectionModal(true);
   };
 
+
   const getStatusBadge = (status) => {
     const s = status ? status : "pending";
     const statusConfig = {
@@ -416,6 +418,10 @@ export const MyListings = () => {
       rejected: {
         className: "mylistings-status-badge mylistings-status-rejected",
         label: "Từ chối",
+      },
+      reserved: {
+        className: "mylistings-status-badge mylistings-status-reserved",
+        label: "Đang trong quá trình thanh toán",
       },
       sold: {
         className: "mylistings-status-badge mylistings-status-sold",
@@ -533,6 +539,7 @@ export const MyListings = () => {
                   <option value="all">Tất cả trạng thái</option>
                   <option value="pending">Chờ duyệt</option>
                   <option value="approved">Đã duyệt</option>
+                  <option value="reserved">Đang thanh toán</option>
                   <option value="rejected">Từ chối</option>
                   <option value="sold">Đã bán</option>
                 </select>
@@ -658,13 +665,23 @@ export const MyListings = () => {
                           <Eye className="mylistings-view-icon" />
                           Xem
                         </Link>
-                        <Link
-                          to={`/listing/${getListingId(listing)}/edit`}
-                          className="mylistings-edit-button"
-                        >
-                          <Edit className="mylistings-edit-icon" />
-                          Chỉnh sửa
-                        </Link>
+                        
+                        {/* Show different buttons based on status */}
+                        {getStatus(listing) === "reserved" ? (
+                          <div className="mylistings-status-info">
+                            <span className="mylistings-waiting-text">
+                              Đang chờ Admin xác nhận
+                            </span>
+                          </div>
+                        ) : (
+                          <Link
+                            to={`/listing/${getListingId(listing)}/edit`}
+                            className="mylistings-edit-button"
+                          >
+                            <Edit className="mylistings-edit-icon" />
+                            Chỉnh sửa
+                          </Link>
+                        )}
                         
                         {/* Verification Button - Only show for vehicle owners with NotRequested status */}
                         {(listing.productType === "vehicle" || listing.productType === "Vehicle") && 
@@ -738,6 +755,12 @@ export const MyListings = () => {
                     {listings.filter((l) => getStatus(l) === "pending").length}
                   </p>
                   <p className="mylistings-stat-label">Chờ duyệt</p>
+                </div>
+                <div className="mylistings-stat-item">
+                  <p className="mylistings-stat-value" style={{color: '#ea580c'}}>
+                    {listings.filter((l) => getStatus(l) === "reserved").length}
+                  </p>
+                  <p className="mylistings-stat-label">Đang thanh toán</p>
                 </div>
                 <div className="mylistings-stat-item">
                   <p className="mylistings-stat-value mylistings-stat-value-gray">

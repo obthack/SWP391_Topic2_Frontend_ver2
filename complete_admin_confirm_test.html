@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complete Admin Confirm Test</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px; 
+            max-width: 800px; 
+            margin: 0 auto;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button { 
+            padding: 10px 20px; 
+            margin: 10px; 
+            background: #007bff; 
+            color: white; 
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer; 
+        }
+        button:hover { background: #0056b3; }
+        .result { 
+            margin: 20px 0; 
+            padding: 15px; 
+            border-radius: 4px; 
+            white-space: pre-wrap; 
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        .step { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 4px; }
+        .step h3 { margin-top: 0; color: #333; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Complete Admin Confirm Test</h1>
+        
+        <div class="step">
+            <h3>Step 1: Test Backend Connection</h3>
+            <button onclick="testBackend()">Test Backend</button>
+            <div id="backendResult" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="step">
+            <h3>Step 2: Get Admin Token</h3>
+            <button onclick="getAdminToken()">Get Admin Token</button>
+            <div id="tokenResult" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="step">
+            <h3>Step 3: Test Admin Confirm</h3>
+            <input type="number" id="productId" placeholder="Product ID" value="1" style="padding: 8px; margin-right: 10px;">
+            <button onclick="testAdminConfirm()">Test Admin Confirm</button>
+            <div id="confirmResult" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="step">
+            <h3>Step 4: Test All Scenarios</h3>
+            <button onclick="runAllTests()">Run All Tests</button>
+            <div id="allTestsResult" class="result" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5044';
+        let adminToken = '';
+
+        function showResult(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `result ${type}`;
+            element.style.display = 'block';
+        }
+
+        async function testBackend() {
+            showResult('backendResult', 'Testing backend connection...', 'info');
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/payment/test`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showResult('backendResult', `✅ Backend is running!\n\nResponse: ${JSON.stringify(data, null, 2)}`, 'success');
+                } else {
+                    showResult('backendResult', `⚠️ Backend responded with status: ${response.status} ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                showResult('backendResult', `❌ Backend connection failed!\n\nError: ${error.message}\n\nMake sure backend is running on ${API_BASE_URL}`, 'error');
+            }
+        }
+
+        async function getAdminToken() {
+            showResult('tokenResult', 'Getting admin token...', 'info');
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/user/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: 'admin@gmail.com',
+                        password: '123456'
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    adminToken = data.token;
+                    showResult('tokenResult', `✅ Admin token obtained!\n\nToken: ${adminToken.substring(0, 50)}...\n\nUser: ${JSON.stringify(data.user, null, 2)}`, 'success');
+                } else {
+                    const errorData = await response.text();
+                    showResult('tokenResult', `❌ Failed to get admin token!\n\nStatus: ${response.status}\nResponse: ${errorData}`, 'error');
+                }
+            } catch (error) {
+                showResult('tokenResult', `❌ Error getting admin token!\n\nError: ${error.message}`, 'error');
+            }
+        }
+
+        async function testAdminConfirm() {
+            if (!adminToken) {
+                showResult('confirmResult', 'Please get admin token first!', 'error');
+                return;
+            }
+
+            const productId = document.getElementById('productId').value || 1;
+            showResult('confirmResult', `Testing admin confirm with product ID ${productId}...`, 'info');
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/payment/admin-confirm`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${adminToken}`
+                    },
+                    body: JSON.stringify({
+                        ProductId: parseInt(productId)
+                    })
+                });
+                
+                const data = await response.text();
+                let jsonData;
+                try {
+                    jsonData = JSON.parse(data);
+                } catch {
+                    jsonData = data;
+                }
+                
+                if (response.ok) {
+                    showResult('confirmResult', `✅ Admin confirm successful!\n\nResponse: ${JSON.stringify(jsonData, null, 2)}`, 'success');
+                } else {
+                    showResult('confirmResult', `❌ Admin confirm failed!\n\nStatus: ${response.status} ${response.statusText}\nResponse: ${JSON.stringify(jsonData, null, 2)}`, 'error');
+                }
+            } catch (error) {
+                showResult('confirmResult', `❌ Error testing admin confirm!\n\nError: ${error.message}`, 'error');
+            }
+        }
+
+        async function runAllTests() {
+            showResult('allTestsResult', 'Running all tests...', 'info');
+            let results = [];
+
+            // Test 1: Backend connection
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/payment/test`);
+                if (response.ok) {
+                    results.push('✅ Backend connection: OK');
+                } else {
+                    results.push(`❌ Backend connection: ${response.status}`);
+                }
+            } catch (error) {
+                results.push(`❌ Backend connection: ${error.message}`);
+            }
+
+            // Test 2: Get admin token
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/user/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: 'admin@gmail.com', password: '123456' })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    adminToken = data.token;
+                    results.push('✅ Admin token: OK');
+                } else {
+                    results.push(`❌ Admin token: ${response.status}`);
+                }
+            } catch (error) {
+                results.push(`❌ Admin token: ${error.message}`);
+            }
+
+            // Test 3: Admin confirm
+            if (adminToken) {
+                try {
+                    const response = await fetch(`${API_BASE_URL}/api/payment/admin-confirm`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${adminToken}`
+                        },
+                        body: JSON.stringify({ ProductId: 1 })
+                    });
+                    
+                    if (response.ok) {
+                        results.push('✅ Admin confirm: OK');
+                    } else {
+                        results.push(`❌ Admin confirm: ${response.status}`);
+                    }
+                } catch (error) {
+                    results.push(`❌ Admin confirm: ${error.message}`);
+                }
+            } else {
+                results.push('❌ Admin confirm: No token');
+            }
+
+            showResult('allTestsResult', results.join('\n'), 'info');
+        }
+
+        // Auto-run backend test on load
+        window.onload = function() {
+            setTimeout(testBackend, 1000);
+        };
+    </script>
+</body>
+</html>

@@ -30,6 +30,7 @@ namespace EVTB_Backend.Controllers
             {
                 var products = await _context.Products
                     .Include(p => p.Seller)
+                    .Where(p => p.Status != "Sold" && p.Status != "Rejected" && p.Status != "Reserved") // Hide sold, rejected, and reserved products from public listings
                     .Select(p => new
                     {
                         id = p.ProductId,
@@ -499,6 +500,55 @@ namespace EVTB_Backend.Controllers
                 return StatusCode(500, new { message = "Có lỗi xảy ra khi cập nhật sản phẩm" });
             }
         }
+
+        /// <summary>
+        /// Cập nhật status sản phẩm (không cần authentication - dành cho admin)
+        /// </summary>
+        [HttpPut("{id}/status")]
+        public async Task<ActionResult<object>> UpdateProductStatus(int id, [FromBody] UpdateProductStatusRequest request)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                {
+                    var errors = ModelState.Values
+                        .SelectMany(v => v.Errors)
+                        .Select(e => e.ErrorMessage)
+                        .ToList();
+                    return BadRequest(new { message = "Dữ liệu không hợp lệ", errors });
+                }
+
+                var product = await _context.Products.FirstOrDefaultAsync(p => p.ProductId == id);
+
+                if (product == null)
+                {
+                    return NotFound(new { message = "Không tìm thấy sản phẩm" });
+                }
+
+                // Update status
+                product.Status = request.Status;
+                product.UpdatedAt = DateTime.UtcNow;
+
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation($"Product {id} status updated to {request.Status}");
+
+                return Ok(new
+                {
+                    productId = product.ProductId,
+                    title = product.Title,
+                    status = product.Status,
+                    updatedAt = product.UpdatedAt,
+                    message = "Trạng thái sản phẩm đã được cập nhật thành công"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error updating product {id} status");
+                return StatusCode(500, new { message = "Có lỗi xảy ra khi cập nhật trạng thái sản phẩm" });
+            }
+        }
+
     }
 
     // DTOs
@@ -543,5 +593,10 @@ namespace EVTB_Backend.Controllers
     public class RejectProductRequest
     {
         public string RejectionReason { get; set; } = string.Empty;
+    }
+
+    public class UpdateProductStatusRequest
+    {
+        public string Status { get; set; } = string.Empty;
     }
 }

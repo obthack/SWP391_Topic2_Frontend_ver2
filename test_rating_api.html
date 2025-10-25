@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Rating API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .result {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .rating-stars {
+            display: flex;
+            gap: 5px;
+            margin: 10px 0;
+        }
+        .star {
+            font-size: 24px;
+            cursor: pointer;
+            color: #ddd;
+        }
+        .star.active {
+            color: #ffc107;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test Rating API</h1>
+        <p>Test các API endpoint cho hệ thống đánh giá</p>
+    </div>
+
+    <!-- Test 1: Test API Connection -->
+    <div class="container test-section">
+        <h2>1. Test API Connection</h2>
+        <button onclick="testConnection()">Test Connection</button>
+        <div id="connection-result"></div>
+    </div>
+
+    <!-- Test 2: Get Seller Ratings -->
+    <div class="container test-section">
+        <h2>2. Get Seller Ratings</h2>
+        <input type="number" id="sellerId" placeholder="Seller ID" value="1">
+        <button onclick="getSellerRatings()">Get Seller Ratings</button>
+        <div id="seller-ratings-result"></div>
+    </div>
+
+    <!-- Test 3: Create Rating -->
+    <div class="container test-section">
+        <h2>3. Create Rating</h2>
+        <input type="number" id="orderId" placeholder="Order ID" value="23">
+        <input type="number" id="productId" placeholder="Product ID" value="20">
+        <input type="number" id="buyerId" placeholder="Buyer ID" value="9">
+        <input type="number" id="sellerIdCreate" placeholder="Seller ID" value="1">
+        
+        <div class="rating-stars">
+            <span class="star" onclick="setRating(1)">★</span>
+            <span class="star" onclick="setRating(2)">★</span>
+            <span class="star" onclick="setRating(3)">★</span>
+            <span class="star" onclick="setRating(4)">★</span>
+            <span class="star" onclick="setRating(5)">★</span>
+        </div>
+        <textarea id="comment" placeholder="Comment" rows="3">được</textarea>
+        
+        <button onclick="createRating()">Create Rating</button>
+        <div id="create-rating-result"></div>
+    </div>
+
+    <!-- Test 4: Get Product Ratings -->
+    <div class="container test-section">
+        <h2>4. Get Product Ratings</h2>
+        <input type="number" id="productIdGet" placeholder="Product ID" value="20">
+        <button onclick="getProductRatings()">Get Product Ratings</button>
+        <div id="product-ratings-result"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5044';
+        let currentRating = 5;
+
+        function setRating(rating) {
+            currentRating = rating;
+            const stars = document.querySelectorAll('.star');
+            stars.forEach((star, index) => {
+                star.classList.toggle('active', index < rating);
+            });
+        }
+
+        // Initialize stars
+        setRating(5);
+
+        async function testConnection() {
+            const resultDiv = document.getElementById('connection-result');
+            resultDiv.innerHTML = '<div>Testing connection...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/Product`);
+                if (response.ok) {
+                    resultDiv.innerHTML = '<div class="success">✅ API Connection successful!</div>';
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ API Connection failed: ${response.status} ${response.statusText}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ API Connection error: ${error.message}</div>`;
+            }
+        }
+
+        async function getSellerRatings() {
+            const sellerId = document.getElementById('sellerId').value;
+            const resultDiv = document.getElementById('seller-ratings-result');
+            resultDiv.innerHTML = '<div>Loading seller ratings...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/Review/reviewee/${sellerId}`);
+                const data = await response.text();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `<div class="success">✅ Seller Ratings Retrieved</div><div class="result">${data}</div>`;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ Error: ${response.status} ${response.statusText}</div><div class="result">${data}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        async function createRating() {
+            const orderId = document.getElementById('orderId').value;
+            const productId = document.getElementById('productId').value;
+            const buyerId = document.getElementById('buyerId').value;
+            const sellerId = document.getElementById('sellerIdCreate').value;
+            const comment = document.getElementById('comment').value;
+            
+            const resultDiv = document.getElementById('create-rating-result');
+            resultDiv.innerHTML = '<div>Creating rating...</div>';
+            
+            const requestData = {
+                request: {
+                    orderId: parseInt(orderId),
+                    productId: parseInt(productId),
+                    buyerId: parseInt(buyerId),
+                    sellerId: parseInt(sellerId),
+                    ratingValue: currentRating,
+                    comment: comment
+                }
+            };
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/Review`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                const data = await response.text();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `<div class="success">✅ Rating Created Successfully</div><div class="result">${data}</div>`;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ Error: ${response.status} ${response.statusText}</div><div class="result">${data}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        async function getProductRatings() {
+            const productId = document.getElementById('productIdGet').value;
+            const resultDiv = document.getElementById('product-ratings-result');
+            resultDiv.innerHTML = '<div>Loading product ratings...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/Review/order/${productId}`);
+                const data = await response.text();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `<div class="success">✅ Product Ratings Retrieved</div><div class="result">${data}</div>`;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ Error: ${response.status} ${response.statusText}</div><div class="result">${data}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        // Auto-test connection on page load
+        window.onload = function() {
+            testConnection();
+        };
+    </script>
+</body>
+</html>

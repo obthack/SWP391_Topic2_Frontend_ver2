@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Admin Dashboard Status Issue</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .button:hover {
+            background: #0056b3;
+        }
+        .button.warning {
+            background: #ffc107;
+            color: #212529;
+        }
+        .button.warning:hover {
+            background: #e0a800;
+        }
+        .button.danger {
+            background: #dc3545;
+        }
+        .button.danger:hover {
+            background: #c82333;
+        }
+        .result {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success {
+            background: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .warning {
+            background: #fff3cd;
+            border-color: #ffeaa7;
+            color: #856404;
+        }
+        .info {
+            background: #d1ecf1;
+            border-color: #bee5eb;
+            color: #0c5460;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Debug Admin Dashboard Status Issue</h1>
+        <p>Kiểm tra vấn đề Admin Dashboard vẫn hiển thị "Đang chờ duyệt" thay vì "Đang trong quá trình thanh toán"</p>
+        
+        <div>
+            <button class="button" onclick="checkAllProducts()">Kiểm tra tất cả sản phẩm</button>
+            <button class="button warning" onclick="checkProduct19()">Kiểm tra Product ID 19</button>
+            <button class="button warning" onclick="checkProduct20()">Kiểm tra Product ID 20</button>
+            <button class="button danger" onclick="fixProduct19ToReserved()">Sửa Product 19 thành Reserved</button>
+            <button class="button danger" onclick="fixProduct20ToReserved()">Sửa Product 20 thành Reserved</button>
+            <button class="button" onclick="openAdminDashboard()">Mở Admin Dashboard</button>
+        </div>
+
+        <div id="result" class="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5044/api';
+
+        async function apiRequest(endpoint, options = {}) {
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    },
+                    ...options
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return await response.json();
+            } catch (error) {
+                console.error('API Error:', error);
+                throw error;
+            }
+        }
+
+        function showResult(message, type = 'success') {
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            resultDiv.className = `result ${type}`;
+            resultDiv.textContent = message;
+        }
+
+        async function checkAllProducts() {
+            try {
+                showResult('Đang kiểm tra tất cả sản phẩm...');
+                
+                const products = await apiRequest('/Product');
+                console.log('All products:', products);
+                
+                let message = `🔍 TẤT CẢ SẢN PHẨM:\n\n`;
+                
+                const statusCounts = {};
+                products.forEach(product => {
+                    const status = product.status || 'Unknown';
+                    statusCounts[status] = (statusCounts[status] || 0) + 1;
+                });
+                
+                message += `📊 THỐNG KÊ THEO STATUS:\n`;
+                Object.entries(statusCounts).forEach(([status, count]) => {
+                    let description = '';
+                    if (status === 'Active') description = 'Hiển thị trên HomePage';
+                    else if (status === 'Reserved') description = 'Ẩn khỏi HomePage - Đang trong quá trình thanh toán';
+                    else if (status === 'Sold') description = 'Ẩn khỏi HomePage - Đã bán thành công';
+                    else if (status === 'Pending') description = 'Chờ duyệt xe (KHÔNG phải thanh toán)';
+                    else if (status === 'Rejected') description = 'Ẩn khỏi HomePage - Bị từ chối';
+                    
+                    message += `- ${status}: ${count} sản phẩm (${description})\n`;
+                });
+                
+                message += `\n📋 CHI TIẾT SẢN PHẨM:\n`;
+                products.forEach(product => {
+                    message += `ID: ${product.productId || product.id} | Title: ${product.title || product.name} | Status: ${product.status} | Price: ${product.price}\n`;
+                });
+                
+                showResult(message, 'info');
+            } catch (error) {
+                showResult(`Lỗi: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkProduct19() {
+            try {
+                showResult('Đang kiểm tra Product ID 19...');
+                
+                const product = await apiRequest('/Product/19');
+                console.log('Product 19:', product);
+                
+                let message = `🔍 CHI TIẾT PRODUCT ID 19:\n\n`;
+                message += `Title: ${product.title || product.name}\n`;
+                message += `Status: ${product.status}\n`;
+                message += `Price: ${product.price}\n`;
+                message += `Seller ID: ${product.sellerId}\n`;
+                message += `Created: ${product.createdAt || product.createdDate}\n`;
+                message += `Updated: ${product.updatedAt}\n\n`;
+                
+                if (String(product.status || '').toLowerCase() === 'reserved') {
+                    message += `✅ Sản phẩm đã được đánh dấu là RESERVED!`;
+                    message += `\nSản phẩm sẽ ẩn khỏi HomePage và hiển thị "Đang trong quá trình thanh toán" trong Admin Dashboard.`;
+                } else if (String(product.status || '').toLowerCase() === 'pending') {
+                    message += `❌ Sản phẩm vẫn có Status = "Pending" (chờ duyệt xe)`;
+                    message += `\nCần sửa thành "Reserved" để hiển thị đúng trong Transaction Management.`;
+                } else {
+                    message += `ℹ️ Status hiện tại: ${product.status}`;
+                }
+                
+                showResult(message, String(product.status || '').toLowerCase() === 'reserved' ? 'success' : 'warning');
+            } catch (error) {
+                showResult(`Lỗi: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkProduct20() {
+            try {
+                showResult('Đang kiểm tra Product ID 20...');
+                
+                const product = await apiRequest('/Product/20');
+                console.log('Product 20:', product);
+                
+                let message = `🔍 CHI TIẾT PRODUCT ID 20:\n\n`;
+                message += `Title: ${product.title || product.name}\n`;
+                message += `Status: ${product.status}\n`;
+                message += `Price: ${product.price}\n`;
+                message += `Seller ID: ${product.sellerId}\n`;
+                message += `Created: ${product.createdAt || product.createdDate}\n`;
+                message += `Updated: ${product.updatedAt}\n\n`;
+                
+                if (String(product.status || '').toLowerCase() === 'reserved') {
+                    message += `✅ Sản phẩm đã được đánh dấu là RESERVED!`;
+                    message += `\nSản phẩm sẽ ẩn khỏi HomePage và hiển thị "Đang trong quá trình thanh toán" trong Admin Dashboard.`;
+                } else if (String(product.status || '').toLowerCase() === 'pending') {
+                    message += `❌ Sản phẩm vẫn có Status = "Pending" (chờ duyệt xe)`;
+                    message += `\nCần sửa thành "Reserved" để hiển thị đúng trong Transaction Management.`;
+                } else {
+                    message += `ℹ️ Status hiện tại: ${product.status}`;
+                }
+                
+                showResult(message, String(product.status || '').toLowerCase() === 'reserved' ? 'success' : 'warning');
+            } catch (error) {
+                showResult(`Lỗi: ${error.message}`, 'error');
+            }
+        }
+
+        async function fixProduct19ToReserved() {
+            try {
+                showResult('Đang sửa Product ID 19 thành Reserved...');
+                
+                try {
+                    // Cập nhật sản phẩm thành Reserved
+                    await apiRequest('/Product/19/status', {
+                        method: 'PUT',
+                        body: JSON.stringify({
+                            status: 'Reserved'
+                        })
+                    });
+                    
+                    let message = `✅ ĐÃ SỬA THÀNH CÔNG!\n\n`;
+                    message += `Product ID 19 đã được cập nhật:\n`;
+                    message += `- Status: Pending → Reserved\n`;
+                    message += `- Sản phẩm sẽ ẨN khỏi HomePage\n`;
+                    message += `- Admin Dashboard sẽ hiển thị "Đang trong quá trình thanh toán"\n`;
+                    message += `- Seller sẽ thấy trong tab "Đang chờ xác nhận"\n\n`;
+                    message += `🎉 HOÀN THÀNH! Hãy làm mới Admin Dashboard để kiểm tra.`;
+                    
+                    showResult(message, 'success');
+                } catch (apiError) {
+                    // Nếu API không hoạt động, hướng dẫn sửa thủ công
+                    let manualFix = `❌ API endpoint không hoạt động.\n\n`;
+                    manualFix += `🔧 HƯỚNG DẪN SỬA THỦ CÔNG:\n\n`;
+                    manualFix += `1. Mở SQL Server Management Studio\n`;
+                    manualFix += `2. Kết nối đến database\n`;
+                    manualFix += `3. Chạy lệnh SQL sau:\n\n`;
+                    manualFix += `UPDATE Products \n`;
+                    manualFix += `SET Status = 'Reserved' \n`;
+                    manualFix += `WHERE ProductId = 19;\n\n`;
+                    manualFix += `4. Sau đó làm mới Admin Dashboard để kiểm tra.\n\n`;
+                    manualFix += `Lỗi API: ${apiError.message}`;
+                    
+                    showResult(manualFix, 'warning');
+                }
+            } catch (error) {
+                showResult(`Lỗi: ${error.message}`, 'error');
+            }
+        }
+
+        async function fixProduct20ToReserved() {
+            try {
+                showResult('Đang sửa Product ID 20 thành Reserved...');
+                
+                try {
+                    // Cập nhật sản phẩm thành Reserved
+                    await apiRequest('/Product/20/status', {
+                        method: 'PUT',
+                        body: JSON.stringify({
+                            status: 'Reserved'
+                        })
+                    });
+                    
+                    let message = `✅ ĐÃ SỬA THÀNH CÔNG!\n\n`;
+                    message += `Product ID 20 đã được cập nhật:\n`;
+                    message += `- Status: Pending → Reserved\n`;
+                    message += `- Sản phẩm sẽ ẨN khỏi HomePage\n`;
+                    message += `- Admin Dashboard sẽ hiển thị "Đang trong quá trình thanh toán"\n`;
+                    message += `- Seller sẽ thấy trong tab "Đang chờ xác nhận"\n\n`;
+                    message += `🎉 HOÀN THÀNH! Hãy làm mới Admin Dashboard để kiểm tra.`;
+                    
+                    showResult(message, 'success');
+                } catch (apiError) {
+                    // Nếu API không hoạt động, hướng dẫn sửa thủ công
+                    let manualFix = `❌ API endpoint không hoạt động.\n\n`;
+                    manualFix += `🔧 HƯỚNG DẪN SỬA THỦ CÔNG:\n\n`;
+                    manualFix += `1. Mở SQL Server Management Studio\n`;
+                    manualFix += `2. Kết nối đến database\n`;
+                    manualFix += `3. Chạy lệnh SQL sau:\n\n`;
+                    manualFix += `UPDATE Products \n`;
+                    manualFix += `SET Status = 'Reserved' \n`;
+                    manualFix += `WHERE ProductId = 20;\n\n`;
+                    manualFix += `4. Sau đó làm mới Admin Dashboard để kiểm tra.\n\n`;
+                    manualFix += `Lỗi API: ${apiError.message}`;
+                    
+                    showResult(manualFix, 'warning');
+                }
+            } catch (error) {
+                showResult(`Lỗi: ${error.message}`, 'error');
+            }
+        }
+
+        function openAdminDashboard() {
+            window.open('http://localhost:5173/admin-dashboard', '_blank');
+            showResult('✅ Đã mở Admin Dashboard trong tab mới', 'success');
+        }
+    </script>
+</body>
+</html>

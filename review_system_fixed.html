@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Review System - Fixed</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .result {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+            font-family: monospace;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>✅ Review System - Fixed</h1>
+        <div class="success">
+            <strong>Đã fix lỗi!</strong> API endpoint đã được thay đổi từ <code>/api/Rating</code> thành <code>/api/Review</code>
+        </div>
+        
+        <div class="info">
+            <h3>🔧 Các thay đổi đã thực hiện:</h3>
+            <ul>
+                <li>✅ Fix API endpoint trong <code>MyPurchases.jsx</code>: <code>/api/Rating</code> → <code>/api/Review</code></li>
+                <li>✅ Fix API endpoint trong <code>RatingSystem.jsx</code>: <code>/api/Rating/seller/{id}</code> → <code>/api/Review/reviewee/{id}</code></li>
+                <li>✅ Cập nhật response handling để xử lý format từ API Review</li>
+                <li>✅ Thêm fallback cho các field names khác nhau</li>
+                <li>✅ <strong>Fix JSON format:</strong> Wrap request data trong object "request"</li>
+            </ul>
+        </div>
+
+        <h3>🧪 Test API Endpoints</h3>
+        <button onclick="testReviewAPI()">Test Review API</button>
+        <button onclick="testSellerReviews()">Test Seller Reviews</button>
+        <div id="test-results"></div>
+    </div>
+
+    <div class="container">
+        <h2>📋 Hướng dẫn sử dụng</h2>
+        <div class="info">
+            <h3>Để test hệ thống đánh giá:</h3>
+            <ol>
+                <li>Mở trang <strong>My Purchases</strong> trong ứng dụng</li>
+                <li>Tìm sản phẩm đã mua có nút <strong>"Đánh giá seller"</strong></li>
+                <li>Click vào nút đó để mở modal đánh giá</li>
+                <li>Chọn số sao và nhập comment</li>
+                <li>Click <strong>"Gửi đánh giá"</strong></li>
+                <li>Kiểm tra trang cá nhân seller để xem đánh giá</li>
+            </ol>
+        </div>
+
+        <div class="info">
+            <h3>API Endpoints đã fix:</h3>
+            <ul>
+                <li><strong>POST /api/Review</strong> - Tạo đánh giá mới</li>
+                <li><strong>GET /api/Review/reviewee/{sellerId}</strong> - Lấy đánh giá của seller</li>
+                <li><strong>GET /api/Review/order/{orderId}</strong> - Lấy đánh giá theo order</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5044';
+
+        async function testReviewAPI() {
+            const resultDiv = document.getElementById('test-results');
+            resultDiv.innerHTML = '<div>Testing Review API...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/Review`);
+                const data = await response.text();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="success">✅ Review API is working!</div>
+                        <div class="result">Response: ${data}</div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">❌ Error: ${response.status} ${response.statusText}</div>
+                        <div class="result">${data}</div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        async function testSellerReviews() {
+            const resultDiv = document.getElementById('test-results');
+            resultDiv.innerHTML = '<div>Testing Seller Reviews API...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/Review/reviewee/1`);
+                const data = await response.text();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="success">✅ Seller Reviews API is working!</div>
+                        <div class="result">Response: ${data}</div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">❌ Error: ${response.status} ${response.statusText}</div>
+                        <div class="result">${data}</div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        // Auto-test on page load
+        window.onload = function() {
+            testReviewAPI();
+        };
+    </script>
+</body>
+</html>
