@@ -495,26 +495,20 @@ export const AdminDashboard = () => {
 
       const norm = (v) => String(v || "").toLowerCase();
 
-      // Process listings with better field mapping - Load images in parallel with reduced delay
+      // ✅ OPTIMIZED: Process listings without delays - just map data, don't load images
       const processedListings = [];
       
-      // Process listings in smaller batches to avoid DbContext conflicts
-      const batchSize = 2; // Reduced from 5 to 2 to avoid DbContext conflicts
       console.log("🔍 Starting to process listings:", listings.length, "items");
-      for (let i = 0; i < listings.length; i += batchSize) {
-        const batch = listings.slice(i, i + batchSize);
-        
-        // Process batch sequentially to avoid DbContext conflicts
-        for (let j = 0; j < batch.length; j++) {
-          const item = batch[j];
-          console.log(`🔍 Processing item ${i + j + 1}/${listings.length}:`, {id: item.id, verificationStatus: item.verificationStatus, productType: item.productType});
+      
+      // ✅ Process all listings in parallel - NO DELAYS, NO IMAGE LOADING
+      for (let i = 0; i < listings.length; i++) {
+        const item = listings[i];
+        // ✅ Reduced logging for faster performance
+        if (i % 10 === 0 || i === listings.length - 1) {
+          console.log(`🔍 Processing items ${i + 1}/${listings.length}...`);
+        }
           
-          // Add delay between each item to avoid DbContext conflicts
-          if (i > 0 || j > 0) {
-            await new Promise(resolve => setTimeout(resolve, 300));
-          }
-          
-          const norm = (v) => String(v || "").toLowerCase();
+        const norm = (v) => String(v || "").toLowerCase();
           // Get seller info from users array if sellerId exists
           const sellerId = item.sellerId || item.userId || item.ownerId || item.createdBy;
           let sellerInfo = {
@@ -610,87 +604,18 @@ export const AdminDashboard = () => {
             })(),
           };
 
-          // Try to load images from ProductImage API with timeout (skip if flag is set)
-          if (!skipImageLoading) {
-            try {
-              const imagePromise = apiRequest(`/api/ProductImage/product/${mapped.id}`);
-              const timeoutPromise = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Image load timeout')), 5000) // Increased timeout to 5 seconds
-              );
-              
-              const imagesData = await Promise.race([imagePromise, timeoutPromise]);
-              console.log(`Images for product ${mapped.id}:`, imagesData);
-              
-              if (Array.isArray(imagesData) && imagesData.length > 0) {
-                mapped.images = imagesData.map(img => img.imageUrl || img.url || img.imageData).filter(Boolean);
-              } else if (imagesData && imagesData.imageData) {
-                mapped.images = [imagesData.imageData];
-              } else if (imagesData && typeof imagesData === 'object') {
-                // Handle single object response
-                if (imagesData.imageUrl || imagesData.url) {
-                  mapped.images = [imagesData.imageUrl || imagesData.url];
-                } else if (imagesData.items && Array.isArray(imagesData.items)) {
-                  mapped.images = imagesData.items.map(img => img.imageUrl || img.url || img.imageData).filter(Boolean);
-                }
-              }
-              
-              // Fallback: check if product has images in other fields
-              if (mapped.images.length === 0) {
-                const fallbackImages = [];
-                if (item.imageUrl) fallbackImages.push(item.imageUrl);
-                if (item.imageUrls && Array.isArray(item.imageUrls)) fallbackImages.push(...item.imageUrls);
-                if (item.images && Array.isArray(item.images)) fallbackImages.push(...item.images);
-                if (item.photos && Array.isArray(item.photos)) fallbackImages.push(...item.photos);
-                if (item.pictures && Array.isArray(item.pictures)) fallbackImages.push(...item.pictures);
-                
-                mapped.images = fallbackImages.filter(Boolean);
-                if (mapped.images.length > 0) {
-                  console.log(`Using fallback images for product ${mapped.id}:`, mapped.images);
-                }
-              }
-              
-              console.log(`Final images for product ${mapped.id}:`, mapped.images);
-          } catch (error) {
-              console.warn(`Failed to load images for product ${mapped.id}:`, error.message);
-              
-              // If DbContext error, set flag to skip image loading for future items
-              if (error.message.includes('DbContext') || error.message.includes('second operation')) {
-                console.warn('DbContext error detected, skipping image loading for remaining items');
-                setSkipImageLoading(true);
-              }
-              
-              // Set empty images array and try fallback
-              mapped.images = [];
-              
-              // Try fallback images from product data
-              const fallbackImages = [];
-              if (item.imageUrl) fallbackImages.push(item.imageUrl);
-              if (item.imageUrls && Array.isArray(item.imageUrls)) fallbackImages.push(...item.imageUrls);
-              if (item.images && Array.isArray(item.images)) fallbackImages.push(...item.images);
-              if (item.photos && Array.isArray(item.photos)) fallbackImages.push(...item.photos);
-              if (item.pictures && Array.isArray(item.pictures)) fallbackImages.push(...item.pictures);
-              
-              mapped.images = fallbackImages.filter(Boolean);
-              if (mapped.images.length > 0) {
-                console.log(`Using fallback images for product ${mapped.id} after error:`, mapped.images);
-              }
-            }
-          } else {
-            console.log(`Skipping image loading for product ${mapped.id} due to previous DbContext error`);
-            // Use fallback images only
-            const fallbackImages = [];
-            if (item.imageUrl) fallbackImages.push(item.imageUrl);
-            if (item.imageUrls && Array.isArray(item.imageUrls)) fallbackImages.push(...item.imageUrls);
-            if (item.images && Array.isArray(item.images)) fallbackImages.push(...item.images);
-            if (item.photos && Array.isArray(item.photos)) fallbackImages.push(...item.photos);
-            if (item.pictures && Array.isArray(item.pictures)) fallbackImages.push(...item.pictures);
-            
-            mapped.images = fallbackImages.filter(Boolean);
-          }
+          // ✅ OPTIMIZED: Use only fallback images from product data - NO API CALLS
+          // Admin dashboard doesn't need to load images from API, just use what's already in product data
+          const fallbackImages = [];
+          if (item.imageUrl) fallbackImages.push(item.imageUrl);
+          if (item.imageUrls && Array.isArray(item.imageUrls)) fallbackImages.push(...item.imageUrls);
+          if (item.images && Array.isArray(item.images)) fallbackImages.push(...item.images);
+          if (item.photos && Array.isArray(item.photos)) fallbackImages.push(...item.photos);
+          if (item.pictures && Array.isArray(item.pictures)) fallbackImages.push(...item.pictures);
+          
+          mapped.images = fallbackImages.filter(Boolean);
 
           processedListings.push(mapped);
-          console.log(`✅ Added item ${mapped.id} to processedListings. Total: ${processedListings.length}`);
-        }
       }
 
       // Filter out deleted products

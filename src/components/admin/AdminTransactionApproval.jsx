@@ -28,6 +28,10 @@ export const AdminTransactionApproval = () => {
   const handleAdminConfirm = async (orderId) => {
     try {
       setConfirming(orderId);
+      
+      // Get order details to find product ID
+      const order = pendingOrders.find(o => o.orderId === orderId);
+      
       await apiRequest(`/api/Order/${orderId}/admin-confirm`, {
         method: "POST",
         headers: {
@@ -38,6 +42,28 @@ export const AdminTransactionApproval = () => {
         }),
       });
 
+      // ✅ Update product status to Sold if product ID is available
+      if (order && order.productId) {
+        try {
+          await apiRequest(`/api/Product/${order.productId}/status`, {
+            method: 'PUT',
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              status: 'Sold'
+            })
+          });
+          console.log(`✅ Product ${order.productId} status updated to Sold`);
+        } catch (productError) {
+          console.error('Failed to update product status:', productError);
+          // Continue even if product update fails
+        }
+      }
+
+      // ✅ Trigger seller profile reload via localStorage event
+      localStorage.setItem('seller_profile_reload', Date.now().toString());
+      
       // Reload orders
       await loadPendingOrders();
       
@@ -49,7 +75,7 @@ export const AdminTransactionApproval = () => {
       });
       
       // Show success message
-      alert("Admin đã xác nhận giao dịch thành công!");
+      alert("Admin đã xác nhận giao dịch thành công! Sản phẩm đã được chuyển sang trạng thái Đã bán.");
     } catch (error) {
       console.error("Error admin confirming transaction:", error);
       alert("Có lỗi xảy ra khi admin xác nhận giao dịch");

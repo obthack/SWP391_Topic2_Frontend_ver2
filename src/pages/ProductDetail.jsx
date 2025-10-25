@@ -263,14 +263,25 @@ export const ProductDetail = () => {
         const productUrls = productImages.map(urlOf).filter(Boolean);
         const docUrls = docImages.map(urlOf).filter(Boolean);
 
+        // ✅ Remove duplicates based on URL
+        const uniqueProductUrls = [...new Set(productUrls)];
+        const uniqueDocUrls = [...new Set(docUrls)];
+
         // Put inspected images first in the gallery
         const inspectedUrls = productImages.filter(isInspected).map(urlOf).filter(Boolean);
-        const inspectedUrlSet = new Set(inspectedUrls);
-        const otherUrls = productUrls.filter((u) => !inspectedUrlSet.has(u));
+        // ✅ Remove duplicates from inspected URLs
+        const uniqueInspectedUrls = [...new Set(inspectedUrls)];
+        const inspectedUrlSet = new Set(uniqueInspectedUrls);
+        const otherUrls = uniqueProductUrls.filter((u) => !inspectedUrlSet.has(u));
 
-        setImages([...inspectedUrls, ...otherUrls]);
-        setInspectedSet(new Set(inspectedUrls));
-        setDocumentImages(docUrls);
+        console.log("🔍 Before deduplication - Product URLs:", productUrls.length);
+        console.log("🔍 After deduplication - Unique Product URLs:", uniqueProductUrls.length);
+        console.log("🔍 Before deduplication - Inspected URLs:", inspectedUrls.length);
+        console.log("🔍 After deduplication - Unique Inspected URLs:", uniqueInspectedUrls.length);
+
+        setImages([...uniqueInspectedUrls, ...otherUrls]);
+        setInspectedSet(new Set(uniqueInspectedUrls));
+        setDocumentImages(uniqueDocUrls);
       } catch (imageError) {
         console.log("No images found for product");
         setImages([]);
@@ -871,7 +882,7 @@ export const ProductDetail = () => {
                       <span className="font-semibold text-lg">Sản phẩm đã được bán</span>
                     </div>
                     <p className="text-sm">
-                      Sản phẩm này đã được khách hàng khác đặt cọc thành công và không còn khả dụng.
+                      Sản phẩm này không còn khả dụng.
                     </p>
                   </div>
                 ) : product.status === "Reserved" || product.status === "reserved" ? (

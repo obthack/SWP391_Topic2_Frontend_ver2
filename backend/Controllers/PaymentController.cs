@@ -15,11 +15,13 @@ namespace EVTB_Backend.Controllers
     {
         private readonly EVTBContext _context;
         private readonly ILogger<PaymentController> _logger;
+        private readonly IConfiguration _configuration;
 
-        public PaymentController(EVTBContext context, ILogger<PaymentController> logger)
+        public PaymentController(EVTBContext context, ILogger<PaymentController> logger, IConfiguration configuration)
         {
             _context = context;
             _logger = logger;
+            _configuration = configuration;
         }
 
 
@@ -111,6 +113,104 @@ namespace EVTB_Backend.Controllers
             }
         }
 
+        /// <summary>
+        /// VNPay callback endpoint - Xử lý kết quả thanh toán từ VNPay
+        /// </summary>
+        [HttpGet("vnpay-return")]
+        [AllowAnonymous] // VNPay callback không cần authentication
+        public async Task<IActionResult> VNPayReturn(
+            [FromQuery] string vnp_Amount,
+            [FromQuery] string vnp_BankCode,
+            [FromQuery] string vnp_BankTranNo,
+            [FromQuery] string vnp_CardType,
+            [FromQuery] string vnp_OrderInfo,
+            [FromQuery] string vnp_PayDate,
+            [FromQuery] string vnp_ResponseCode,
+            [FromQuery] string vnp_TmnCode,
+            [FromQuery] string vnp_TransactionNo,
+            [FromQuery] string vnp_TransactionStatus,
+            [FromQuery] string vnp_TxnRef,
+            [FromQuery] string vnp_SecureHash
+        )
+        {
+            try
+            {
+                _logger.LogInformation($"VNPay callback received for payment {vnp_TxnRef}");
+                
+                // Parse payment ID from vnp_TxnRef
+                if (!int.TryParse(vnp_TxnRef, out int paymentId))
+                {
+                    _logger.LogError($"Invalid payment ID: {vnp_TxnRef}");
+                    return BadRequest(new { message = "Invalid payment ID" });
+                }
+
+                // Get payment from database
+                var payment = await _context.Payments.FirstOrDefaultAsync(p => p.PaymentId == paymentId);
+                
+                if (payment == null)
+                {
+                    _logger.LogError($"Payment {paymentId} not found");
+                    return NotFound(new { message = "Payment not found" });
+                }
+
+                // Check if payment is successful (response code 00)
+                bool isSuccess = vnp_ResponseCode == "00";
+                
+                if (isSuccess)
+                {
+                    // Update payment status if not already succeeded
+                    if (payment.PaymentStatus != "Succeeded")
+                    {
+                        payment.PaymentStatus = "Succeeded";
+                        payment.VNPayTransactionId = vnp_TransactionNo;
+                        payment.UpdatedAt = DateTime.UtcNow;
+                        
+                        // If this is a deposit payment, update product status to Reserved
+                        if (payment.PaymentType == "Deposit" && payment.ProductId.HasValue)
+                        {
+                            var product = await _context.Products.FirstOrDefaultAsync(p => p.ProductId == payment.ProductId.Value);
+                            if (product != null && product.Status != "Reserved" && product.Status != "Sold")
+                            {
+                                product.Status = "Reserved";
+                                product.UpdatedAt = DateTime.UtcNow;
+                                _logger.LogInformation($"Product {product.ProductId} status updated to Reserved");
+                            }
+                        }
+                        
+                        await _context.SaveChangesAsync();
+                        _logger.LogInformation($"Payment {paymentId} marked as Succeeded");
+                    }
+                }
+                else
+                {
+                    payment.PaymentStatus = "Failed";
+                    payment.UpdatedAt = DateTime.UtcNow;
+                    await _context.SaveChangesAsync();
+                    _logger.LogWarning($"Payment {paymentId} failed with response code: {vnp_ResponseCode}");
+                }
+
+                // ✅ Redirect to frontend PaymentSuccess page
+                var frontendUrl = _configuration["FrontendUrl"] ?? "http://localhost:5173";
+                var redirectUrl = $"{frontendUrl}/payment/success?" +
+                    $"vnp_ResponseCode={vnp_ResponseCode}" +
+                    $"&vnp_TxnRef={vnp_TxnRef}" +
+                    $"&vnp_Amount={vnp_Amount}" +
+                    $"&vnp_TransactionNo={vnp_TransactionNo}" +
+                    $"&vnp_ResponseMessage={Uri.EscapeDataString(isSuccess ? "Success" : "Failed")}";
+
+                _logger.LogInformation($"Redirecting to: {redirectUrl}");
+                return Redirect(redirectUrl);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing VNPay callback");
+                // Still redirect to frontend with error
+                var frontendUrl = _configuration["FrontendUrl"] ?? "http://localhost:5173";
+                var errorUrl = $"{frontendUrl}/?payment_error=true&payment_id={vnp_TxnRef}";
+                return Redirect(errorUrl);
+            }
+        }
+
         [HttpPost("admin-confirm")]
         [Authorize(Policy = "AdminOnly")]
         public async Task<IActionResult> AdminConfirmSale([FromBody] AdminAcceptRequest request)
@@ -125,7 +225,7 @@ namespace EVTB_Backend.Controllers
                 // ✅ Authorization check: Chỉ admin mới có thể xác nhận
                 var userRole = User.FindFirst("roleId")?.Value ?? "";
                 if (userRole != "1") // Assuming "1" is admin role
-                    return Forbid(new { message = "Only administrators can accept sales" });
+                    return StatusCode(403, new { message = "Only administrators can accept sales" });
 
                 // Validate request
                 if (request == null)

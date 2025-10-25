@@ -558,7 +558,7 @@ const MyPurchases = () => {
                     </span>
                     <div className="flex items-center text-sm text-gray-500">
                       <CheckCircle className="h-4 w-4 mr-1" />
-                      Đã bán
+                      Đã giao dịch 
                     </div>
                   </div>
                   
