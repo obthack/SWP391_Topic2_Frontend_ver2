@@ -6,6 +6,7 @@ import {
   User,
   LogOut,
   LayoutDashboard,
+  ShoppingBag,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { NotificationBell } from "../common/NotificationBell";
@@ -105,6 +106,15 @@ export const Header = () => {
                       >
                         <User className="h-4 w-4 mr-2" />
                         Trang cá nhân
+                      </Link>
+                    )}
+                    {!isAdmin && (
+                      <Link
+                        to="/my-purchases"
+                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        <ShoppingBag className="h-4 w-4 mr-2" />
+                        Sản phẩm đã mua
                       </Link>
                     )}
                     {!isAdmin && (

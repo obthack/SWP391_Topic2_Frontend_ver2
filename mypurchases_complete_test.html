@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MyPurchases Complete Test</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px; 
+            max-width: 1000px; 
+            margin: 0 auto;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button { 
+            padding: 10px 20px; 
+            margin: 10px; 
+            background: #007bff; 
+            color: white; 
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer; 
+        }
+        button:hover { background: #0056b3; }
+        .result { 
+            margin: 20px 0; 
+            padding: 15px; 
+            border-radius: 4px; 
+            white-space: pre-wrap; 
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        .step { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 4px; }
+        .step h3 { margin-top: 0; color: #333; }
+        .order-item { margin: 10px 0; padding: 10px; border: 1px solid #eee; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 MyPurchases Complete Test</h1>
+        
+        <div class="step">
+            <h3>Step 1: Login as User</h3>
+            <button onclick="loginAsUser()">Login as User (duy99@gmail.com)</button>
+            <div id="loginResult" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="step">
+            <h3>Step 2: Test Order/Buyer API</h3>
+            <button onclick="testBuyerOrders()">Test Buyer Orders</button>
+            <div id="ordersResult" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="step">
+            <h3>Step 3: Test Product API for each order</h3>
+            <button onclick="testProductDetails()">Test Product Details</button>
+            <div id="productsResult" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="step">
+            <h3>Step 4: Test Review Creation</h3>
+            <button onclick="testReviewCreation()">Test Review Creation</button>
+            <div id="reviewResult" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="step">
+            <h3>Step 5: Test All APIs Together</h3>
+            <button onclick="testCompleteFlow()">Test Complete Flow</button>
+            <div id="completeResult" class="result" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5044';
+        let userToken = '';
+        let orders = [];
+
+        function showResult(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `result ${type}`;
+            element.style.display = 'block';
+        }
+
+        async function makeRequest(url, options = {}) {
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${userToken}`,
+                        ...options.headers
+                    },
+                    ...options
+                });
+
+                const data = await response.text();
+                let jsonData;
+                try {
+                    jsonData = JSON.parse(data);
+                } catch {
+                    jsonData = data;
+                }
+
+                return {
+                    ok: response.ok,
+                    status: response.status,
+                    statusText: response.statusText,
+                    data: jsonData
+                };
+            } catch (error) {
+                return {
+                    ok: false,
+                    status: 0,
+                    statusText: 'Network Error',
+                    data: { error: error.message }
+                };
+            }
+        }
+
+        async function loginAsUser() {
+            showResult('loginResult', 'Logging in as user...', 'info');
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/user/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: 'duy99@gmail.com',
+                        password: '123456'
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    userToken = data.token;
+                    showResult('loginResult', `✅ User login successful!\n\nToken: ${userToken.substring(0, 50)}...\n\nUser: ${JSON.stringify(data.user, null, 2)}`, 'success');
+                } else {
+                    const errorData = await response.text();
+                    showResult('loginResult', `❌ User login failed!\n\nStatus: ${response.status}\nResponse: ${errorData}`, 'error');
+                }
+            } catch (error) {
+                showResult('loginResult', `❌ User login error!\n\nError: ${error.message}`, 'error');
+            }
+        }
+
+        async function testBuyerOrders() {
+            if (!userToken) {
+                showResult('ordersResult', 'Please login first!', 'error');
+                return;
+            }
+
+            showResult('ordersResult', 'Testing buyer orders...', 'info');
+            
+            try {
+                const result = await makeRequest(`${API_BASE_URL}/api/Order/buyer`);
+                
+                if (result.ok) {
+                    orders = result.data;
+                    showResult('ordersResult', `✅ Buyer orders retrieved!\n\nCount: ${orders.length}\n\nOrders:\n${JSON.stringify(orders, null, 2)}`, 'success');
+                } else {
+                    showResult('ordersResult', `❌ Failed to get buyer orders!\n\nStatus: ${result.status}\nResponse: ${JSON.stringify(result.data, null, 2)}`, 'error');
+                }
+            } catch (error) {
+                showResult('ordersResult', `❌ Error getting buyer orders!\n\nError: ${error.message}`, 'error');
+            }
+        }
+
+        async function testProductDetails() {
+            if (!userToken || orders.length === 0) {
+                showResult('productsResult', 'Please get orders first!', 'error');
+                return;
+            }
+
+            showResult('productsResult', 'Testing product details for each order...', 'info');
+            
+            try {
+                let results = [];
+                
+                for (let i = 0; i < orders.length; i++) {
+                    const order = orders[i];
+                    results.push(`\n--- Order ${i + 1} ---`);
+                    results.push(`Order ID: ${order.orderId}`);
+                    results.push(`Product ID: ${order.productId}`);
+                    results.push(`Product Title: ${order.productTitle}`);
+                    
+                    if (order.productId) {
+                        try {
+                            const productResult = await makeRequest(`${API_BASE_URL}/api/Product/${order.productId}`);
+                            if (productResult.ok) {
+                                results.push(`✅ Product loaded: ${productResult.data.title}`);
+                            } else {
+                                results.push(`❌ Product failed: ${productResult.status}`);
+                            }
+                        } catch (error) {
+                            results.push(`❌ Product error: ${error.message}`);
+                        }
+                    } else {
+                        results.push(`❌ No productId in order`);
+                    }
+                }
+                
+                showResult('productsResult', `✅ Product details test completed!\n\nResults:\n${results.join('\n')}`, 'success');
+                
+            } catch (error) {
+                showResult('productsResult', `❌ Error testing product details!\n\nError: ${error.message}`, 'error');
+            }
+        }
+
+        async function testReviewCreation() {
+            if (!userToken) {
+                showResult('reviewResult', 'Please login first!', 'error');
+                return;
+            }
+
+            showResult('reviewResult', 'Testing review creation...', 'info');
+            
+            try {
+                const result = await makeRequest(`${API_BASE_URL}/api/Rating`, {
+                    method: 'POST',
+                    body: {
+                        OrderId: 1,
+                        ProductId: 1,
+                        BuyerId: 9,
+                        SellerId: 2,
+                        RatingValue: 5,
+                        Comment: "Test review from MyPurchases"
+                    }
+                });
+                
+                if (result.ok) {
+                    showResult('reviewResult', `✅ Review creation successful!\n\nResponse: ${JSON.stringify(result.data, null, 2)}`, 'success');
+                } else {
+                    showResult('reviewResult', `❌ Review creation failed!\n\nStatus: ${result.status}\nResponse: ${JSON.stringify(result.data, null, 2)}`, 'error');
+                }
+            } catch (error) {
+                showResult('reviewResult', `❌ Error creating review!\n\nError: ${error.message}`, 'error');
+            }
+        }
+
+        async function testCompleteFlow() {
+            if (!userToken) {
+                showResult('completeResult', 'Please login first!', 'error');
+                return;
+            }
+
+            showResult('completeResult', 'Testing complete MyPurchases flow...', 'info');
+            
+            try {
+                let results = [];
+                
+                // Step 1: Get orders
+                results.push('Step 1: Getting buyer orders...');
+                const ordersResult = await makeRequest(`${API_BASE_URL}/api/Order/buyer`);
+                if (ordersResult.ok) {
+                    results.push(`✅ Orders loaded: ${ordersResult.data.length} orders`);
+                    
+                    // Step 2: Test each order
+                    for (let i = 0; i < ordersResult.data.length; i++) {
+                        const order = ordersResult.data[i];
+                        results.push(`\nOrder ${i + 1}:`);
+                        results.push(`  - Order ID: ${order.orderId}`);
+                        results.push(`  - Product ID: ${order.productId}`);
+                        results.push(`  - Product Title: ${order.productTitle}`);
+                        results.push(`  - Order Status: ${order.orderStatus}`);
+                        results.push(`  - Has Rating: ${order.hasRating}`);
+                        
+                        if (order.productId) {
+                            const productResult = await makeRequest(`${API_BASE_URL}/api/Product/${order.productId}`);
+                            if (productResult.ok) {
+                                results.push(`  ✅ Product loaded: ${productResult.data.title}`);
+                            } else {
+                                results.push(`  ❌ Product failed: ${productResult.status}`);
+                            }
+                        } else {
+                            results.push(`  ❌ No productId`);
+                        }
+                    }
+                } else {
+                    results.push(`❌ Orders failed: ${ordersResult.status}`);
+                }
+                
+                showResult('completeResult', `✅ Complete flow test finished!\n\nResults:\n${results.join('\n')}`, 'success');
+                
+            } catch (error) {
+                showResult('completeResult', `❌ Error in complete flow!\n\nError: ${error.message}`, 'error');
+            }
+        }
+
+        // Auto-login on load
+        window.onload = function() {
+            setTimeout(loginAsUser, 1000);
+        };
+    </script>
+</body>
+</html>

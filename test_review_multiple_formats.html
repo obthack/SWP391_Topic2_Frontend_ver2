@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Review API - Multiple Formats</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .result {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+            font-family: monospace;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .code-block {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            border-left: 4px solid #007bff;
+            margin: 10px 0;
+        }
+        .test-section {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test Review API - Multiple Formats</h1>
+        <div class="info">
+            <h3>Vấn đề:</h3>
+            <p>Backend vẫn trả về lỗi 400 với message:</p>
+            <div class="code-block">"The JSON value could not be converted to BE.API.DTOs.Request.ReviewRequest"
+"request": ["The request field is required."]</div>
+            <p>Hãy test các format khác nhau để tìm format đúng.</p>
+        </div>
+
+        <div class="test-section">
+            <h3>Test 1: Format hiện tại (đang lỗi)</h3>
+            <button onclick="testFormat1()">Test Format 1</button>
+            <div class="code-block">{
+  "orderId": 23,
+  "productId": 20,
+  "buyerId": 9,
+  "sellerId": 1,
+  "ratingValue": 5,
+  "comment": "được"
+}</div>
+            <div id="result1"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Test 2: Với wrapper "request"</h3>
+            <button onclick="testFormat2()">Test Format 2</button>
+            <div class="code-block">{
+  "request": {
+    "orderId": 23,
+    "productId": 20,
+    "buyerId": 9,
+    "sellerId": 1,
+    "ratingValue": 5,
+    "comment": "được"
+  }
+}</div>
+            <div id="result2"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Test 3: Field names PascalCase</h3>
+            <button onclick="testFormat3()">Test Format 3</button>
+            <div class="code-block">{
+  "OrderId": 23,
+  "ProductId": 20,
+  "BuyerId": 9,
+  "SellerId": 1,
+  "RatingValue": 5,
+  "Comment": "được"
+}</div>
+            <div id="result3"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Test 4: Field names snake_case</h3>
+            <button onclick="testFormat4()">Test Format 4</button>
+            <div class="code-block">{
+  "order_id": 23,
+  "product_id": 20,
+  "buyer_id": 9,
+  "seller_id": 1,
+  "rating_value": 5,
+  "comment": "được"
+}</div>
+            <div id="result4"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Test 5: Chỉ có các field cơ bản</h3>
+            <button onclick="testFormat5()">Test Format 5</button>
+            <div class="code-block">{
+  "orderId": 23,
+  "ratingValue": 5,
+  "comment": "được"
+}</div>
+            <div id="result5"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Test 6: Field names khác</h3>
+            <button onclick="testFormat6()">Test Format 6</button>
+            <div class="code-block">{
+  "orderId": 23,
+  "productId": 20,
+  "reviewerId": 9,
+  "revieweeId": 1,
+  "rating": 5,
+  "reviewText": "được"
+}</div>
+            <div id="result6"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5044';
+
+        async function testFormat1() {
+            const resultDiv = document.getElementById('result1');
+            resultDiv.innerHTML = '<div>Testing Format 1...</div>';
+            
+            const requestData = {
+                orderId: 23,
+                productId: 20,
+                buyerId: 9,
+                sellerId: 1,
+                ratingValue: 5,
+                comment: "được"
+            };
+            
+            await testAPI(requestData, resultDiv, 'Format 1');
+        }
+
+        async function testFormat2() {
+            const resultDiv = document.getElementById('result2');
+            resultDiv.innerHTML = '<div>Testing Format 2...</div>';
+            
+            const requestData = {
+                request: {
+                    orderId: 23,
+                    productId: 20,
+                    buyerId: 9,
+                    sellerId: 1,
+                    ratingValue: 5,
+                    comment: "được"
+                }
+            };
+            
+            await testAPI(requestData, resultDiv, 'Format 2');
+        }
+
+        async function testFormat3() {
+            const resultDiv = document.getElementById('result3');
+            resultDiv.innerHTML = '<div>Testing Format 3...</div>';
+            
+            const requestData = {
+                OrderId: 23,
+                ProductId: 20,
+                BuyerId: 9,
+                SellerId: 1,
+                RatingValue: 5,
+                Comment: "được"
+            };
+            
+            await testAPI(requestData, resultDiv, 'Format 3');
+        }
+
+        async function testFormat4() {
+            const resultDiv = document.getElementById('result4');
+            resultDiv.innerHTML = '<div>Testing Format 4...</div>';
+            
+            const requestData = {
+                order_id: 23,
+                product_id: 20,
+                buyer_id: 9,
+                seller_id: 1,
+                rating_value: 5,
+                comment: "được"
+            };
+            
+            await testAPI(requestData, resultDiv, 'Format 4');
+        }
+
+        async function testFormat5() {
+            const resultDiv = document.getElementById('result5');
+            resultDiv.innerHTML = '<div>Testing Format 5...</div>';
+            
+            const requestData = {
+                orderId: 23,
+                ratingValue: 5,
+                comment: "được"
+            };
+            
+            await testAPI(requestData, resultDiv, 'Format 5');
+        }
+
+        async function testFormat6() {
+            const resultDiv = document.getElementById('result6');
+            resultDiv.innerHTML = '<div>Testing Format 6...</div>';
+            
+            const requestData = {
+                orderId: 23,
+                productId: 20,
+                reviewerId: 9,
+                revieweeId: 1,
+                rating: 5,
+                reviewText: "được"
+            };
+            
+            await testAPI(requestData, resultDiv, 'Format 6');
+        }
+
+        async function testAPI(requestData, resultDiv, formatName) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/Review`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                const data = await response.text();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="success">✅ ${formatName} Success!</div>
+                        <div class="result">Response: ${data}</div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">❌ ${formatName} Error: ${response.status} ${response.statusText}</div>
+                        <div class="result">${data}</div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ ${formatName} Error: ${error.message}</div>`;
+            }
+        }
+
+        // Auto-test on page load
+        window.onload = function() {
+            testFormat1();
+        };
+    </script>
+</body>
+</html>
+

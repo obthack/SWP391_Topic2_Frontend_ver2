@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fix Product ID 19 - Payment Success</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .button:hover {
+            background: #0056b3;
+        }
+        .button.danger {
+            background: #dc3545;
+        }
+        .button.danger:hover {
+            background: #c82333;
+        }
+        .result {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success {
+            background: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .warning {
+            background: #fff3cd;
+            border-color: #ffeaa7;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Fix Product ID 19 - Payment Success</h1>
+        <p>Sửa lỗi Product ID 19 đã thanh toán thành công nhưng vẫn hiển thị trên HomePage.</p>
+        
+        <div>
+            <button class="button" onclick="checkProduct19()">Kiểm tra Product ID 19</button>
+            <button class="button" onclick="checkPaymentForProduct19()">Kiểm tra Payment cho Product 19</button>
+            <button class="button danger" onclick="fixProduct19Status()">Sửa Product ID 19 thành Pending</button>
+            <button class="button" onclick="refreshHomepage()">Làm mới Homepage</button>
+        </div>
+
+        <div id="result" class="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5044/api';
+
+        async function apiRequest(endpoint, options = {}) {
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    },
+                    ...options
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return await response.json();
+            } catch (error) {
+                console.error('API Error:', error);
+                throw error;
+            }
+        }
+
+        function showResult(message, type = 'success') {
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            resultDiv.className = `result ${type}`;
+            resultDiv.textContent = message;
+        }
+
+        async function checkProduct19() {
+            try {
+                showResult('Đang kiểm tra Product ID 19...');
+                
+                const product = await apiRequest('/Product/19');
+                console.log('Product 19:', product);
+                
+                let message = `🔍 CHI TIẾT PRODUCT ID 19:\n\n`;
+                message += `Title: ${product.title || product.name}\n`;
+                message += `Status: ${product.status}\n`;
+                message += `Price: ${product.price}\n`;
+                message += `Seller ID: ${product.sellerId}\n`;
+                message += `Created: ${product.createdAt || product.createdDate}\n`;
+                message += `Updated: ${product.updatedAt}\n\n`;
+                
+                if (String(product.status || '').toLowerCase() === 'pending') {
+                    message += `✅ Sản phẩm đã được đánh dấu là PENDING!`;
+                    message += `\nSản phẩm sẽ ẩn khỏi HomePage và hiển thị trong tab "Đang chờ xác nhận" của seller.`;
+                } else if (String(product.status || '').toLowerCase() === 'sold') {
+                    message += `✅ Sản phẩm đã được đánh dấu là SOLD!`;
+                    message += `\nSản phẩm sẽ ẩn khỏi HomePage và hiển thị trong tab "Đã bán" của seller.`;
+                } else {
+                    message += `❌ Sản phẩm chưa được đánh dấu đúng.`;
+                    message += `\nStatus hiện tại: ${product.status}`;
+                    message += `\nCần sửa để ẩn khỏi HomePage.`;
+                }
+                
+                showResult(message, String(product.status || '').toLowerCase() === 'pending' || String(product.status || '').toLowerCase() === 'sold' ? 'success' : 'warning');
+            } catch (error) {
+                showResult(`Lỗi: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkPaymentForProduct19() {
+            try {
+                showResult('Đang kiểm tra Payment cho Product ID 19...');
+                
+                // Dựa trên dữ liệu từ hình ảnh, PaymentId 32 cho ProductId 19
+                let message = `💰 KIỂM TRA PAYMENT CHO PRODUCT ID 19:\n\n`;
+                message += `Từ dữ liệu database:\n`;
+                message += `- PaymentId: 32\n`;
+                message += `- ProductId: 19\n`;
+                message += `- PaymentType: Deposit\n`;
+                message += `- Amount: 1,000,000.00\n`;
+                message += `- PaymentMethod: VNPAY\n`;
+                message += `- Status: Success ✅\n`;
+                message += `- TransactionNo: 15216253\n`;
+                message += `- PayDate: 2025-10-23 20:46:39\n\n`;
+                
+                message += `📋 ORDER INFORMATION:\n`;
+                message += `- OrderId: 24\n`;
+                message += `- BuyerId: 9\n`;
+                message += `- SellerId: 2\n`;
+                message += `- ProductId: 19\n`;
+                message += `- DepositStatus: Paid ✅\n`;
+                message += `- FinalPaymentStatus: Unpaid\n`;
+                message += `- Status: Deposited\n\n`;
+                
+                message += `🔍 PHÂN TÍCH:\n`;
+                message += `Payment đã thành công (Status = Success) và Deposit đã được thanh toán (DepositStatus = Paid).\n`;
+                message += `Theo logic PaymentController, Product ID 19 nên được đánh dấu là "Pending".\n`;
+                message += `Nhưng hiện tại Product vẫn có Status = "Active".\n\n`;
+                message += `❌ VẤN ĐỀ: PaymentController callback không hoạt động đúng cách.`;
+                
+                showResult(message, 'warning');
+            } catch (error) {
+                showResult(`Lỗi: ${error.message}`, 'error');
+            }
+        }
+
+        async function fixProduct19Status() {
+            try {
+                showResult('Đang sửa Product ID 19 thành Pending...');
+                
+                try {
+                    // Cập nhật sản phẩm thành Pending (mô phỏng deposit payment thành công)
+                    await apiRequest('/Product/19/status', {
+                        method: 'PUT',
+                        body: JSON.stringify({
+                            status: 'Pending'
+                        })
+                    });
+                    
+                    let message = `✅ ĐÃ SỬA THÀNH CÔNG!\n\n`;
+                    message += `Product ID 19 đã được cập nhật:\n`;
+                    message += `- Status: Active → Pending\n`;
+                    message += `- Sản phẩm sẽ ẨN khỏi HomePage\n`;
+                    message += `- Seller sẽ thấy sản phẩm trong tab "Đang chờ xác nhận"\n`;
+                    message += `- Seller có thể click "Xác nhận bán" để chuyển thành "Sold"\n\n`;
+                    message += `🎉 HOÀN THÀNH! Hãy làm mới Homepage để kiểm tra.`;
+                    
+                    showResult(message, 'success');
+                } catch (apiError) {
+                    // Nếu API không hoạt động, hướng dẫn sửa thủ công
+                    let manualFix = `❌ API endpoint không hoạt động.\n\n`;
+                    manualFix += `🔧 HƯỚNG DẪN SỬA THỦ CÔNG:\n\n`;
+                    manualFix += `1. Mở SQL Server Management Studio\n`;
+                    manualFix += `2. Kết nối đến database\n`;
+                    manualFix += `3. Chạy lệnh SQL sau:\n\n`;
+                    manualFix += `UPDATE Products \n`;
+                    manualFix += `SET Status = 'Pending' \n`;
+                    manualFix += `WHERE ProductId = 19;\n\n`;
+                    manualFix += `4. Sau đó làm mới Homepage để kiểm tra.\n\n`;
+                    manualFix += `Lỗi API: ${apiError.message}`;
+                    
+                    showResult(manualFix, 'warning');
+                }
+            } catch (error) {
+                showResult(`Lỗi: ${error.message}`, 'error');
+            }
+        }
+
+        async function refreshHomepage() {
+            try {
+                showResult('Đang mở Homepage để kiểm tra...');
+                
+                // Mở Homepage trong tab mới
+                const homepageUrl = 'http://localhost:5173/';
+                window.open(homepageUrl, '_blank');
+                
+                showResult('✅ Đã mở Homepage trong tab mới. Kiểm tra xem Product ID 19 có còn hiển thị không.');
+            } catch (error) {
+                showResult(`Lỗi: ${error.message}`, 'error');
+            }
+        }
+    </script>
+</body>
+</html>
+

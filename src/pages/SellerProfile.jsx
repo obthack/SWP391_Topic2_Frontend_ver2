@@ -19,14 +19,37 @@ import {
 import { apiRequest } from "../lib/api";
 import { formatPrice } from "../utils/formatters";
 import { ProductCard } from "../components/molecules/ProductCard";
+import { RatingSystem } from "../components/common/RatingSystem";
 
 export const SellerProfile = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [seller, setSeller] = useState(null);
   const [products, setProducts] = useState([]);
+  const [pendingProducts, setPendingProducts] = useState([]);
+  const [soldProducts, setSoldProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("profile");
+
+  const confirmSale = async (productId) => {
+    try {
+      // Cập nhật sản phẩm thành Sold
+      await apiRequest(`/api/Product/${productId}/status`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          status: 'Sold'
+        })
+      });
+      
+      // Reload data để cập nhật UI
+      await loadSellerData();
+      
+      alert('Đã xác nhận bán sản phẩm thành công!');
+    } catch (error) {
+      console.error('Error confirming sale:', error);
+      alert('Có lỗi xảy ra khi xác nhận bán sản phẩm');
+    }
+  };
 
   useEffect(() => {
     if (id) {
@@ -46,13 +69,27 @@ export const SellerProfile = () => {
       const productsData = await apiRequest(`/api/Product/seller/${id}`);
       const productsList = Array.isArray(productsData) ? productsData : productsData?.items || [];
       
-      // Filter only approved products
+      // Filter approved products (still available)
       const approvedProducts = productsList.filter(product => {
         const status = String(product.status || product.Status || "").toLowerCase();
         return status === "approved" || status === "active";
       });
       
+      // Filter reserved products (after deposit payment)
+      const reservedProducts = productsList.filter(product => {
+        const status = String(product.status || product.Status || "").toLowerCase();
+        return status === "reserved";
+      });
+      
+      // Filter sold products
+      const soldProductsList = productsList.filter(product => {
+        const status = String(product.status || product.Status || "").toLowerCase();
+        return status === "sold";
+      });
+      
       setProducts(approvedProducts);
+      setPendingProducts(reservedProducts);
+      setSoldProducts(soldProductsList);
     } catch (error) {
       console.error("Error loading seller data:", error);
     } finally {
@@ -206,6 +243,26 @@ export const SellerProfile = () => {
                     Sản phẩm ({products.length})
                   </button>
                   <button
+                    onClick={() => setActiveTab("pending")}
+                    className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                      activeTab === "pending"
+                        ? "border-blue-500 text-blue-600"
+                        : "border-transparent text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    Đang chờ xác nhận ({pendingProducts.length})
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("sold")}
+                    className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                      activeTab === "sold"
+                        ? "border-blue-500 text-blue-600"
+                        : "border-transparent text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    Đã bán ({soldProducts.length})
+                  </button>
+                  <button
                     onClick={() => setActiveTab("reviews")}
                     className={`py-4 px-1 border-b-2 font-medium text-sm ${
                       activeTab === "reviews"
@@ -297,15 +354,108 @@ export const SellerProfile = () => {
               </div>
             )}
 
-            {activeTab === "reviews" && (
+            {activeTab === "pending" && (
               <div className="bg-white rounded-xl shadow-sm p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  Đánh giá từ khách hàng
+                  Sản phẩm đang chờ xác nhận ({pendingProducts.length})
                 </h3>
-                <div className="text-center py-8">
-                  <Star className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">Chưa có đánh giá nào</p>
-                </div>
+                {pendingProducts.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {pendingProducts.map((product) => (
+                      <div key={product.id || product.productId} className="border border-yellow-200 rounded-lg p-4 bg-yellow-50">
+                        <div className="flex items-start space-x-3">
+                          <div className="w-16 h-16 bg-yellow-200 rounded-lg flex items-center justify-center">
+                            <Clock className="h-6 w-6 text-yellow-600" />
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="font-medium text-gray-900 line-clamp-2">
+                              {product.title}
+                            </h4>
+                            <p className="text-lg font-bold text-blue-600 mt-1">
+                              {formatPrice(product.price)}
+                            </p>
+                            <div className="flex items-center mt-2">
+                              <Clock className="h-4 w-4 text-yellow-600 mr-1" />
+                              <span className="text-sm text-yellow-600">Đang trong quá trình thanh toán</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="mt-4 flex space-x-2">
+                          <button
+                            onClick={() => confirmSale(product.id || product.productId)}
+                            className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                          >
+                            Xác nhận bán
+                          </button>
+                          <Link
+                            to={`/product/${product.id || product.productId}`}
+                            className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium text-center"
+                          >
+                            Xem chi tiết
+                          </Link>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Clock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600">Chưa có sản phẩm nào đang chờ xác nhận</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === "sold" && (
+              
+              <div className="bg-white rounded-xl shadow-sm p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  Sản phẩm đã bán ({soldProducts.length})
+                </h3>
+                {soldProducts.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {soldProducts.map((product) => (
+                      <div key={product.id || product.productId} className="border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-start space-x-3">
+                          <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center">
+                            <Package className="h-6 w-6 text-gray-400" />
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="font-medium text-gray-900 line-clamp-2">
+                              {product.title}
+                            </h4>
+                            <p className="text-lg font-bold text-green-600 mt-1">
+                              {formatPrice(product.price)}
+                            </p>
+                            <div className="flex items-center mt-2">
+                              <CheckCircle className="h-4 w-4 text-green-600 mr-1" />
+                              <span className="text-sm text-green-600">Đã bán</span>
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              Cập nhật: {new Date(product.updatedAt || product.updated_at).toLocaleDateString('vi-VN')}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="mt-3">
+                          <span className="text-gray-500 text-sm">
+                            Sản phẩm này đã được bán và không còn hiển thị công khai
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600">Chưa có sản phẩm nào đã bán</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === "reviews" && (
+              <div className="bg-white rounded-xl shadow-sm p-6">
+                <RatingSystem sellerId={id} />
               </div>
             )}
           </div>

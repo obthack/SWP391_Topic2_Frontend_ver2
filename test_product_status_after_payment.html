@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Product Status After Payment</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .button:hover {
+            background: #0056b3;
+        }
+        .result {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+        }
+        .success {
+            background: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Test Product Status After Payment</h1>
+        <p>Kiểm tra xem sản phẩm có được đánh dấu là "Sold" sau khi thanh toán thành công không.</p>
+        
+        <div>
+            <button class="button" onclick="checkAllProducts()">Kiểm tra tất cả sản phẩm</button>
+            <button class="button" onclick="checkSpecificProduct()">Kiểm tra sản phẩm cụ thể</button>
+            <button class="button" onclick="checkPayments()">Kiểm tra payments</button>
+        </div>
+
+        <div id="result" class="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5044/api';
+
+        async function apiRequest(endpoint) {
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return await response.json();
+            } catch (error) {
+                console.error('API Error:', error);
+                throw error;
+            }
+        }
+
+        function showResult(message, isError = false) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            resultDiv.className = `result ${isError ? 'error' : 'success'}`;
+            resultDiv.textContent = message;
+        }
+
+        async function checkAllProducts() {
+            try {
+                showResult('Đang kiểm tra tất cả sản phẩm...');
+                
+                const products = await apiRequest('/Product');
+                console.log('All products:', products);
+                
+                const soldProducts = products.filter(p => 
+                    String(p.status || '').toLowerCase() === 'sold'
+                );
+                
+                const availableProducts = products.filter(p => 
+                    String(p.status || '').toLowerCase() !== 'sold'
+                );
+                
+                let message = `📊 Tổng số sản phẩm: ${products.length}\n`;
+                message += `✅ Sản phẩm có sẵn: ${availableProducts.length}\n`;
+                message += `🔴 Sản phẩm đã bán: ${soldProducts.length}\n\n`;
+                
+                if (soldProducts.length > 0) {
+                    message += `🔴 Sản phẩm đã bán:\n`;
+                    soldProducts.forEach(p => {
+                        message += `- ID: ${p.id || p.productId}, Title: ${p.title || p.name}, Status: ${p.status}\n`;
+                    });
+                }
+                
+                if (availableProducts.length > 0) {
+                    message += `\n✅ Sản phẩm có sẵn:\n`;
+                    availableProducts.forEach(p => {
+                        message += `- ID: ${p.id || p.productId}, Title: ${p.title || p.name}, Status: ${p.status}\n`;
+                    });
+                }
+                
+                showResult(message);
+            } catch (error) {
+                showResult(`Lỗi: ${error.message}`, true);
+            }
+        }
+
+        async function checkSpecificProduct() {
+            const productId = prompt('Nhập Product ID để kiểm tra:');
+            if (!productId) return;
+            
+            try {
+                showResult(`Đang kiểm tra sản phẩm ID: ${productId}...`);
+                
+                const product = await apiRequest(`/Product/${productId}`);
+                console.log('Product details:', product);
+                
+                let message = `🔍 Chi tiết sản phẩm ID: ${productId}\n`;
+                message += `Title: ${product.title || product.name}\n`;
+                message += `Status: ${product.status}\n`;
+                message += `Price: ${product.price}\n`;
+                message += `Seller ID: ${product.sellerId}\n`;
+                message += `Created: ${product.createdAt || product.createdDate}\n`;
+                message += `Updated: ${product.updatedAt}\n`;
+                
+                if (String(product.status || '').toLowerCase() === 'sold') {
+                    message += `\n🔴 Sản phẩm này đã được đánh dấu là SOLD!`;
+                } else {
+                    message += `\n✅ Sản phẩm này vẫn có sẵn.`;
+                }
+                
+                showResult(message);
+            } catch (error) {
+                showResult(`Lỗi: ${error.message}`, true);
+            }
+        }
+
+        async function checkPayments() {
+            try {
+                showResult('Đang kiểm tra payments...');
+                
+                const payments = await apiRequest('/Payment');
+                console.log('All payments:', payments);
+                
+                const successfulPayments = payments.filter(p => 
+                    p.PaymentStatus === 'Success' && p.PaymentType === 'Deposit'
+                );
+                
+                let message = `💰 Tổng số payments: ${payments.length}\n`;
+                message += `✅ Payments thành công (Deposit): ${successfulPayments.length}\n\n`;
+                
+                if (successfulPayments.length > 0) {
+                    message += `✅ Payments thành công:\n`;
+                    successfulPayments.forEach(p => {
+                        message += `- Payment ID: ${p.PaymentId}, Product ID: ${p.ProductId}, Amount: ${p.Amount}, Date: ${p.CompletedDate || p.CreatedAt}\n`;
+                    });
+                }
+                
+                showResult(message);
+            } catch (error) {
+                showResult(`Lỗi: ${error.message}`, true);
+            }
+        }
+    </script>
+</body>
+</html>
+

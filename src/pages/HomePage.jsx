@@ -135,10 +135,14 @@ export const HomePage = () => {
         .filter((x) => {
           const status = String(x.status || x.Status || "").toLowerCase().trim();
           const isApproved = status === "approved" || status === "active" || status === "verified";
+          const isNotSold = status !== "sold";
+          const isNotRejected = status !== "rejected";
+          const isNotReserved = status !== "reserved"; // Filter out reserved products
+          const shouldShow = isApproved && isNotSold && isNotRejected && isNotReserved;
           console.log(
-            `Product ${x.productId || x.id || x.ProductId}: status="${status}", isApproved=${isApproved}`
+            `Product ${x.productId || x.id || x.ProductId}: status="${status}", isApproved=${isApproved}, isNotSold=${isNotSold}, isNotRejected=${isNotRejected}, isNotReserved=${isNotReserved}, shouldShow=${shouldShow}`
           );
-          return isApproved;
+          return shouldShow;
         })
         .map((x) => {
           // Determine product type based on available fields

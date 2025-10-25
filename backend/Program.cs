@@ -62,14 +62,26 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("AdminOnly", policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireAssertion(context =>
+        {
+            var user = context.User;
+            var roleClaim = user.FindFirst("roleId");
+            return roleClaim != null && roleClaim.Value == "1";
+        });
+    });
+});
 
 // CORS Configuration
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:5179", "http://localhost:5181", "http://localhost:5177", "http://localhost:5182")
+        policy.WithOrigins("http://localhost:5179", "http://localhost:5181", "http://localhost:5177", "http://localhost:5182", "http://localhost:5173")
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials(); // Quan trọng: cho phép credentials

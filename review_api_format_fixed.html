@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Review API - Fixed Format</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .result {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+            font-family: monospace;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .code-block {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            border-left: 4px solid #007bff;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Review API - Fixed Format</h1>
+        <div class="success">
+            <strong>Đã fix format JSON!</strong> Backend KHÔNG yêu cầu wrapper object, cần gửi data trực tiếp
+        </div>
+        
+        <div class="info">
+            <h3>🔍 Vấn đề đã phát hiện:</h3>
+            <p>Từ console log, backend trả về lỗi:</p>
+            <div class="code-block">
+"errors": {
+  "$": ["The JSON value could not be converted to BE.API.DTOs.Request.ReviewRequest..."],
+  "request": ["The request field is required."]
+}
+            </div>
+            <p>Điều này có nghĩa là backend mong đợi format trực tiếp:</p>
+            <div class="code-block">
+{
+  "orderId": 23,
+  "productId": 20,
+  "buyerId": 9,
+  "sellerId": 1,
+  "ratingValue": 5,
+  "comment": "được"
+}
+            </div>
+        </div>
+
+        <h3>🧪 Test API với format mới</h3>
+        <button onclick="testReviewAPI()">Test Review API</button>
+        <button onclick="testCreateReview()">Test Create Review</button>
+        <div id="test-results"></div>
+    </div>
+
+    <div class="container">
+        <h2>📋 Các thay đổi đã thực hiện</h2>
+        <div class="info">
+            <h3>✅ Frontend Changes:</h3>
+            <ol>
+                <li><strong>MyPurchases.jsx</strong>: Wrap request data trong object "request"</li>
+                <li><strong>test_rating_api.html</strong>: Cập nhật format JSON</li>
+                <li><strong>API endpoints</strong>: Đã fix từ /api/Rating → /api/Review</li>
+            </ol>
+            
+            <h3>🔧 Format cũ vs mới:</h3>
+            <p><strong>Format cũ (gây lỗi 400):</strong></p>
+            <div class="code-block">
+{
+  "request": {
+    "orderId": 23,
+    "productId": 20,
+    "buyerId": 9,
+    "sellerId": 1,
+    "ratingValue": 5,
+    "comment": "được"
+  }
+}
+            </div>
+            
+            <p><strong>Format mới (đúng):</strong></p>
+            <div class="code-block">
+{
+  "orderId": 23,
+  "productId": 20,
+  "buyerId": 9,
+  "sellerId": 1,
+  "ratingValue": 5,
+  "comment": "được"
+}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5044';
+
+        async function testReviewAPI() {
+            const resultDiv = document.getElementById('test-results');
+            resultDiv.innerHTML = '<div>Testing Review API...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/Review`);
+                const data = await response.text();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="success">✅ Review API is working!</div>
+                        <div class="result">Response: ${data}</div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">❌ Error: ${response.status} ${response.statusText}</div>
+                        <div class="result">${data}</div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        async function testCreateReview() {
+            const resultDiv = document.getElementById('test-results');
+            resultDiv.innerHTML = '<div>Testing Create Review with new format...</div>';
+            
+            const requestData = {
+                orderId: 23,
+                productId: 20,
+                buyerId: 9,
+                sellerId: 1,
+                ratingValue: 5,
+                comment: "được"
+            };
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/Review`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                const data = await response.text();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="success">✅ Review Created Successfully!</div>
+                        <div class="result">Response: ${data}</div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">❌ Error: ${response.status} ${response.statusText}</div>
+                        <div class="result">${data}</div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        // Auto-test on page load
+        window.onload = function() {
+            testReviewAPI();
+        };
+    </script>
+</body>
+</html>

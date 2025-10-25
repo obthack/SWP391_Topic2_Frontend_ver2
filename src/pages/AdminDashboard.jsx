@@ -33,7 +33,7 @@ import { forceSendNotificationsForAllSuccessfulPayments, sendNotificationsForKno
 
 export const AdminDashboard = () => {
   const { show: showToast } = useToast();
-  const [activeTab, setActiveTab] = useState("dashboard"); // dashboard, vehicles, batteries, inspections
+  const [activeTab, setActiveTab] = useState("dashboard"); // dashboard, vehicles, batteries, inspections, transactions
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalListings: 0,
@@ -251,6 +251,110 @@ export const AdminDashboard = () => {
     }
   };
 
+  // Tạo review cho người mua sau khi admin xác nhận
+  const createReviewForBuyer = async (productId) => {
+    try {
+      // Lấy thông tin order để tìm buyer
+      const orders = await apiRequest("/api/Order");
+      const completedOrder = orders.find(order => 
+        order.productId === productId && 
+        order.orderStatus === "completed"
+      );
+
+      if (!completedOrder) {
+        throw new Error("Không tìm thấy order đã hoàn thành cho sản phẩm này");
+      }
+
+      // Tạo review cho buyer
+      const reviewData = {
+        orderId: completedOrder.orderId,
+        productId: productId,
+        buyerId: completedOrder.userId,
+        sellerId: completedOrder.sellerId,
+        ratingValue: 0, // Mặc định 0, buyer sẽ cập nhật sau
+        comment: "", // Để trống, buyer sẽ điền sau
+        isCompleted: false // Chưa hoàn thành đánh giá
+      };
+
+      // Gọi API tạo review
+      await apiRequest("/api/Rating", {
+        method: 'POST',
+        body: reviewData
+      });
+
+      console.log(`✅ Review created for buyer ${completedOrder.userId} on product ${productId}`);
+      
+    } catch (error) {
+      console.error('Error creating review for buyer:', error);
+      throw error;
+    }
+  };
+
+  // Handle admin confirmation for reserved products
+  const handleAdminConfirm = async (productId) => {
+    if (!window.confirm('Bạn có chắc muốn xác nhận giao dịch này đã hoàn tất thành công?')) {
+      return;
+    }
+
+    try {
+      showToast({
+        title: 'Đang xử lý...',
+        description: 'Đang xác nhận giao dịch',
+        type: 'info',
+      });
+
+      // Use the new Payment API admin-confirm endpoint
+      await apiRequest(`/api/payment/admin-confirm`, {
+        method: 'POST',
+        body: {
+          Request: {
+            ProductId: productId
+          }
+        }
+      });
+
+      showToast({
+        title: 'Thành công!',
+        description: 'Đã xác nhận giao dịch thành công! Sản phẩm đã chuyển sang trạng thái "Đã bán".',
+        type: 'success',
+      });
+
+      // Tự động tạo review cho người mua
+      try {
+        await createReviewForBuyer(productId);
+        showToast({
+          title: 'Review đã được tạo!',
+          description: 'Người mua có thể đánh giá sản phẩm trong phần "Đánh giá của tôi".',
+          type: 'success',
+        });
+      } catch (reviewError) {
+        console.warn('Không thể tạo review:', reviewError);
+        showToast({
+          title: 'Cảnh báo',
+          description: 'Giao dịch đã thành công nhưng không thể tạo review tự động.',
+          type: 'warning',
+        });
+      }
+
+      // Reload data to update UI
+      await loadAdminData();
+    } catch (error) {
+      console.error('Error confirming transaction:', error);
+      showToast({
+        title: 'Lỗi',
+        description: 'Không thể xác nhận giao dịch. Vui lòng thử lại.',
+        type: 'error',
+      });
+    }
+  };
+
+  // Handle view product details
+  const handleViewDetails = (product) => {
+    // Open product detail page in new tab
+    const productUrl = `http://localhost:5173/product/${product.id || product.productId}`;
+    window.open(productUrl, '_blank');
+  };
+
   useEffect(() => {
     console.log('🔍 AdminDashboard mounted, loading data...');
     const initializeAdmin = async () => {
@@ -453,6 +557,8 @@ export const AdminDashboard = () => {
               if (rawStatus === "draft" || rawStatus === "re-submit") return "pending";
               if (rawStatus === "active" || rawStatus === "approved") return "Active";
               if (rawStatus === "rejected") return "rejected";
+              if (rawStatus === "reserved") return "reserved"; // Đang trong quá trình thanh toán
+              if (rawStatus === "sold") return "sold"; // Đã bán thành công
               return rawStatus;
             })(),
             productType: norm(item.productType || item.type || item.category || "vehicle"),
@@ -1315,6 +1421,8 @@ export const AdminDashboard = () => {
       pending: { color: "bg-yellow-100 text-yellow-800", text: "Đang chờ duyệt" },
       Active: { color: "bg-green-100 text-green-800", text: "Đã duyệt" },
       rejected: { color: "bg-red-100 text-red-800", text: "Bị từ chối" },
+      reserved: { color: "bg-orange-100 text-orange-800", text: "Đang trong quá trình thanh toán" },
+      sold: { color: "bg-blue-100 text-blue-800", text: "Đã bán thành công" },
     };
 
     const config = statusConfig[status] || statusConfig.pending;
@@ -1453,6 +1561,17 @@ export const AdminDashboard = () => {
               <Shield className="h-5 w-5" />
               <span>Battery Management</span>
             </div>
+            <div 
+              className={`flex items-center space-x-3 p-3 rounded-lg cursor-pointer transition-colors ${
+                activeTab === "transactions" 
+                  ? "bg-blue-50 text-blue-600" 
+                  : "text-gray-600 hover:bg-gray-50"
+              }`}
+              onClick={() => setActiveTab("transactions")}
+            >
+              <DollarSign className="h-5 w-5" />
+              <span>Transaction Management</span>
+            </div>
             <div className="flex items-center space-x-3 p-3 text-gray-600 hover:bg-gray-50 rounded-lg cursor-pointer">
               <Users className="h-5 w-5" />
               <span>User Management</span>
@@ -1486,11 +1605,13 @@ export const AdminDashboard = () => {
                 {activeTab === "dashboard" && "Administration Dashboard"}
                 {activeTab === "vehicles" && "Vehicle Management"}
                 {activeTab === "batteries" && "Battery Management"}
+                {activeTab === "transactions" && "Transaction Management"}
               </h1>
               <p className="text-gray-600">
                 {activeTab === "dashboard" && "EV Market system overview • Realtime update"}
                 {activeTab === "vehicles" && "Manage all vehicle listings and approvals"}
                 {activeTab === "batteries" && "Manage all battery listings and approvals"}
+                {activeTab === "transactions" && "Manage completed transactions and seller confirmations"}
               </p>
             </div>
             <div className="flex items-center space-x-2">
@@ -1838,6 +1959,8 @@ export const AdminDashboard = () => {
                 <option value="pending">Đang chờ duyệt ({allListings.filter(l => l.status === "pending").length})</option>
                 <option value="approved">Đã duyệt ({allListings.filter(l => l.status === "Active").length})</option>
                 <option value="rejected">Bị từ chối ({allListings.filter(l => l.status === "rejected").length})</option>
+                <option value="reserved">Đang trong quá trình thanh toán ({allListings.filter(l => l.status === "reserved").length})</option>
+                <option value="sold">Đã bán thành công ({allListings.filter(l => l.status === "sold").length})</option>
                 <option value="verification_requested">Yêu cầu kiểm định ({allListings.filter(l => l.verificationStatus === "Requested" || l.verificationStatus === "InProgress").length})</option>
               </select>
               <select
@@ -1864,8 +1987,8 @@ export const AdminDashboard = () => {
           </div>
         </div>
 
-        {/* Listings Table - Hide on inspections tab */}
-        {activeTab !== "inspections" && (
+        {/* Listings Table - Hide on inspections and transactions tabs */}
+        {activeTab !== "inspections" && activeTab !== "transactions" && (
         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-xl font-semibold text-gray-900">
@@ -1987,7 +2110,8 @@ export const AdminDashboard = () => {
                         </button>
                       )}
                         
-                        {(listing.status === "pending" || listing.status === "Đang chờ duyệt" || listing.status === "Re-submit" || listing.status === "Draft") && (
+                        {(listing.status === "pending" || listing.status === "Đang chờ duyệt" || listing.status === "Re-submit" || listing.status === "Draft") && listing.status !== "reserved" && (
+                          
                           <>
                             {console.log(`🔍 Product ${listing.id} debug:`, {
                               status: listing.status,
@@ -2552,6 +2676,129 @@ export const AdminDashboard = () => {
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Transaction Management Tab */}
+      {activeTab === "transactions" && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-xl shadow-sm p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              Quản lý giao dịch đang trong quá trình thanh toán
+            </h2>
+            <p className="text-gray-600 mb-6">
+              Quản lý các sản phẩm đã được đặt cọc thành công và đang chờ seller xác nhận.
+            </p>
+            
+            {/* Transaction Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div className="flex items-center">
+                  <Clock className="h-8 w-8 text-yellow-600 mr-3" />
+                  <div>
+                    <p className="text-sm font-medium text-yellow-900">Đang trong quá trình thanh toán</p>
+                    <p className="text-2xl font-bold text-yellow-600">
+                      {allListings.filter(product => product.status === 'reserved').length}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                <div className="flex items-center">
+                  <CheckCircle className="h-8 w-8 text-orange-600 mr-3" />
+                  <div>
+                    <p className="text-sm font-medium text-orange-900">Chờ admin duyệt</p>
+                    <p className="text-2xl font-bold text-orange-600">0</p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="flex items-center">
+                  <DollarSign className="h-8 w-8 text-green-600 mr-3" />
+                  <div>
+                    <p className="text-sm font-medium text-green-900">Đã hoàn tất</p>
+                    <p className="text-2xl font-bold text-green-600">
+                      {allListings.filter(product => product.status === 'sold').length}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Reserved and Sold Products List */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900">Quản lý giao dịch (Đang trong quá trình thanh toán & Đã hoàn tất)</h3>
+              {allListings.filter(product => product.status === 'reserved' || product.status === 'sold').length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {allListings.filter(product => product.status === 'reserved' || product.status === 'sold').map((product) => (
+                    <div key={product.id || product.productId} className={`border rounded-lg p-4 ${product.status === 'reserved' ? 'border-yellow-200 bg-yellow-50' : 'border-blue-200 bg-blue-50'}`}>
+                      <div className="flex items-start space-x-3">
+                        <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
+                          {product.images && product.images.length > 0 ? (
+                            <img
+                              className="w-full h-full object-cover"
+                              src={product.images[0]}
+                              alt={product.title || product.name}
+                              onError={(e) => {
+                                console.log("Image failed to load:", product.images[0]);
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'flex';
+                              }}
+                            />
+                          ) : null}
+                          <div 
+                            className={`w-full h-full rounded-lg flex items-center justify-center ${product.status === 'reserved' ? 'bg-yellow-200' : 'bg-blue-200'} ${product.images && product.images.length > 0 ? 'hidden' : ''}`}
+                            style={{ display: product.images && product.images.length > 0 ? 'none' : 'flex' }}
+                          >
+                            {product.status === 'reserved' ? <Clock className="h-6 w-6 text-yellow-600" /> : <DollarSign className="h-6 w-6 text-blue-600" />}
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900 line-clamp-2">
+                            {product.title || product.name}
+                          </h4>
+                          <p className="text-lg font-bold text-blue-600 mt-1">
+                            {formatPrice(product.price)}
+                          </p>
+                          <div className="flex items-center mt-2">
+                            {product.status === 'reserved' ? <Clock className="h-4 w-4 text-yellow-600 mr-1" /> : <DollarSign className="h-4 w-4 text-blue-600 mr-1" />}
+                            <span className={`text-sm ${product.status === 'reserved' ? 'text-yellow-600' : 'text-blue-600'}`}>
+                              {product.status === 'reserved' ? 'Đang trong quá trình thanh toán' : 'Đã hoàn tất'}
+                            </span>
+                          </div>
+                          <div className="mt-2 text-sm text-gray-600">
+                            <p>Seller ID: {product.sellerId}</p>
+                            <p>Ngày tạo: {formatDate(product.createdAt || product.createdDate)}</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-4 flex space-x-2">
+                        {product.status === 'reserved' && (
+                          <button
+                            onClick={() => handleAdminConfirm(product.id || product.productId)}
+                            className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                          >
+                            Admin xác nhận
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleViewDetails(product)}
+                          className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                        >
+                          Xem chi tiết
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Clock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600">Chưa có sản phẩm nào đang trong quá trình thanh toán hoặc đã hoàn tất</p>
+                </div>
+              )}
             </div>
           </div>
         </div>

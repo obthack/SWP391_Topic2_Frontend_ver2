@@ -1,12 +1,3 @@
-D:\Term 5\SWP301\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\EVTB_Backend.csproj.AssemblyReference.cache
-D:\Term 5\SWP301\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\rpswa.dswa.cache.json
-D:\Term 5\SWP301\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\EVTB_Backend.GeneratedMSBuildEditorConfig.editorconfig
-D:\Term 5\SWP301\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\EVTB_Backend.AssemblyInfoInputs.cache
-D:\Term 5\SWP301\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\EVTB_Backend.AssemblyInfo.cs
-D:\Term 5\SWP301\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\EVTB_Backend.csproj.CoreCompileInputs.cache
-D:\Term 5\SWP301\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\EVTB_Backend.MvcApplicationPartsAssemblyInfo.cs
-D:\Term 5\SWP301\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\EVTB_Backend.MvcApplicationPartsAssemblyInfo.cache
-D:\Term 5\SWP301\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\EVTB_Backend.sourcelink.json
 <<<<<<< HEAD
 D:\FA25_SWP391\Topic2_FE\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\EVTB_Backend.csproj.AssemblyReference.cache
 D:\FA25_SWP391\Topic2_FE\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\rpswa.dswa.cache.json
@@ -18,6 +9,17 @@ D:\FA25_SWP391\Topic2_FE\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\EV
 D:\FA25_SWP391\Topic2_FE\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\EVTB_Backend.MvcApplicationPartsAssemblyInfo.cache
 D:\FA25_SWP391\Topic2_FE\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\EVTB_Backend.sourcelink.json
 =======
+>>>>>>> 2c9c00b87c066fce9a370c0aed602d93418ea4a1
+D:\Term 5\SWP301\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\EVTB_Backend.csproj.AssemblyReference.cache
+D:\Term 5\SWP301\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\rpswa.dswa.cache.json
+D:\Term 5\SWP301\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\EVTB_Backend.GeneratedMSBuildEditorConfig.editorconfig
+D:\Term 5\SWP301\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\EVTB_Backend.AssemblyInfoInputs.cache
+D:\Term 5\SWP301\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\EVTB_Backend.AssemblyInfo.cs
+D:\Term 5\SWP301\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\EVTB_Backend.csproj.CoreCompileInputs.cache
+D:\Term 5\SWP301\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\EVTB_Backend.MvcApplicationPartsAssemblyInfo.cs
+D:\Term 5\SWP301\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\EVTB_Backend.MvcApplicationPartsAssemblyInfo.cache
+D:\Term 5\SWP301\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\EVTB_Backend.sourcelink.json
+D:\Term 5\SWP301\SWP391_Topic2_Frontend_ver2\backend\bin\Debug\net8.0\appsettings.json
 D:\Term 5\SWP301\SWP391_Topic2_Frontend_ver2\backend\bin\Debug\net8.0\EVTB_Backend.staticwebassets.endpoints.json
 D:\Term 5\SWP301\SWP391_Topic2_Frontend_ver2\backend\bin\Debug\net8.0\EVTB_Backend.exe
 D:\Term 5\SWP301\SWP391_Topic2_Frontend_ver2\backend\bin\Debug\net8.0\EVTB_Backend.deps.json
@@ -149,5 +151,3 @@ D:\Term 5\SWP301\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\refint\EVT
 D:\Term 5\SWP301\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\EVTB_Backend.pdb
 D:\Term 5\SWP301\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\EVTB_Backend.genruntimeconfig.cache
 D:\Term 5\SWP301\SWP391_Topic2_Frontend_ver2\backend\obj\Debug\net8.0\ref\EVTB_Backend.dll
-D:\Term 5\SWP301\SWP391_Topic2_Frontend_ver2\backend\bin\Debug\net8.0\appsettings.json
->>>>>>> 2c9c00b87c066fce9a370c0aed602d93418ea4a1

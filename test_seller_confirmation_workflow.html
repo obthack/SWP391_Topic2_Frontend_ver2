@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test New Workflow - Seller Confirmation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .button:hover {
+            background: #0056b3;
+        }
+        .button.danger {
+            background: #dc3545;
+        }
+        .button.danger:hover {
+            background: #c82333;
+        }
+        .result {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success {
+            background: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .warning {
+            background: #fff3cd;
+            border-color: #ffeaa7;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔄 Test New Workflow - Seller Confirmation</h1>
+        <p>Kiểm tra workflow mới: Active → Pending (ẩn khỏi trang chủ) → Sold (seller xác nhận)</p>
+        
+        <div>
+            <button class="button" onclick="checkAllProducts()">Kiểm tra tất cả sản phẩm</button>
+            <button class="button" onclick="testDepositPayment()">Test Deposit Payment (Active → Pending)</button>
+            <button class="button" onclick="testSellerConfirmation()">Test Seller Confirmation (Pending → Sold)</button>
+            <button class="button danger" onclick="resetProducts()">Reset sản phẩm về Active</button>
+        </div>
+
+        <div id="result" class="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5044/api';
+
+        async function apiRequest(endpoint, options = {}) {
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    },
+                    ...options
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return await response.json();
+            } catch (error) {
+                console.error('API Error:', error);
+                throw error;
+            }
+        }
+
+        function showResult(message, type = 'success') {
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            resultDiv.className = `result ${type}`;
+            resultDiv.textContent = message;
+        }
+
+        async function checkAllProducts() {
+            try {
+                showResult('Đang kiểm tra tất cả sản phẩm...');
+                
+                const products = await apiRequest('/Product');
+                
+                // Phân loại sản phẩm theo status
+                const activeProducts = products.filter(p => 
+                    String(p.status || '').toLowerCase() === 'active'
+                );
+                const pendingProducts = products.filter(p => 
+                    String(p.status || '').toLowerCase() === 'pending'
+                );
+                const soldProducts = products.filter(p => 
+                    String(p.status || '').toLowerCase() === 'sold'
+                );
+                const rejectedProducts = products.filter(p => 
+                    String(p.status || '').toLowerCase() === 'rejected'
+                );
+                
+                let message = `📊 TỔNG QUAN SẢN PHẨM:\n\n`;
+                message += `Tổng sản phẩm: ${products.length}\n`;
+                message += `Active: ${activeProducts.length} (hiển thị trên trang chủ)\n`;
+                message += `Pending: ${pendingProducts.length} (ẩn khỏi trang chủ, chờ seller xác nhận)\n`;
+                message += `Sold: ${soldProducts.length} (đã bán hoàn tất)\n`;
+                message += `Rejected: ${rejectedProducts.length} (bị từ chối)\n\n`;
+                
+                if (activeProducts.length > 0) {
+                    message += `✅ SẢN PHẨM ACTIVE (hiển thị trên trang chủ):\n`;
+                    activeProducts.forEach(p => {
+                        message += `- ID: ${p.id || p.productId}, Title: ${p.title || p.name}\n`;
+                    });
+                    message += `\n`;
+                }
+                
+                if (pendingProducts.length > 0) {
+                    message += `⏳ SẢN PHẨM PENDING (ẩn khỏi trang chủ, chờ seller xác nhận):\n`;
+                    pendingProducts.forEach(p => {
+                        message += `- ID: ${p.id || p.productId}, Title: ${p.title || p.name}\n`;
+                    });
+                    message += `\n`;
+                }
+                
+                if (soldProducts.length > 0) {
+                    message += `🔴 SẢN PHẨM SOLD (đã bán hoàn tất):\n`;
+                    soldProducts.forEach(p => {
+                        message += `- ID: ${p.id || p.productId}, Title: ${p.title || p.name}\n`;
+                    });
+                    message += `\n`;
+                }
+                
+                showResult(message, 'success');
+            } catch (error) {
+                showResult(`Lỗi: ${error.message}`, 'error');
+            }
+        }
+
+        async function testDepositPayment() {
+            try {
+                showResult('Đang test Deposit Payment...');
+                
+                // Test với sản phẩm ID 19 (nếu có)
+                const productId = 19;
+                
+                try {
+                    // Cập nhật sản phẩm thành Pending (mô phỏng deposit payment)
+                    await apiRequest(`/Product/${productId}/status`, {
+                        method: 'PUT',
+                        body: JSON.stringify({
+                            status: 'Pending'
+                        })
+                    });
+                    
+                    let message = `✅ TEST DEPOSIT PAYMENT THÀNH CÔNG!\n\n`;
+                    message += `Sản phẩm ID ${productId} đã được cập nhật thành "Pending"\n`;
+                    message += `Điều này mô phỏng việc khách hàng đặt cọc thành công.\n\n`;
+                    message += `Workflow: Active → Pending ✅\n`;
+                    message += `Kết quả: Sản phẩm sẽ ẨN khỏi trang chủ và hiển thị trong tab "Đang chờ xác nhận" của seller.`;
+                    
+                    showResult(message, 'success');
+                } catch (error) {
+                    showResult(`Lỗi test Deposit Payment: ${error.message}`, 'error');
+                }
+            } catch (error) {
+                showResult(`Lỗi: ${error.message}`, 'error');
+            }
+        }
+
+        async function testSellerConfirmation() {
+            try {
+                showResult('Đang test Seller Confirmation...');
+                
+                // Test với sản phẩm ID 20 (nếu có)
+                const productId = 20;
+                
+                try {
+                    // Cập nhật sản phẩm thành Sold (mô phỏng seller xác nhận)
+                    await apiRequest(`/Product/${productId}/status`, {
+                        method: 'PUT',
+                        body: JSON.stringify({
+                            status: 'Sold'
+                        })
+                    });
+                    
+                    let message = `✅ TEST SELLER CONFIRMATION THÀNH CÔNG!\n\n`;
+                    message += `Sản phẩm ID ${productId} đã được cập nhật thành "Sold"\n`;
+                    message += `Điều này mô phỏng việc seller xác nhận bán sản phẩm.\n\n`;
+                    message += `Workflow: Pending → Sold ✅\n`;
+                    message += `Kết quả: Sản phẩm sẽ hiển thị trong tab "Đã bán" của seller.`;
+                    
+                    showResult(message, 'success');
+                } catch (error) {
+                    showResult(`Lỗi test Seller Confirmation: ${error.message}`, 'error');
+                }
+            } catch (error) {
+                showResult(`Lỗi: ${error.message}`, 'error');
+            }
+        }
+
+        async function resetProducts() {
+            try {
+                showResult('Đang reset sản phẩm về Active...');
+                
+                const productsToReset = [19, 20];
+                let resetCount = 0;
+                let message = `🔄 RESET SẢN PHẨM:\n\n`;
+                
+                for (const productId of productsToReset) {
+                    try {
+                        await apiRequest(`/Product/${productId}/status`, {
+                            method: 'PUT',
+                            body: JSON.stringify({
+                                status: 'Active'
+                            })
+                        });
+                        
+                        message += `✅ Đã reset Product ID ${productId} về Active\n`;
+                        resetCount++;
+                    } catch (error) {
+                        message += `❌ Lỗi reset Product ID ${productId}: ${error.message}\n`;
+                    }
+                }
+                
+                message += `\n🎉 HOÀN THÀNH: Đã reset ${resetCount} sản phẩm về Active`;
+                message += `\nSản phẩm sẽ hiển thị lại trên trang chủ.`;
+                
+                showResult(message, resetCount > 0 ? 'success' : 'warning');
+            } catch (error) {
+                showResult(`Lỗi: ${error.message}`, 'error');
+            }
+        }
+    </script>
+</body>
+</html>
+

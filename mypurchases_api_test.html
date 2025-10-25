@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MyPurchases API Test</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px; 
+            max-width: 800px; 
+            margin: 0 auto;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button { 
+            padding: 10px 20px; 
+            margin: 10px; 
+            background: #007bff; 
+            color: white; 
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer; 
+        }
+        button:hover { background: #0056b3; }
+        .result { 
+            margin: 20px 0; 
+            padding: 15px; 
+            border-radius: 4px; 
+            white-space: pre-wrap; 
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        .step { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 4px; }
+        .step h3 { margin-top: 0; color: #333; }
+        input { padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 MyPurchases API Test</h1>
+        
+        <div class="step">
+            <h3>Step 1: Get User Token</h3>
+            <button onclick="getUserToken()">Get User Token</button>
+            <button onclick="getAdminToken()">Get Admin Token</button>
+            <div id="tokenResult" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="step">
+            <h3>Step 2: Test Completed Orders API</h3>
+            <input type="number" id="userId" placeholder="User ID" value="9" style="width: 150px;">
+            <button onclick="testCompletedOrders()">Test Completed Orders</button>
+            <div id="completedOrdersResult" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="step">
+            <h3>Step 3: Test All Orders API</h3>
+            <button onclick="testAllOrders()">Test All Orders</button>
+            <div id="allOrdersResult" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="step">
+            <h3>Step 4: Test My Orders API</h3>
+            <button onclick="testMyOrders()">Test My Orders</button>
+            <div id="myOrdersResult" class="result" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5044';
+        let userToken = '';
+
+        function showResult(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `result ${type}`;
+            element.style.display = 'block';
+        }
+
+        async function makeRequest(url, options = {}) {
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${userToken}`,
+                        ...options.headers
+                    },
+                    ...options
+                });
+
+                const data = await response.text();
+                let jsonData;
+                try {
+                    jsonData = JSON.parse(data);
+                } catch {
+                    jsonData = data;
+                }
+
+                return {
+                    ok: response.ok,
+                    status: response.status,
+                    statusText: response.statusText,
+                    data: jsonData
+                };
+            } catch (error) {
+                return {
+                    ok: false,
+                    status: 0,
+                    statusText: 'Network Error',
+                    data: { error: error.message }
+                };
+            }
+        }
+
+        async function getUserToken() {
+            showResult('tokenResult', 'Getting user token...', 'info');
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/user/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: 'user@gmail.com',
+                        password: '123456'
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    userToken = data.token;
+                    showResult('tokenResult', `✅ User token obtained!\n\nToken: ${userToken.substring(0, 50)}...\n\nUser: ${JSON.stringify(data.user, null, 2)}`, 'success');
+                } else {
+                    const errorData = await response.text();
+                    showResult('tokenResult', `❌ Failed to get user token!\n\nStatus: ${response.status}\nResponse: ${errorData}`, 'error');
+                }
+            } catch (error) {
+                showResult('tokenResult', `❌ Error getting user token!\n\nError: ${error.message}`, 'error');
+            }
+        }
+
+        async function getAdminToken() {
+            showResult('tokenResult', 'Getting admin token...', 'info');
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/user/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: 'admin@gmail.com',
+                        password: '123456'
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    userToken = data.token;
+                    showResult('tokenResult', `✅ Admin token obtained!\n\nToken: ${userToken.substring(0, 50)}...\n\nUser: ${JSON.stringify(data.user, null, 2)}`, 'success');
+                } else {
+                    const errorData = await response.text();
+                    showResult('tokenResult', `❌ Failed to get admin token!\n\nStatus: ${response.status}\nResponse: ${errorData}`, 'error');
+                }
+            } catch (error) {
+                showResult('tokenResult', `❌ Error getting admin token!\n\nError: ${error.message}`, 'error');
+            }
+        }
+
+        async function testCompletedOrders() {
+            if (!userToken) {
+                showResult('completedOrdersResult', 'Please get token first!', 'error');
+                return;
+            }
+
+            const userId = document.getElementById('userId').value;
+            showResult('completedOrdersResult', `Testing completed orders for user ${userId}...`, 'info');
+            
+            try {
+                const result = await makeRequest(`${API_BASE_URL}/api/Order/user/${userId}/completed`);
+                
+                if (result.ok) {
+                    showResult('completedOrdersResult', `✅ Completed orders retrieved!\n\nCount: ${result.data.length}\n\nResponse: ${JSON.stringify(result.data, null, 2)}`, 'success');
+                } else {
+                    showResult('completedOrdersResult', `❌ Failed to get completed orders!\n\nStatus: ${result.status}\nResponse: ${JSON.stringify(result.data, null, 2)}`, 'error');
+                }
+            } catch (error) {
+                showResult('completedOrdersResult', `❌ Error getting completed orders!\n\nError: ${error.message}`, 'error');
+            }
+        }
+
+        async function testAllOrders() {
+            if (!userToken) {
+                showResult('allOrdersResult', 'Please get token first!', 'error');
+                return;
+            }
+
+            showResult('allOrdersResult', 'Testing all orders...', 'info');
+            
+            try {
+                const result = await makeRequest(`${API_BASE_URL}/api/Order`);
+                
+                if (result.ok) {
+                    showResult('allOrdersResult', `✅ All orders retrieved!\n\nCount: ${result.data.length}\n\nResponse: ${JSON.stringify(result.data, null, 2)}`, 'success');
+                } else {
+                    showResult('allOrdersResult', `❌ Failed to get all orders!\n\nStatus: ${result.status}\nResponse: ${JSON.stringify(result.data, null, 2)}`, 'error');
+                }
+            } catch (error) {
+                showResult('allOrdersResult', `❌ Error getting all orders!\n\nError: ${error.message}`, 'error');
+            }
+        }
+
+        async function testMyOrders() {
+            if (!userToken) {
+                showResult('myOrdersResult', 'Please get token first!', 'error');
+                return;
+            }
+
+            showResult('myOrdersResult', 'Testing my orders...', 'info');
+            
+            try {
+                const result = await makeRequest(`${API_BASE_URL}/api/Order`);
+                
+                if (result.ok) {
+                    showResult('myOrdersResult', `✅ My orders retrieved!\n\nCount: ${result.data.length}\n\nResponse: ${JSON.stringify(result.data, null, 2)}`, 'success');
+                } else {
+                    showResult('myOrdersResult', `❌ Failed to get my orders!\n\nStatus: ${result.status}\nResponse: ${JSON.stringify(result.data, null, 2)}`, 'error');
+                }
+            } catch (error) {
+                showResult('myOrdersResult', `❌ Error getting my orders!\n\nError: ${error.message}`, 'error');
+            }
+        }
+
+        // Auto-get admin token on load
+        window.onload = function() {
+            setTimeout(getAdminToken, 1000);
+        };
+    </script>
+</body>
+</html>

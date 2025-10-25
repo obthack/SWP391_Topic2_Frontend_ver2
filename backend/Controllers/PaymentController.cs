@@ -1,481 +1,194 @@
 using EVTB_Backend.Data;
 using EVTB_Backend.Models;
+using EVTB_Backend.DTOs;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
-using System.Text;
 
 namespace EVTB_Backend.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/[controller]")] // /api/payment
+    [Authorize]
     public class PaymentController : ControllerBase
     {
         private readonly EVTBContext _context;
         private readonly ILogger<PaymentController> _logger;
-        private readonly IConfiguration _configuration;
 
-        public PaymentController(EVTBContext context, ILogger<PaymentController> logger, IConfiguration configuration)
+        public PaymentController(EVTBContext context, ILogger<PaymentController> logger)
         {
             _context = context;
             _logger = logger;
-            _configuration = configuration;
         }
 
-        /// <summary>
-        /// Tạo payment request cho VNPay
-        /// </summary>
-        [HttpPost]
+
+        [HttpPost("seller-confirm")]
         [Authorize]
-        public async Task<ActionResult<object>> CreatePayment([FromBody] CreatePaymentRequest request)
+        public async Task<IActionResult> SellerConfirmSale()
         {
             try
             {
-                if (!ModelState.IsValid)
-                {
-                    var errors = ModelState.Values
-                        .SelectMany(v => v.Errors)
-                        .Select(e => e.ErrorMessage)
-                        .ToList();
-                    return BadRequest(new { message = "Dữ liệu không hợp lệ", errors });
-                }
-
-                // Get user ID from JWT token
+                // ✅ Authentication required: Chỉ user đã đăng nhập mới có thể gọi API
                 var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
                 if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId))
-                {
                     return Unauthorized(new { message = "Không thể xác định người dùng" });
-                }
 
-                _logger.LogInformation($"Creating payment for user {userId}, order {request.OrderId}, amount {request.Amount}");
-
-                // Validate order exists and belongs to user
-                Order? order = null;
-                if (request.OrderId.HasValue)
+                // Parse ProductId from query string or form data
+                int productId = 0;
+                
+                // Try to get ProductId from query string first
+                if (Request.Query.ContainsKey("ProductId") && int.TryParse(Request.Query["ProductId"], out productId))
                 {
-                    order = await _context.Orders
-                        .FirstOrDefaultAsync(o => o.OrderId == request.OrderId.Value && o.UserId == userId);
-
-                    if (order == null)
+                    // ProductId found in query string
+                }
+                // Try to get ProductId from form data
+                else if (Request.HasFormContentType && Request.Form.ContainsKey("ProductId") && int.TryParse(Request.Form["ProductId"], out productId))
+                {
+                    // ProductId found in form data
+                }
+                // Try to get ProductId from request body
+                else
+                {
+                    string requestBody;
+                    using (var reader = new StreamReader(Request.Body))
                     {
-                        return BadRequest(new { message = "Không tìm thấy đơn hàng hoặc bạn không có quyền truy cập" });
+                        requestBody = await reader.ReadToEndAsync();
                     }
-                }
-
-                // Calculate payout amount (95% of payment amount, 5% platform fee)
-                var platformFeeRate = 0.05m; // 5% platform fee
-                var payoutAmount = request.Amount * (1 - platformFeeRate);
-
-                // Generate payment ID
-                var paymentId = GeneratePaymentId();
-
-                // Create VNPay URL
-                var paymentUrl = CreateVNPayUrl(paymentId, request.Amount, request.OrderId);
-
-                // Save payment record
-                var payment = new Payment
-                {
-                    PaymentId = paymentId,
-                    UserId = userId,
-                    OrderId = request.OrderId,
-                    ProductId = order?.ProductId ?? request.ProductId,
-                    SellerId = order?.SellerId,
-                    Amount = request.Amount,
-                    PayoutAmount = payoutAmount,
-                    PaymentType = request.PaymentType,
-                    PaymentStatus = "Pending",
-                    PaymentUrl = paymentUrl,
-                    FinalPaymentDueDate = order?.FinalPaymentDueDate,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
-
-                _context.Payments.Add(payment);
-                await _context.SaveChangesAsync();
-
-                _logger.LogInformation($"Payment created successfully: {paymentId}");
-
-                return Ok(new
-                {
-                    paymentId = payment.PaymentId,
-                    paymentUrl = payment.PaymentUrl,
-                    amount = payment.Amount,
-                    payoutAmount = payment.PayoutAmount,
-                    paymentType = payment.PaymentType,
-                    orderId = payment.OrderId,
-                    productId = payment.ProductId,
-                    sellerId = payment.SellerId,
-                    finalPaymentDueDate = payment.FinalPaymentDueDate
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error creating payment for order {request.OrderId}");
-                return StatusCode(500, new { message = "Có lỗi xảy ra khi tạo thanh toán" });
-            }
-        }
-
-        /// <summary>
-        /// Tạo payment test để test callback
-        /// </summary>
-        [HttpPost("create-test-payment")]
-        public async Task<ActionResult<object>> CreateTestPayment([FromBody] CreateTestPaymentRequest request)
-        {
-            try
-            {
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-                if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId))
-                {
-                    return Unauthorized(new { message = "Không thể xác định người dùng" });
-                }
-
-                _logger.LogInformation($"Creating test payment: {request.PaymentId}");
-
-                // Tạo payment mới
-                var payment = new Payment
-                {
-                    PaymentId = request.PaymentId,
-                    UserId = userId,
-                    OrderId = request.OrderId,
-                    ProductId = request.ProductId,
-                    SellerId = request.SellerId,
-                    Amount = request.Amount,
-                    PayoutAmount = request.Amount * 0.95m, // 95% payout
-                    PaymentType = request.PaymentType,
-                    PaymentStatus = "Pending",
-                    FinalPaymentDueDate = DateTime.UtcNow.AddDays(7),
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
-
-                _context.Payments.Add(payment);
-                await _context.SaveChangesAsync();
-
-                _logger.LogInformation($"Test payment created successfully: {payment.PaymentId}");
-
-                return Ok(new
-                {
-                    paymentId = payment.PaymentId,
-                    userId = payment.UserId,
-                    orderId = payment.OrderId,
-                    productId = payment.ProductId,
-                    sellerId = payment.SellerId,
-                    amount = payment.Amount,
-                    payoutAmount = payment.PayoutAmount,
-                    paymentType = payment.PaymentType,
-                    paymentStatus = payment.PaymentStatus,
-                    finalPaymentDueDate = payment.FinalPaymentDueDate,
-                    createdAt = payment.CreatedAt
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error creating test payment: {request.PaymentId}");
-                return StatusCode(500, new { message = "Có lỗi xảy ra khi tạo test payment" });
-            }
-        }
-
-        /// <summary>
-        /// Test endpoint để debug VNPay callback
-        /// </summary>
-        [HttpGet("test-callback")]
-        public ActionResult TestCallback([FromQuery] string vnp_TxnRef = "20", [FromQuery] string vnp_ResponseCode = "00", [FromQuery] string vnp_Amount = "1000000000", [FromQuery] string vnp_TransactionNo = "15208588")
-        {
-            try
-            {
-                _logger.LogInformation($"Test callback received: {vnp_TxnRef}");
-                
-                // Redirect to frontend HomePage with success notification
-                var frontendUrl = _configuration["FrontendUrl"] ?? "http://localhost:5173";
-                var redirectUrl = $"{frontendUrl}/?payment_success=true&payment_id={vnp_TxnRef}&amount={vnp_Amount}&transaction_no={vnp_TransactionNo}";
-                
-                return Redirect(redirectUrl);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error in test callback: {vnp_TxnRef}");
-                return StatusCode(500, new { message = "Có lỗi xảy ra khi test callback", error = ex.Message });
-            }
-        }
-
-        /// <summary>
-        /// Xử lý callback từ VNPay (endpoint cũ)
-        /// </summary>
-        [HttpGet("vnpay-return")]
-        public async Task<ActionResult> VNPayReturn([FromQuery] VNPayCallbackRequest request)
-        {
-            try
-            {
-                _logger.LogInformation($"VNPay return received: {request.vnp_TxnRef}");
-                
-                // Redirect to callback endpoint
-                return await PaymentCallback(request);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error in VNPay return: {request.vnp_TxnRef}");
-                
-                // Even on error, redirect to frontend with error message
-                var frontendUrl = _configuration["FrontendUrl"] ?? "http://localhost:5173";
-                var errorRedirectUrl = $"{frontendUrl}/?payment_error=true&payment_id={request.vnp_TxnRef}";
-                
-                return Redirect(errorRedirectUrl);
-            }
-        }
-
-        /// <summary>
-        /// Xử lý callback từ VNPay
-        /// </summary>
-        [HttpGet("callback")]
-        public async Task<ActionResult> PaymentCallback([FromQuery] VNPayCallbackRequest request)
-        {
-            try
-            {
-                _logger.LogInformation($"Payment callback received: {request.vnp_TxnRef}");
-
-                // Find payment by payment ID
-                var payment = await _context.Payments
-                    .FirstOrDefaultAsync(p => p.PaymentId == request.vnp_TxnRef);
-
-                if (payment == null)
-                {
-                    _logger.LogWarning($"Payment not found: {request.vnp_TxnRef}, creating new payment");
                     
-                    // Auto-create payment if not exists (for VNPay callback)
-                    payment = new Payment
+                    if (!string.IsNullOrEmpty(requestBody))
                     {
-                        PaymentId = request.vnp_TxnRef,
-                        UserId = 1, // Default to admin user
-                        OrderId = null,
-                        ProductId = null,
-                        SellerId = 1, // Default to admin seller
-                        Amount = !string.IsNullOrEmpty(request.vnp_Amount) && long.TryParse(request.vnp_Amount, out long amountLong) ? amountLong / 100m : 0,
-                        PayoutAmount = !string.IsNullOrEmpty(request.vnp_Amount) && long.TryParse(request.vnp_Amount, out long payoutAmountLong) ? (payoutAmountLong / 100m) * 0.95m : 0,
-                        PaymentType = "Deposit",
-                        PaymentStatus = "Pending",
-                        FinalPaymentDueDate = DateTime.UtcNow.AddDays(7),
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
-                    };
-
-                    _context.Payments.Add(payment);
-                    await _context.SaveChangesAsync();
-                    
-                    _logger.LogInformation($"Auto-created payment: {payment.PaymentId}");
-                }
-
-                // Check if payment is already successful
-                if (payment.PaymentStatus == "Success")
-                {
-                    _logger.LogInformation($"Payment {request.vnp_TxnRef} already succeeded, redirecting to frontend");
-                    
-                    // Redirect to frontend HomePage with success notification
-                    var frontendUrl = _configuration["FrontendUrl"] ?? "http://localhost:5173";
-                    var successRedirectUrl = $"{frontendUrl}/?payment_success=true&payment_id={request.vnp_TxnRef}&amount={request.vnp_Amount}&transaction_no={request.vnp_TransactionNo}";
-                    
-                    return Redirect(successRedirectUrl);
-                }
-
-                // Update payment status
-                var isSuccess = request.vnp_ResponseCode == "00";
-                payment.PaymentStatus = isSuccess ? "Success" : "Failed";
-                payment.VNPayTransactionId = request.vnp_TransactionNo;
-                payment.VNPayResponseCode = request.vnp_ResponseCode;
-                payment.VNPayMessage = request.vnp_ResponseMessage;
-                payment.UpdatedAt = DateTime.UtcNow;
-
-                // Set completed date if payment is successful
-                if (isSuccess)
-                {
-                    payment.CompletedDate = DateTime.UtcNow;
-                }
-
-                // Update order status if payment is successful
-                if (isSuccess && payment.OrderId.HasValue)
-                {
-                    var order = await _context.Orders
-                        .FirstOrDefaultAsync(o => o.OrderId == payment.OrderId.Value);
-
-                    if (order != null)
-                    {
-                        order.OrderStatus = payment.PaymentType == "Deposit" ? "DepositPaid" : "Paid";
-                        order.UpdatedAt = DateTime.UtcNow;
-                        
-                        // Set order completed date if final payment
-                        if (payment.PaymentType == "FinalPayment")
+                        var requestData = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(requestBody);
+                        if (requestData != null && requestData.ContainsKey("ProductId") && int.TryParse(requestData["ProductId"].ToString(), out productId))
                         {
-                            order.CompletedDate = DateTime.UtcNow;
+                            // ProductId found in request body
                         }
                     }
                 }
+                
+                if (productId <= 0)
+                    return BadRequest(new { message = "Invalid product ID" });
 
+                // Get the product to verify ownership and status
+                var product = await _context.Products.FirstOrDefaultAsync(p => p.ProductId == productId);
+                if (product == null)
+                    return NotFound(new { message = "Không tìm thấy sản phẩm" });
+
+                // ✅ Authorization check: Chỉ owner của sản phẩm mới có thể xác nhận bán
+                if (product.SellerId != userId)
+                    return Forbid("Bạn chỉ có thể xác nhận bán sản phẩm của mình");
+
+                // ✅ Status validation: Chỉ cho phép xác nhận bán sản phẩm có status "Reserved"
+                if (product.Status != "Reserved")
+                    return BadRequest(new { message = "Chỉ có thể xác nhận bán sản phẩm đang trong quá trình thanh toán" });
+
+                // ✅ Logic nghiệp vụ: Cập nhật status từ "Reserved" → "Sold"
+                product.Status = "Sold";
+                product.UpdatedAt = DateTime.UtcNow;
+
+                // Update the product
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation($"Payment callback processed: {payment.PaymentId}, Status: {payment.PaymentStatus}");
+                _logger.LogInformation($"Product {productId} sale confirmed by seller {userId}");
 
-                // Redirect to frontend HomePage with success notification
-                var finalFrontendUrl = _configuration["FrontendUrl"] ?? "http://localhost:5173";
-                var finalRedirectUrl = $"{finalFrontendUrl}/?payment_success=true&payment_id={request.vnp_TxnRef}&amount={request.vnp_Amount}&transaction_no={request.vnp_TransactionNo}";
-                
-                return Redirect(finalRedirectUrl);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error processing payment callback: {request.vnp_TxnRef}");
-                
-                // Even on error, redirect to frontend with error message
-                var errorFrontendUrl = _configuration["FrontendUrl"] ?? "http://localhost:5173";
-                var errorRedirectUrl = $"{errorFrontendUrl}/?payment_error=true&payment_id={request.vnp_TxnRef}";
-                
-                return Redirect(errorRedirectUrl);
-            }
-        }
-
-        /// <summary>
-        /// Lấy thông tin payment theo ID
-        /// </summary>
-        [HttpGet("{id}")]
-        [Authorize]
-        public async Task<ActionResult<object>> GetPayment(int id)
-        {
-            try
-            {
-                // Get user ID from JWT token
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-                if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId))
-                {
-                    return Unauthorized(new { message = "Không thể xác định người dùng" });
-                }
-
-                var payment = await _context.Payments
-                    .FirstOrDefaultAsync(p => p.PaymentId == id.ToString() && p.UserId == userId);
-
-                if (payment == null)
-                {
-                    return NotFound(new { message = "Không tìm thấy giao dịch" });
-                }
-
+                // ✅ Error handling: Xử lý các trường hợp lỗi một cách chi tiết
                 return Ok(new
                 {
-                    paymentId = payment.PaymentId,
-                    userId = payment.UserId,
-                    orderId = payment.OrderId,
-                    productId = payment.ProductId,
-                    sellerId = payment.SellerId,
-                    amount = payment.Amount,
-                    payoutAmount = payment.PayoutAmount,
-                    paymentType = payment.PaymentType,
-                    paymentStatus = payment.PaymentStatus,
-                    vnpayTransactionId = payment.VNPayTransactionId,
-                    vnpayResponseCode = payment.VNPayResponseCode,
-                    vnpayMessage = payment.VNPayMessage,
-                    finalPaymentDueDate = payment.FinalPaymentDueDate,
-                    completedDate = payment.CompletedDate,
-                    createdAt = payment.CreatedAt,
-                    updatedAt = payment.UpdatedAt
+                    message = "Sale confirmed successfully",
+                    productId = product.ProductId,
+                    sellerId = product.SellerId,
+                    oldStatus = "Reserved",
+                    newStatus = product.Status,
+                    updatedAt = product.UpdatedAt,
+                    timestamp = DateTime.Now
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error getting payment {id}");
-                return StatusCode(500, new { message = "Có lỗi xảy ra khi lấy thông tin giao dịch" });
+                // ✅ Error handling: Xử lý các trường hợp lỗi một cách chi tiết
+                _logger.LogError(ex, "Error confirming sale");
+                return StatusCode(500, new { message = "Có lỗi xảy ra khi xác nhận bán sản phẩm" });
             }
         }
 
-        private string GeneratePaymentId()
+        [HttpPost("admin-confirm")]
+        [Authorize(Policy = "AdminOnly")]
+        public async Task<IActionResult> AdminConfirmSale([FromBody] AdminAcceptRequest request)
         {
-            // Generate unique payment ID
-            return $"PAY{DateTime.UtcNow:yyyyMMddHHmmss}{Random.Shared.Next(1000, 9999)}";
-        }
-
-        private string CreateVNPayUrl(string paymentId, decimal amount, int? orderId)
-        {
-            // VNPay configuration
-            var vnpayUrl = _configuration["VNPay:Url"] ?? "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
-            var vnpayTmnCode = _configuration["VNPay:TmnCode"] ?? "2QXUI4J4";
-            var vnpayHashSecret = _configuration["VNPay:HashSecret"] ?? "RAOEXHYVSDDIIENYWSLDKIENWSIEIY";
-            var returnUrl = _configuration["VNPay:ReturnUrl"] ?? "http://localhost:5173/payment-result";
-
-            // Create VNPay parameters
-            var vnpParams = new Dictionary<string, string>
+            try
             {
-                {"vnp_Version", "2.1.0"},
-                {"vnp_Command", "pay"},
-                {"vnp_TmnCode", vnpayTmnCode},
-                {"vnp_Amount", ((long)(amount * 100)).ToString()}, // Convert to cents
-                {"vnp_CreateDate", DateTime.UtcNow.ToString("yyyyMMddHHmmss")},
-                {"vnp_CurrCode", "VND"},
-                {"vnp_IpAddr", GetClientIpAddress()},
-                {"vnp_Locale", "vn"},
-                {"vnp_OrderInfo", $"Thanh toan don hang {orderId ?? 0}"},
-                {"vnp_OrderType", "other"},
-                {"vnp_ReturnUrl", returnUrl},
-                {"vnp_TxnRef", paymentId}
-            };
+                // ✅ Authentication required: Chỉ admin đã đăng nhập mới có thể gọi API
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+                if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int adminId))
+                    return Unauthorized(new { message = "Invalid user authentication" });
 
-            // Sort parameters and create query string
-            var sortedParams = vnpParams.OrderBy(x => x.Key).ToDictionary(x => x.Key, x => x.Value);
-            var queryString = string.Join("&", sortedParams.Select(x => $"{x.Key}={x.Value}"));
+                // ✅ Authorization check: Chỉ admin mới có thể xác nhận
+                var userRole = User.FindFirst("roleId")?.Value ?? "";
+                if (userRole != "1") // Assuming "1" is admin role
+                    return Forbid(new { message = "Only administrators can accept sales" });
 
-            // Create secure hash
-            var secureHash = CreateSecureHash(queryString, vnpayHashSecret);
-            queryString += $"&vnp_SecureHash={secureHash}";
+                // Validate request
+                if (request == null)
+                    return BadRequest(new { message = "Request data is required" });
 
-            return $"{vnpayUrl}?{queryString}";
-        }
+                if (request.ProductId <= 0)
+                    return BadRequest(new { message = "Invalid product ID" });
 
-        private string CreateSecureHash(string queryString, string secretKey)
-        {
-            using var hmacsha512 = new System.Security.Cryptography.HMACSHA512(Encoding.UTF8.GetBytes(secretKey));
-            var hashBytes = hmacsha512.ComputeHash(Encoding.UTF8.GetBytes(queryString));
-            return Convert.ToHexString(hashBytes).ToLower();
-        }
+                // Get the product to verify status
+                var product = await _context.Products
+                    .Include(p => p.Seller)
+                    .FirstOrDefaultAsync(p => p.ProductId == request.ProductId);
+                
+                if (product == null)
+                    return NotFound(new { message = "Product not found" });
 
-        private string GetClientIpAddress()
-        {
-            var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
-            if (string.IsNullOrEmpty(ipAddress))
-            {
-                ipAddress = HttpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault()?.Split(',').FirstOrDefault()?.Trim();
+                // ✅ Status validation: Chỉ cho phép admin xác nhận sản phẩm có status "Reserved"
+                if (product.Status?.ToLower() != "reserved")
+                    return BadRequest(new { message = $"Product must be in 'Reserved' status for admin acceptance. Current status: {product.Status}" });
+
+                // ✅ Logic nghiệp vụ: Admin xác nhận và chuyển status từ "Reserved" → "Sold"
+                product.Status = "Sold";
+                product.UpdatedAt = DateTime.UtcNow;
+
+                // Find and update related order
+                var order = await _context.Orders
+                    .FirstOrDefaultAsync(o => o.ProductId == request.ProductId && o.OrderStatus == "Deposited");
+
+                if (order != null)
+                {
+                    order.OrderStatus = "Completed";
+                    order.CompletedDate = DateTime.UtcNow;
+                    order.UpdatedAt = DateTime.UtcNow;
+                }
+
+                // Save changes
+                await _context.SaveChangesAsync();
+
+                // ✅ Transaction logging for audit trail
+                _logger.LogInformation($"Admin {adminId} accepted sale for product {request.ProductId}. Status changed from Reserved to Sold. Order {order?.OrderId} completed.");
+
+                // ✅ Error handling: Xử lý các trường hợp lỗi một cách chi tiết
+                return Ok(new
+                {
+                    message = "Admin accepted sale successfully",
+                    productId = product.ProductId,
+                    sellerId = product.SellerId,
+                    sellerName = product.Seller?.FullName ?? "Unknown",
+                    adminId = adminId,
+                    oldStatus = "Reserved",
+                    newStatus = product.Status,
+                    orderId = order?.OrderId,
+                    orderStatus = order?.OrderStatus,
+                    completedDate = order?.CompletedDate,
+                    timestamp = DateTime.UtcNow
+                });
             }
-            return ipAddress ?? "127.0.0.1";
+            catch (Exception ex)
+            {
+                // ✅ Error handling: Xử lý các trường hợp lỗi một cách chi tiết
+                _logger.LogError(ex, $"Error in AdminAcceptSale for product {request?.ProductId}");
+                return StatusCode(500, new { message = "Internal server error occurred while processing admin acceptance" });
+            }
         }
-    }
-
-    // DTOs
-    public class CreatePaymentRequest
-    {
-        public int? OrderId { get; set; }
-        public int? ProductId { get; set; }
-        public decimal Amount { get; set; }
-        public string PaymentType { get; set; } = "Deposit";
-    }
-
-    public class CreateTestPaymentRequest
-    {
-        public string PaymentId { get; set; } = string.Empty;
-        public int? OrderId { get; set; }
-        public int? ProductId { get; set; }
-        public int? SellerId { get; set; }
-        public decimal Amount { get; set; }
-        public string PaymentType { get; set; } = "Deposit";
-    }
-
-    public class VNPayCallbackRequest
-    {
-        public string vnp_TxnRef { get; set; } = string.Empty;
-        public string vnp_TransactionNo { get; set; } = string.Empty;
-        public string vnp_ResponseCode { get; set; } = string.Empty;
-        public string vnp_ResponseMessage { get; set; } = string.Empty;
-        public string vnp_Amount { get; set; } = string.Empty;
-        public string vnp_BankCode { get; set; } = string.Empty;
-        public string vnp_BankTranNo { get; set; } = string.Empty;
-        public string vnp_CardType { get; set; } = string.Empty;
-        public string vnp_OrderInfo { get; set; } = string.Empty;
-        public string vnp_PayDate { get; set; } = string.Empty;
-        public string vnp_TmnCode { get; set; } = string.Empty;
-        public string vnp_TransactionStatus { get; set; } = string.Empty;
-        public string vnp_SecureHash { get; set; } = string.Empty;
     }
 }

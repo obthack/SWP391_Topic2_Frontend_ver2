@@ -29,7 +29,20 @@ import { Products } from "./pages/Products";
 import { Categories } from "./pages/Categories";
 import { Brands } from "./pages/Brands";
 import { Deals } from "./pages/Deals";
-import { Reviews } from "./pages/Reviews";
+// Simple Reviews component for testing
+const Reviews = () => {
+  return (
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">Reviews Page</h1>
+          <p className="text-gray-600">This is a simple reviews page for testing.</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+import MyPurchases from "./pages/MyPurchases";
 import { Help } from "./pages/Help";
 import { FAQ } from "./pages/FAQ";
 import { Contact } from "./pages/Contact";
@@ -226,6 +239,16 @@ const AppContent = () => {
             element={
               <ProtectedRoute>
                 <Favorites />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* My Purchases Route */}
+          <Route
+            path="/my-purchases"
+            element={
+              <ProtectedRoute>
+                <MyPurchases />
               </ProtectedRoute>
             }
           />
