@@ -1061,6 +1061,26 @@ export const ProductDetail = () => {
                     </span>
                   </div>
                 )}
+                {product.condition && (
+                  <div className="flex justify-between items-center py-3 px-4 bg-gray-50 rounded-lg">
+                    <span className="text-gray-600 font-medium">Tình trạng</span>
+                    <span className={`font-semibold ${
+                      product.condition === "excellent" || product.condition === "Xuất sắc" 
+                        ? "text-green-600" 
+                        : product.condition === "good" || product.condition === "Tốt"
+                        ? "text-blue-600"
+                        : product.condition === "fair" || product.condition === "Khá"
+                        ? "text-yellow-600"
+                        : "text-orange-600"
+                    }`}>
+                      {product.condition === "excellent" ? "Xuất sắc" :
+                       product.condition === "good" ? "Tốt" :
+                       product.condition === "fair" ? "Khá" :
+                       product.condition === "poor" ? "Cần sửa chữa" :
+                       product.condition}
+                    </span>
+                  </div>
+                )}
 
                 {/* Thông tin xe điện */}
                 {product.productType?.toLowerCase() === "vehicle" && (

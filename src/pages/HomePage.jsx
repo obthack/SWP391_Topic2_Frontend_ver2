@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Search, Zap, Shield, TrendingUp, CheckCircle } from "lucide-react";
+import { Search, Zap, Shield, TrendingUp, CheckCircle, Filter } from "lucide-react";
 import { apiRequest } from "../lib/api";
 import { ProductCard } from "../components/molecules/ProductCard";
 import { searchProductsByLicensePlate, searchProducts } from "../lib/productApi";
+import { advancedSearchProducts } from "../lib/advancedSearchApi";
+import { AdvancedSearchFilter } from "../components/common/AdvancedSearchFilter";
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
-import { toggleFavorite, isProductFavorited } from "../lib/favoriteApi";
+import { toggleFavorite } from "../lib/favoriteApi";
 import { handleVerificationPaymentSuccess } from "../lib/verificationNotificationService";
 import "../styles/homepage.css";
 
@@ -22,21 +24,60 @@ export const HomePage = () => {
   const [loading, setLoading] = useState(true);
   const [featuredError, setFeaturedError] = useState("");
   const [favorites, setFavorites] = useState(new Set());
-  const [showAllProducts, setShowAllProducts] = useState(false);
   const [isSearchMode, setIsSearchMode] = useState(false);
+  const [showAdvancedFilter, setShowAdvancedFilter] = useState(false);
+  const [activeFilters, setActiveFilters] = useState({});
+  const [currentFilters, setCurrentFilters] = useState({
+    productType: "",
+    minPrice: "",
+    maxPrice: "",
+    condition: "",
+    brand: "",
+    model: "",
+    year: "",
+    vehicleType: "",
+    maxMileage: "",
+    fuelType: "",
+    batteryBrand: "",
+    batteryType: "",
+    minBatteryHealth: "",
+    maxBatteryHealth: "",
+    minCapacity: "",
+    maxCapacity: "",
+    voltage: "",
+    minCycleCount: "",
+    maxCycleCount: "",
+  });
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(4); // 4 products per page
 
   // Cache for seller names to prevent them from disappearing
-  // Load from localStorage on mount
+  // Load from localStorage on mount with size limit
   const [sellerCache, setSellerCache] = useState(() => {
     try {
       const cached = localStorage.getItem('sellerNameCache');
-      return cached ? JSON.parse(cached) : {};
+      if (cached) {
+        const parsedCache = JSON.parse(cached);
+        // ✅ Limit cache size to 50 sellers to prevent quota exceeded
+        const entries = Object.entries(parsedCache);
+        if (entries.length > 50) {
+          console.warn(`⚠️ Seller cache too large (${entries.length}), trimming to 50`);
+          const trimmedCache = Object.fromEntries(entries.slice(-50));
+          return trimmedCache;
+        }
+        return parsedCache;
+      }
+      return {};
     } catch (error) {
       console.warn('Failed to load seller cache from localStorage:', error);
+      // ✅ If error, clear the corrupt cache
+      try {
+        localStorage.removeItem('sellerNameCache');
+      } catch (e) {
+        console.warn('Failed to clear seller cache:', e);
+      }
       return {};
     }
   });
@@ -44,12 +85,33 @@ export const HomePage = () => {
   // Extract stable user ID to prevent unnecessary reloads
   const userId = user?.id || user?.userId || user?.accountId;
 
-  // Persist seller cache to localStorage whenever it changes
+  // Persist seller cache to localStorage whenever it changes with quota handling
   useEffect(() => {
     try {
-      localStorage.setItem('sellerNameCache', JSON.stringify(sellerCache));
+      // ✅ Limit cache size before saving
+      const entries = Object.entries(sellerCache);
+      let cacheToSave = sellerCache;
+      
+      if (entries.length > 50) {
+        console.warn(`⚠️ Seller cache too large (${entries.length}), trimming to 50`);
+        cacheToSave = Object.fromEntries(entries.slice(-50));
+        setSellerCache(cacheToSave); // Update state with trimmed cache
+      }
+      
+      localStorage.setItem('sellerNameCache', JSON.stringify(cacheToSave));
     } catch (error) {
-      console.warn('Failed to save seller cache to localStorage:', error);
+      if (error.name === 'QuotaExceededError' || error.message.includes('quota')) {
+        console.error('❌ localStorage quota exceeded! Clearing seller cache...');
+        // ✅ Clear seller cache if quota exceeded
+        try {
+          localStorage.removeItem('sellerNameCache');
+          setSellerCache({}); // Reset cache in state
+        } catch (e) {
+          console.error('Failed to clear seller cache:', e);
+        }
+      } else {
+        console.warn('Failed to save seller cache to localStorage:', error);
+      }
     }
   }, [sellerCache]);
 
@@ -81,30 +143,22 @@ export const HomePage = () => {
       // Check if this is a verification payment and notify admin
       try {
         const payment = await apiRequest(`/api/Payment/${paymentId}`);
-        console.log('🔍 Payment details:', payment);
         
         if (payment) {
           finalPaymentType = payment.PaymentType || payment.paymentType || finalPaymentType;
           
           if (finalPaymentType === 'Verification' && payment.ProductId) {
-            console.log('🔔 This is a verification payment, notifying admin...');
-            
             // Notify admin about successful verification payment
-            const notificationSent = await handleVerificationPaymentSuccess(
+            await handleVerificationPaymentSuccess(
               paymentId,
               payment.ProductId,
               payment.UserId, // Seller ID
               payment.Amount
             );
-            
-            if (notificationSent) {
-              console.log('✅ Admin notification sent for verification payment');
-            }
           }
         }
       } catch (error) {
-        console.error('❌ Error checking payment type or notifying admin:', error);
-        // Don't show error to user, just log it
+        // Silently fail - don't show error to user
       }
       
       // ✅ Show specific notification based on payment type
@@ -143,34 +197,11 @@ export const HomePage = () => {
 
   const loadFeaturedProducts = async () => {
     try {
-      console.log("🔄 Loading featured products for homepage...");
       let approvedProducts = [];
 
       // Use the main Product API endpoint
       const data = await apiRequest("/api/Product");
       const allProducts = Array.isArray(data) ? data : data?.items || [];
-
-      console.log("📦 Total products from API:", allProducts.length);
-      console.log("📦 Sample product:", allProducts[0]);
-      console.log("📦 All products status check:", allProducts.map(p => ({
-        id: p.productId || p.id || p.ProductId,
-        status: p.status || p.Status,
-        title: p.title || p.Title
-      })));
-      
-      // Debug: Check specific products that should be approved
-      const approvedProductsDebug = allProducts.filter(p => {
-        const status = String(p.status || p.Status || "").toLowerCase();
-        return status === "approved" || status === "active" || status === "verified";
-      });
-      console.log("✅ Products that should be approved:", approvedProductsDebug.length);
-      console.log("✅ Approved products details:", approvedProductsDebug.map(p => ({
-        id: p.productId || p.id || p.ProductId,
-        status: p.status || p.Status,
-        title: p.title || p.Title
-      })));
-      
-      console.log("🔍 Starting product filtering...");
 
       // Filter approved products and classify by type
       approvedProducts = allProducts
@@ -181,9 +212,6 @@ export const HomePage = () => {
           const isNotRejected = status !== "rejected";
           const isNotReserved = status !== "reserved"; // Filter out reserved products
           const shouldShow = isApproved && isNotSold && isNotRejected && isNotReserved;
-          console.log(
-            `Product ${x.productId || x.id || x.ProductId}: status="${status}", isApproved=${isApproved}, isNotSold=${isNotSold}, isNotRejected=${isNotRejected}, isNotReserved=${isNotReserved}, shouldShow=${shouldShow}`
-          );
           return shouldShow;
         })
         .map((x) => {
@@ -198,18 +226,8 @@ export const HomePage = () => {
             productType = "battery";
           }
 
-          console.log(`Product ${x.id}: classified as ${productType}`);
           return { ...x, productType };
-        })
-        // .slice(0, 8); // Tạm thời bỏ giới hạn để test
-
-      console.log("✅ Filtered approved products:", approvedProducts.length);
-      console.log("🎯 Final approved products details:", approvedProducts.map(p => ({
-        id: p.id || p.productId || p.Id,
-        title: p.title || p.Title,
-        status: p.status || p.Status,
-        productType: p.productType
-      })));
+        });
 
       // ✅ OPTIMIZED: Load images and seller info without delays
       const productsWithImages = await Promise.all(
@@ -218,8 +236,6 @@ export const HomePage = () => {
           let sellerName = null;
           
           try {
-            // ✅ NO MORE DELAYS - Process all products in parallel
-            
             // ✅ Get seller info - try COMPREHENSIVE approaches
             sellerName = product.sellerName || 
                            product.seller?.fullName || 
@@ -229,24 +245,6 @@ export const HomePage = () => {
                            product.seller_name ||
                            product.ownerName ||
                            product.userName;
-            
-            // Debug: Log product data to see what fields are available
-            if (index < 5) { // Only log first 5 products to avoid spam
-              console.log(`🔍 Product ${product.id || product.productId} data:`, {
-                sellerName: product.sellerName,
-                seller: product.seller,
-                sellerId: product.sellerId,
-                seller_id: product.seller_id,
-                SellerId: product.SellerId,
-                userId: product.userId,
-                user_id: product.user_id,
-                UserId: product.UserId,
-                createdBy: product.createdBy,
-                created_by: product.created_by,
-                CreatedBy: product.CreatedBy,
-                allKeys: Object.keys(product)
-              });
-            }
             
             // If no seller name but has sellerId, try to load from API or cache
             // Try MANY possible field names for seller ID
@@ -261,7 +259,6 @@ export const HomePage = () => {
             for (const field of possibleSellerIdFields) {
               if (product[field]) {
                 sellerId = product[field];
-                console.log(`✅ Found sellerId in field "${field}": ${sellerId}`);
                 break;
               }
             }
@@ -270,7 +267,6 @@ export const HomePage = () => {
               // ✅ CHECK CACHE FIRST before making API call
               if (sellerCache[sellerId]) {
                 sellerName = sellerCache[sellerId];
-                console.log(`📦 Loaded seller from cache for product ${product.id}:`, sellerName);
               } else {
                 // Only call API if not in cache
                 try {
@@ -292,10 +288,9 @@ export const HomePage = () => {
                       ...prev,
                       [sellerId]: sellerName
                     }));
-                    console.log(`✅ Loaded seller from API and cached for product ${product.id}:`, sellerName);
                   }
                 } catch (sellerError) {
-                  console.warn(`❌ Could not load seller from API for product ${product.id} (sellerId: ${sellerId}):`, sellerError.message);
+                  // Silently fail - seller name will use fallback
                 }
               }
             }
@@ -303,7 +298,6 @@ export const HomePage = () => {
             // Final fallback
             if (!sellerName) {
               sellerName = "Người bán";
-              console.warn(`⚠️ No seller name found for product ${product.id}, using fallback. Product data:`, product);
             }
 
             // ✅ Try to load images from API (with timeout to prevent hanging)
@@ -317,11 +311,8 @@ export const HomePage = () => {
               );
               imagesData = await Promise.race([imagePromise, timeoutPromise]);
             } catch (imageError) {
-              console.warn(`Could not load images for product ${product.id}:`, imageError.message);
               imagesData = null;
             }
-            
-            // ✅ Reduced logging for better performance
             
             // Handle different response formats
             let images = [];
@@ -367,25 +358,11 @@ export const HomePage = () => {
               sellerName: sellerName, // Add seller name
             };
           } catch (error) {
-            console.warn(
-              `Failed to load images for product ${
-                product.id || product.productId
-              }:`,
-              error
-            );
-            console.warn(`Error details:`, {
-              message: error.message,
-              status: error.status,
-              data: error.data,
-              productId: product.id || product.productId || product.Id
-            });
             // Return product with no images if API fails
-            // ✅ Still need to include sellerName even if image loading fails
-            // Use the computed sellerName from above, with fallback
             return {
               ...product,
-              images: [], // No placeholder, only real images
-              sellerName: sellerName || "Người bán", // Include seller name in error case too
+              images: [],
+              sellerName: sellerName || "Người bán",
             };
           }
         })
@@ -405,7 +382,6 @@ export const HomePage = () => {
         return bDate - aDate;
       });
 
-      console.log("Loaded approved products for homepage:", sortedProducts);
       setFeaturedProducts(sortedProducts);
       setAllProducts(sortedProducts); // Store all products for search
     } catch (err) {
@@ -463,12 +439,7 @@ export const HomePage = () => {
       return;
     }
 
-    // Debug user ID
     const userId = user.id || user.userId || user.accountId;
-    console.log("🔍 FAVORITE DEBUG:");
-    console.log("  User object:", user);
-    console.log("  Extracted userId:", userId);
-    console.log("  Product ID:", productId);
 
     try {
       const result = await toggleFavorite(userId, productId);
@@ -528,7 +499,6 @@ export const HomePage = () => {
     }
     
     try {
-        console.log("🔍 Searching with query:", { searchQuery, productType });
       
       let results = [];
       let searchType = "";
@@ -539,7 +509,6 @@ export const HomePage = () => {
           results = await searchProductsByLicensePlate(searchQuery.trim());
           searchType = "biển số";
         } catch (error) {
-          console.log("🔍 License plate API failed, searching in local data...");
           // Fallback to local search if API fails
           results = searchProducts(searchQuery.trim(), allProducts);
           searchType = "biển số (tìm kiếm cục bộ)";
@@ -558,14 +527,8 @@ export const HomePage = () => {
         });
       }
       
-      
-      console.log("🔍 Final results before display:", results);
-      console.log("🔍 Results length:", results.length);
-      console.log("🔍 Results array:", results);
-      
         if (results && results.length > 0) {
           // Hiển thị kết quả tìm kiếm
-          console.log("✅ Setting featured products to:", results);
           setFeaturedProducts(results);
           setIsSearchMode(true);
           setCurrentPage(1); // Reset to first page when searching
@@ -574,7 +537,6 @@ export const HomePage = () => {
           ? `biển số "${searchQuery}"`
           : `${searchType} "${searchQuery}"`;
           
-        console.log("✅ Showing success toast for", results.length, "products");
         showToast({
           type: "success",
           title: "✅ Tìm thấy kết quả",
@@ -582,7 +544,6 @@ export const HomePage = () => {
           duration: 4000
         });
       } else {
-        console.log("❌ No results found, clearing featured products");
         setFeaturedProducts([]);
         setIsSearchMode(true);
         
@@ -590,7 +551,6 @@ export const HomePage = () => {
           ? `biển số "${searchQuery}"`
           : `${searchType} "${searchQuery}"`;
           
-        console.log("❌ Showing no results toast");
         showToast({
           type: "info",
           title: "🔍 Không tìm thấy kết quả",
@@ -613,6 +573,29 @@ export const HomePage = () => {
     setIsSearchMode(false);
     setProductType("");
     setSearchQuery("");
+    setActiveFilters({});
+    setCurrentFilters({
+      productType: "",
+      minPrice: "",
+      maxPrice: "",
+      condition: "",
+      brand: "",
+      model: "",
+      year: "",
+      vehicleType: "",
+      maxMileage: "",
+      fuelType: "",
+      batteryBrand: "",
+      batteryType: "",
+      minBatteryHealth: "",
+      maxBatteryHealth: "",
+      minCapacity: "",
+      maxCapacity: "",
+      voltage: "",
+      minCycleCount: "",
+      maxCycleCount: "",
+    });
+    setShowAdvancedFilter(false);
     setCurrentPage(1); // Reset to first page
     // Use stored allProducts instead of reloading
     setFeaturedProducts(allProducts);
@@ -622,6 +605,74 @@ export const HomePage = () => {
       message: "Hiển thị tất cả sản phẩm",
       duration: 3000
     });
+  };
+
+  const handleAdvancedFilter = async (filters) => {
+    try {
+      setLoading(true);
+      setCurrentFilters(filters); // Save current filters
+      setActiveFilters(filters);
+      setShowAdvancedFilter(false);
+      
+      const results = await advancedSearchProducts(filters);
+      
+      // Load images for filtered products
+      const productsWithImages = await Promise.all(
+        results.map(async (product) => {
+          try {
+            const imagesData = await apiRequest(
+              `/api/ProductImage/product/${product.id || product.productId || product.Id}`
+            );
+            
+            let images = [];
+            if (imagesData) {
+              if (Array.isArray(imagesData)) {
+                images = imagesData;
+              } else if (imagesData?.items && Array.isArray(imagesData.items)) {
+                images = imagesData.items;
+              }
+            }
+            
+            const mappedImages = images.map(
+              (img) => img.imageData || img.imageUrl || img.url
+            ).filter(Boolean);
+            
+            return {
+              ...product,
+              images: mappedImages,
+              sellerName: product.sellerName || sellerCache[product.sellerId] || "Người bán"
+            };
+          } catch (error) {
+            return {
+              ...product,
+              images: [],
+              sellerName: product.sellerName || "Người bán"
+            };
+          }
+        })
+      );
+      
+      setFeaturedProducts(productsWithImages);
+      setIsSearchMode(true);
+      setCurrentPage(1);
+      
+      const filterCount = Object.keys(filters).length;
+      showToast({
+        type: "success",
+        title: "✅ Đã áp dụng bộ lọc",
+        message: `Tìm thấy ${results.length} sản phẩm với ${filterCount} tiêu chí lọc`,
+        duration: 4000
+      });
+    } catch (error) {
+      showToast({
+        type: "error",
+        title: "❌ Lỗi tìm kiếm",
+        message: error.message || "Có lỗi xảy ra khi lọc sản phẩm",
+        duration: 5000
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -695,42 +746,66 @@ export const HomePage = () => {
             </p>
           </div>
 
-          <div className="search-form-container">
-            <form onSubmit={handleSearch} className="search-form">
-              <div className="md:col-span-1">
-                <select
-                  value={productType}
-                  onChange={(e) => setProductType(e.target.value)}
-                  className="search-input"
+          <div className="max-w-4xl mx-auto">
+            {/* Clean Modern Search Bar */}
+            <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl p-3">
+              <form onSubmit={handleSearch} className="flex items-center gap-3">
+                {/* Search Input - Full Width */}
+                <div className="flex-1 relative">
+                  <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-6 w-6 text-gray-400" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Tìm kiếm xe điện, pin theo hãng, mẫu xe, màu sắc, biển số..."
+                    className="w-full pl-14 pr-6 py-5 text-lg text-gray-900 bg-transparent border-0 focus:outline-none placeholder:text-gray-400"
+                  />
+                </div>
+
+                {/* Divider */}
+                <div className="h-12 w-px bg-gray-200"></div>
+
+                {/* Search Button */}
+                <button 
+                  type="submit" 
+                  className="px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg hover:shadow-xl hover:scale-105 flex items-center gap-2 whitespace-nowrap"
                 >
-                  <option value="">Tất cả</option>
-                  <option value="vehicle">Xe điện</option>
-                  <option value="battery">Pin</option>
-                  <option value="license-plate">Biển số</option>
-                </select>
-              </div>
-
-              <div className="md:col-span-2">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={
-                    productType === "license-plate" 
-                      ? "Nhập biển số xe (VD: 30A-12345)" 
-                      : "Hãng xe, mẫu xe, biển số..."
-                  }
-                  className="search-input"
-                />
-              </div>
-
-              <div className="md:col-span-1">
-                <button type="submit" className="search-button">
-                  <Search className="h-5 w-5 mr-2" />
+                  <Search className="h-5 w-5" />
                   Tìm kiếm
                 </button>
+
+                {/* Filter Button with Badge */}
+                <button
+                  type="button"
+                  onClick={() => setShowAdvancedFilter(!showAdvancedFilter)}
+                  className={`relative px-6 py-4 rounded-xl font-bold transition-all shadow-lg hover:shadow-xl hover:scale-105 flex items-center gap-2 whitespace-nowrap ${
+                    showAdvancedFilter || Object.keys(activeFilters).length > 0
+                      ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white'
+                      : 'bg-gradient-to-r from-gray-700 to-gray-800 text-white hover:from-gray-800 hover:to-gray-900'
+                  }`}
+                  title="Bộ lọc nâng cao"
+                >
+                  <Filter className="h-5 w-5" />
+                  <span>Lọc</span>
+                  {Object.keys(activeFilters).length > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-7 w-7 flex items-center justify-center shadow-lg animate-pulse">
+                      {Object.keys(activeFilters).length}
+                    </span>
+                  )}
+                </button>
+              </form>
+            </div>
+
+            {/* Advanced Filter Panel */}
+            {showAdvancedFilter && (
+              <div className="mt-4 animate-fade-in">
+                <AdvancedSearchFilter
+                  initialFilters={currentFilters}
+                  onFilterChange={handleAdvancedFilter}
+                  onClose={() => setShowAdvancedFilter(false)}
+                />
               </div>
-            </form>
+            )}
           </div>
 
           <div className="mt-12 features-grid">
@@ -834,9 +909,6 @@ export const HomePage = () => {
             </div>
           ) : featuredProducts.length > 0 ? (
             <>
-              {console.log("🎯 Rendering products section - featuredProducts:", featuredProducts.length)}
-              {console.log("🎯 Is search mode:", isSearchMode)}
-              {console.log("🎯 Selected category:", selectedCategory)}
               {/* Phân loại sản phẩm */}
               <div className="mb-8">
                 <div className="flex flex-wrap gap-4 mb-6">
@@ -911,14 +983,6 @@ export const HomePage = () => {
                   const startIndex = (currentPage - 1) * itemsPerPage;
                   const endIndex = startIndex + itemsPerPage;
                   const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
-                  
-                  console.log("🎯 Filtered products for display:", filteredProducts.length);
-                  console.log("🎯 Current page:", currentPage);
-                  console.log("🎯 Total pages:", totalPages);
-                  console.log("🎯 Paginated products:", paginatedProducts.length);
-                  console.log("🎯 Show all products:", showAllProducts);
-                  console.log("🎯 Product type filter:", productType);
-                  console.log("🎯 Sample filtered product:", paginatedProducts[0]);
                   
                   return paginatedProducts.map((product, index) => (
                     <ProductCard
