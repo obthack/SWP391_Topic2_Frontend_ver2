@@ -43,7 +43,14 @@ export const Header = () => {
             >
               Trang chủ
             </Link>
-            {!isAdmin && (
+            {isAdmin ? (
+              <Link
+                to="/admin"
+                className="text-gray-700 hover:text-blue-600 transition-colors font-medium"
+              >
+                Quản lý hệ thống
+              </Link>
+            ) : (
               <Link
                 to="/search"
                 className="text-gray-700 hover:text-blue-600 transition-colors"
@@ -51,41 +58,47 @@ export const Header = () => {
                 Đăng tin bán
               </Link>
             )}
-            <Link
-              to="/about"
-              className="text-gray-700 hover:text-blue-600 transition-colors"
-            >
-              Cách thức hoạt động
-            </Link>
+            {!isAdmin && (
+              <Link
+                to="/about"
+                className="text-gray-700 hover:text-blue-600 transition-colors"
+              >
+                Cách thức hoạt động
+              </Link>
+            )}
           </nav>
 
-          <div className="flex items-center space-x-4">
-            <button
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              title="Tìm kiếm"
-            >
-              <Search className="h-5 w-5 text-gray-600" />
-            </button>
+          <div className={`flex items-center ${isAdmin ? 'space-x-3' : 'space-x-4'}`}>
+            {!isAdmin && (
+              <button
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Tìm kiếm"
+              >
+                <Search className="h-5 w-5 text-gray-600" />
+              </button>
+            )}
 
             {user ? (
               <>
-                <Link
-                  to="/favorites"
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Yêu thích"
-                >
-                  <Heart className="h-5 w-5 text-gray-600" />
-                </Link>
+                {!isAdmin && (
+                  <Link
+                    to="/favorites"
+                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                    title="Yêu thích"
+                  >
+                    <Heart className="h-5 w-5 text-gray-600" />
+                  </Link>
+                )}
 
                 <NotificationBell />
 
-                <ChatBell />
+                {!isAdmin && <ChatBell />}
 
                 <div className="relative group">
-                  <button className="flex items-center space-x-2 p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                  <button className={`flex items-center space-x-2 p-2 hover:bg-gray-100 rounded-lg transition-colors ${isAdmin ? 'ml-2' : ''}`}>
                     <User className="h-5 w-5 text-gray-600" />
                     <span className="text-sm font-medium text-gray-700">
-                      {profile?.full_name}
+                      {profile?.full_name || user?.fullName || user?.email}
                     </span>
                   </button>
 
