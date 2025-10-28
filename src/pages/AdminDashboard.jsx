@@ -20,6 +20,7 @@ import {
   Activity,
   Camera,
   Bell,
+  Flag,
 } from "lucide-react";
 import { apiRequest } from "../lib/api";
 import { formatPrice, formatDate } from "../utils/formatters";
@@ -27,13 +28,14 @@ import { useToast } from "../contexts/ToastContext";
 import { notifyPostApproved, notifyPostRejected } from "../lib/notificationApi";
 import { rejectProduct, approveProduct } from "../lib/productApi";
 import { RejectProductModal } from "../components/admin/RejectProductModal";
+import { AdminReports } from "../components/admin/AdminReports";
 import { updateVerificationStatus, getVerificationRequests } from "../lib/verificationApi";
 import { getUserNotifications, getUnreadCount, notifyUserVerificationCompleted } from "../lib/notificationApi";
 import { forceSendNotificationsForAllSuccessfulPayments, sendNotificationsForKnownPayments, sendNotificationsForVerifiedProducts } from "../lib/verificationNotificationService";
 
 export const AdminDashboard = () => {
   const { show: showToast } = useToast();
-  const [activeTab, setActiveTab] = useState("dashboard"); // dashboard, vehicles, batteries, inspections, transactions
+  const [activeTab, setActiveTab] = useState("dashboard"); // dashboard, vehicles, batteries, inspections, transactions, reports
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalListings: 0,
@@ -629,8 +631,25 @@ export const AdminDashboard = () => {
         sample: processedListings.slice(0, 2)
       });
 
-      // Sort listings to show newest first
+      // Sort listings: Pending first, then by updatedDate (recently updated first), then by createdDate
       const sortedListings = nonDeletedListings.sort((a, b) => {
+        // Priority 1: Pending status first
+        const isPendingA = a.status === "pending" ? 1 : 0;
+        const isPendingB = b.status === "pending" ? 1 : 0;
+        if (isPendingA !== isPendingB) {
+          return isPendingB - isPendingA; // Pending items first
+        }
+        
+        // Priority 2: Recently updated products first (only for pending items)
+        if (a.status === "pending" && b.status === "pending") {
+          const updatedA = new Date(a.updatedDate || a.createdDate || 0);
+          const updatedB = new Date(b.updatedDate || b.createdDate || 0);
+          if (updatedA.getTime() !== updatedB.getTime()) {
+            return updatedB - updatedA; // Most recently updated first
+          }
+        }
+        
+        // Priority 3: Newest created first
         const dateA = new Date(a.createdDate || 0);
         const dateB = new Date(b.createdDate || 0);
         return dateB - dateA;
@@ -1497,6 +1516,17 @@ export const AdminDashboard = () => {
               <DollarSign className="h-5 w-5" />
               <span>Transaction Management</span>
             </div>
+            <div 
+              className={`flex items-center space-x-3 p-3 rounded-lg cursor-pointer transition-colors ${
+                activeTab === "reports" 
+                  ? "bg-blue-50 text-blue-600" 
+                  : "text-gray-600 hover:bg-gray-50"
+              }`}
+              onClick={() => setActiveTab("reports")}
+            >
+              <Flag className="h-5 w-5" />
+              <span>Báo cáo vi phạm</span>
+            </div>
             <div className="flex items-center space-x-3 p-3 text-gray-600 hover:bg-gray-50 rounded-lg cursor-pointer">
               <Users className="h-5 w-5" />
               <span>User Management</span>
@@ -1531,12 +1561,14 @@ export const AdminDashboard = () => {
                 {activeTab === "vehicles" && "Vehicle Management"}
                 {activeTab === "batteries" && "Battery Management"}
                 {activeTab === "transactions" && "Transaction Management"}
+                {activeTab === "reports" && "Báo cáo vi phạm"}
               </h1>
               <p className="text-gray-600">
                 {activeTab === "dashboard" && "EV Market system overview • Realtime update"}
                 {activeTab === "vehicles" && "Manage all vehicle listings and approvals"}
                 {activeTab === "batteries" && "Manage all battery listings and approvals"}
                 {activeTab === "transactions" && "Manage completed transactions and seller confirmations"}
+                {activeTab === "reports" && "Xem xét và xử lý các báo cáo vi phạm từ người dùng"}
               </p>
             </div>
             <div className="flex items-center space-x-2">
@@ -1859,7 +1891,8 @@ export const AdminDashboard = () => {
         </div>
         )}
 
-            {/* Filters and Search */}
+            {/* Filters and Search - Hide on reports tab */}
+            {activeTab !== "reports" && (
             <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-gray-100">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0 lg:space-x-6">
             <div className="flex-1">
@@ -1911,9 +1944,10 @@ export const AdminDashboard = () => {
             </div>
           </div>
         </div>
+        )}
 
-        {/* Listings Table - Hide on inspections and transactions tabs */}
-        {activeTab !== "inspections" && activeTab !== "transactions" && (
+        {/* Listings Table - Hide on inspections, transactions and reports tabs */}
+        {activeTab !== "inspections" && activeTab !== "transactions" && activeTab !== "reports" && (
         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-xl font-semibold text-gray-900">
@@ -2727,6 +2761,11 @@ export const AdminDashboard = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Reports Management Tab */}
+      {activeTab === "reports" && (
+        <AdminReports />
       )}
 
       </div>

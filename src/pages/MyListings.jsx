@@ -229,6 +229,23 @@ export const MyListings = () => {
         })
         .map(async (l, index) => {
           let images = [];
+          let rejectionReason = l.rejectionReason || l.RejectionReason;
+
+          // If product is rejected, fetch rejection reason to check for [BÁO CÁO] prefix
+          const status = getStatus(l);
+          if (status === "rejected" && !rejectionReason) {
+            try {
+              const detailedProduct = await apiRequest(
+                `/api/Product/${l.id || l.productId || l.Id}`
+              );
+              rejectionReason = 
+                detailedProduct?.rejectionReason || 
+                detailedProduct?.RejectionReason || 
+                detailedProduct?.rejection_reason;
+            } catch (error) {
+              console.warn(`⚠️ Failed to fetch rejection reason for product ${l.id || l.productId}:`, error);
+            }
+          }
 
           // Check if images are stored directly in the product object first
           if (l.images && Array.isArray(l.images)) {
@@ -314,8 +331,9 @@ export const MyListings = () => {
 
           return {
             ...l,
-            status: getStatus(l),
+            status: status,
             images: images,
+            rejectionReason: rejectionReason,
           };
         });
 
@@ -415,8 +433,12 @@ export const MyListings = () => {
   };
 
 
-  const getStatusBadge = (status) => {
+  const getStatusBadge = (status, rejectionReason = null) => {
     const s = status ? status : "pending";
+    
+    // Check if this is a reported product (rejected due to report)
+    const isReported = s === "rejected" && rejectionReason && rejectionReason.startsWith("[BÁO CÁO]");
+    
     const statusConfig = {
       pending: {
         className: "mylistings-status-badge mylistings-status-pending",
@@ -431,8 +453,8 @@ export const MyListings = () => {
         label: "Đã duyệt",
       },
       rejected: {
-        className: "mylistings-status-badge mylistings-status-rejected",
-        label: "Từ chối",
+        className: isReported ? "mylistings-status-badge mylistings-status-rejected" : "mylistings-status-badge mylistings-status-rejected",
+        label: isReported ? "Bị báo cáo" : "Từ chối",
       },
       reserved: {
         className: "mylistings-status-badge mylistings-status-reserved",
@@ -629,7 +651,7 @@ export const MyListings = () => {
                         <Package className="mylistings-image-placeholder-icon" />
                       </div>
                       <div className="mylistings-status-badge-container">
-                        {getStatusBadge(getStatus(listing))}
+                        {getStatusBadge(getStatus(listing), listing.rejectionReason)}
                       </div>
 
                       {/* Rejection reason button on image - LEFT SIDE */}
@@ -637,11 +659,11 @@ export const MyListings = () => {
                         <button
                           onClick={() => handleShowRejectionReason(listing)}
                           className="mylistings-rejection-overlay-button"
-                          title="Xem lý do từ chối"
+                          title={listing.rejectionReason && listing.rejectionReason.startsWith("[BÁO CÁO]") ? "Xem lý do báo cáo" : "Xem lý do từ chối"}
                         >
                           <AlertTriangle className="mylistings-rejection-overlay-icon" />
                           <span className="mylistings-rejection-overlay-text">
-                            Lý do từ chối
+                            {listing.rejectionReason && listing.rejectionReason.startsWith("[BÁO CÁO]") ? "Lý do báo cáo" : "Lý do từ chối"}
                           </span>
                         </button>
                       )}
