@@ -3041,12 +3041,12 @@ export const AdminDashboard = () => {
                             style={{ display: product.images && product.images.length > 0 ? 'none' : 'flex' }}
                           >
                             {product.status === 'reserved' ? <Clock className="h-6 w-6 text-yellow-600" /> : <DollarSign className="h-6 w-6 text-blue-600" />}
-                </div>
-              </div>
+                          </div>
+                        </div>
                         <div className="flex-1">
                           <h4 className="font-medium text-gray-900 line-clamp-2">
                             {product.title || product.name}
-                      </h4>
+                          </h4>
                           <p className="text-lg font-bold text-blue-600 mt-1">
                             {formatPrice(product.price)}
                           </p>
@@ -3055,7 +3055,7 @@ export const AdminDashboard = () => {
                             <span className={`text-sm ${product.status === 'reserved' ? 'text-yellow-600' : 'text-blue-600'}`}>
                               {product.status === 'reserved' ? 'Đang trong quá trình thanh toán' : 'Đã hoàn tất'}
                             </span>
-                    </div>
+                          </div>
                           <div className="mt-2 text-sm text-gray-600">
                             <p>Seller ID: {product.sellerId}</p>
                             <p>Ngày tạo: {formatDate(product.createdAt || product.createdDate)}</p>
@@ -3064,7 +3064,7 @@ export const AdminDashboard = () => {
                       </div>
                       <div className="mt-4 flex space-x-2">
                         {product.status === 'reserved' && (
-                      <button
+                          <button
                             onClick={() => handleAdminConfirm(product.id || product.productId)}
                             className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
                           >
@@ -3089,19 +3089,18 @@ export const AdminDashboard = () => {
                         )}
                       </div>
                     </div>
-                  </div>
                   ))}
-                    </div>
+                </div>
               ) : (
                 <div className="text-center py-8">
                   <Clock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                   <p className="text-gray-600">Chưa có sản phẩm nào đang trong quá trình thanh toán hoặc đã hoàn tất</p>
                 </div>
               )}
-                    </div>
-                  </div>
-                </div>
-              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Reports Management Tab */}
       {activeTab === "reports" && (
