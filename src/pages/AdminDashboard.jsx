@@ -20,6 +20,7 @@ import {
   Activity,
   Camera,
   Bell,
+  Flag,
 } from "lucide-react";
 import { apiRequest } from "../lib/api";
 import { formatPrice, formatDate } from "../utils/formatters";
@@ -27,13 +28,14 @@ import { useToast } from "../contexts/ToastContext";
 import { notifyPostApproved, notifyPostRejected } from "../lib/notificationApi";
 import { rejectProduct, approveProduct } from "../lib/productApi";
 import { RejectProductModal } from "../components/admin/RejectProductModal";
+import { AdminReports } from "../components/admin/AdminReports";
 import { updateVerificationStatus, getVerificationRequests } from "../lib/verificationApi";
 import { getUserNotifications, getUnreadCount, notifyUserVerificationCompleted } from "../lib/notificationApi";
 import { forceSendNotificationsForAllSuccessfulPayments, sendNotificationsForKnownPayments, sendNotificationsForVerifiedProducts } from "../lib/verificationNotificationService";
 
 export const AdminDashboard = () => {
   const { show: showToast } = useToast();
-  const [activeTab, setActiveTab] = useState("dashboard"); // dashboard, vehicles, batteries, inspections, transactions
+  const [activeTab, setActiveTab] = useState("dashboard"); // dashboard, vehicles, batteries, inspections, transactions, reports
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalListings: 0,
@@ -645,7 +647,8 @@ export const AdminDashboard = () => {
             title: item.title || item.name || item.productName || "Không có tiêu đề",
             brand: item.brand || item.brandName || "Không rõ",
             model: item.model || item.modelName || "Không rõ",
-            year: item.year || item.modelYear || item.manufacturingYear || "N/A",
+            year: item.manufactureYear || item.year || item.modelYear || item.manufacturingYear || "N/A",
+            manufactureYear: item.manufactureYear || item.year || item.modelYear || item.manufacturingYear || "N/A",
             price: parseFloat(item.price || item.listPrice || item.sellingPrice || 0),
             status: (() => {
               const rawStatus = norm(item.status || item.verificationStatus || item.approvalStatus || "pending");
@@ -731,8 +734,25 @@ export const AdminDashboard = () => {
         sample: processedListings.slice(0, 2)
       });
 
-      // Sort listings to show newest first
+      // Sort listings: Pending first, then by updatedDate (recently updated first), then by createdDate
       const sortedListings = nonDeletedListings.sort((a, b) => {
+        // Priority 1: Pending status first
+        const isPendingA = a.status === "pending" ? 1 : 0;
+        const isPendingB = b.status === "pending" ? 1 : 0;
+        if (isPendingA !== isPendingB) {
+          return isPendingB - isPendingA; // Pending items first
+        }
+        
+        // Priority 2: Recently updated products first (only for pending items)
+        if (a.status === "pending" && b.status === "pending") {
+          const updatedA = new Date(a.updatedDate || a.createdDate || 0);
+          const updatedB = new Date(b.updatedDate || b.createdDate || 0);
+          if (updatedA.getTime() !== updatedB.getTime()) {
+            return updatedB - updatedA; // Most recently updated first
+          }
+        }
+        
+        // Priority 3: Newest created first
         const dateA = new Date(a.createdDate || 0);
         const dateB = new Date(b.createdDate || 0);
         return dateB - dateA;
@@ -1007,7 +1027,7 @@ export const AdminDashboard = () => {
         );
       } else {
         // Regular status filter
-        filtered = filtered.filter((l) => l.status === statusFilter);
+      filtered = filtered.filter((l) => l.status === statusFilter);
       }
     }
 
@@ -1184,6 +1204,13 @@ export const AdminDashboard = () => {
       
       // ✅ CHỈ MỞ MODAL - KHÔNG GỌI API, KHÔNG THAY ĐỔI STATUS
       // Trạng thái chỉ thay đổi khi admin bấm "Hoàn thành kiểm định"
+      console.log("📋 Product data for inspection:", {
+        manufactureYear: product.manufactureYear,
+        year: product.year,
+        mileage: product.mileage,
+        condition: product.condition,
+        fullProduct: product
+      });
       setCurrentInspectionProduct(product);
       setInspectionImages([]);
       setInspectionFiles([]);
@@ -1376,17 +1403,96 @@ export const AdminDashboard = () => {
         return; // Dừng lại nếu upload thất bại
       }
       
-      // ✅ BƯỚC 3: Cập nhật VerificationStatus thành "Verified" bằng API verify
+      // ✅ BƯỚC 3: Cập nhật VerificationStatus thành "Verified" TRƯỚC (quan trọng!)
       console.log(`🔄 Calling verify API for product ${productId}...`);
       try {
         const verifyResponse = await apiRequest(`/api/Product/verify/${productId}`, {
           method: 'PUT'
         });
         console.log("✅ Product verified successfully:", verifyResponse);
-      } catch (updateError) {
-        console.error("❌ Failed to verify product:", updateError);
+      } catch (verifyError) {
+        console.error("❌ Failed to verify product:", verifyError);
         showToast("Không thể hoàn thành kiểm định. Vui lòng thử lại.", "error");
         return;
+      }
+      
+      // ✅ BƯỚC 4: Cập nhật thông tin sản phẩm SAU khi đã verify (nếu admin đã chỉnh sửa)
+      console.log(`🔄 Updating product information for product ${productId} using admin API...`);
+      console.log("📋 Current inspection product data:", currentInspectionProduct);
+      
+      try {
+        // Helper function to parse int safely
+        const safeParseInt = (value) => {
+          if (!value || value === "N/A" || value === "") return null;
+          const parsed = parseInt(value);
+          return isNaN(parsed) ? null : parsed;
+        };
+
+        // Helper function to parse float safely
+        const safeParseFloat = (value) => {
+          if (!value || value === "N/A" || value === "") return 0;
+          const parsed = parseFloat(value);
+          return isNaN(parsed) ? 0 : parsed;
+        };
+
+        // Chuẩn bị dữ liệu cho ProductRequest DTO (PascalCase)
+        const productData = {
+          // ⚠️ ProductType là REQUIRED - phải có giá trị "Vehicle" hoặc "Battery"
+          ProductType: currentInspectionProduct.productType || "Vehicle",
+          Title: currentInspectionProduct.title || "",
+          Description: currentInspectionProduct.description || "",
+          Price: safeParseFloat(currentInspectionProduct.price),
+          Brand: currentInspectionProduct.brand || "",
+          Model: currentInspectionProduct.model || "",
+          Condition: currentInspectionProduct.condition || "",
+          // Các trường cho xe (nếu là xe)
+          VehicleType: currentInspectionProduct.vehicleType || null,
+          ManufactureYear: safeParseInt(currentInspectionProduct.manufactureYear || currentInspectionProduct.year),
+          Mileage: safeParseInt(currentInspectionProduct.mileage),
+          Transmission: currentInspectionProduct.transmission || null,
+          SeatCount: safeParseInt(currentInspectionProduct.seatCount),
+          LicensePlate: currentInspectionProduct.licensePlate || "",
+          // Các trường cho pin (nếu là pin) - set null để backend giữ giá trị cũ
+          BatteryType: currentInspectionProduct.batteryType || null,
+          BatteryHealth: currentInspectionProduct.batteryHealth || null,
+          Capacity: currentInspectionProduct.capacity || null,
+          Voltage: currentInspectionProduct.voltage || null,
+          BMS: currentInspectionProduct.bms || null,
+          CellType: currentInspectionProduct.cellType || null,
+          CycleCount: safeParseInt(currentInspectionProduct.cycleCount)
+        };
+
+        console.log("📝 Product data to update (ProductRequest DTO):", JSON.stringify(productData, null, 2));
+
+        // ✅ Gọi API PUT /api/Product/admin/update/{id}
+        console.log(`🚀 Calling API: PUT /api/Product/admin/update/${productId}`);
+        const updateResponse = await apiRequest(`/api/Product/admin/update/${productId}`, {
+          method: 'PUT',
+          body: productData
+        });
+        
+        console.log("✅ Product information updated successfully (status preserved):", updateResponse);
+        console.log("✅ Updated fields from response:", {
+          Title: updateResponse.title,
+          Brand: updateResponse.brand,
+          Model: updateResponse.model,
+          Price: updateResponse.price,
+          Condition: updateResponse.condition,
+          ManufactureYear: updateResponse.manufactureYear,
+          Mileage: updateResponse.mileage,
+          LicensePlate: updateResponse.licensePlate
+        });
+        
+      } catch (updateError) {
+        console.error("❌ Failed to update product information:", updateError);
+        console.error("❌ Error details:", {
+          status: updateError.status,
+          message: updateError.message,
+          data: updateError.data
+        });
+        console.error("❌ Full error object:", updateError);
+        // Không return - tiếp tục đóng modal ngay cả khi update thất bại
+        // Vì đã verify thành công rồi
       }
       
       // ✅ BƯỚC 4: Cập nhật local state
@@ -1410,7 +1516,11 @@ export const AdminDashboard = () => {
         // Không dừng lại nếu gửi thông báo thất bại
       }
       
-      // ✅ BƯỚC 6: Đóng modal và reset state
+      // ✅ BƯỚC 6: Refresh data để cập nhật UI
+      console.log("🔄 Refreshing admin data...");
+      await loadAdminData();
+      
+      // ✅ BƯỚC 7: Đóng modal và reset state
       console.log("🔄 Closing inspection modal and resetting state...");
       setShowInspectionModal(false);
       setCurrentInspectionProduct(null);
@@ -1418,10 +1528,7 @@ export const AdminDashboard = () => {
       setInspectionFiles([]);
       setShowNotifications(false);
       
-      // Refresh data
-      await loadAdminData();
-      
-      showToast(`✅ Đã hoàn thành kiểm định xe thành công! ${watermarkedFiles.length} hình ảnh đã được thêm watermark "VERIFIED" và lưu vào tin đăng.`, "success");
+      showToast("✅ Đã hoàn thành kiểm định xe và cập nhật thông tin thành công!", "success");
       
     } catch (error) {
       console.error("❌ Failed to complete inspection:", error);
@@ -1470,7 +1577,7 @@ export const AdminDashboard = () => {
     };
 
     const config = statusConfig[verificationStatus] || { color: "bg-gray-100 text-gray-800", text: "Không xác định" };
-    
+
     return (
       <span className={`px-2 py-1 text-xs font-medium rounded-full ${config.color}`}>
         {config.text}
@@ -1599,6 +1706,17 @@ export const AdminDashboard = () => {
               <DollarSign className="h-5 w-5" />
               <span>Transaction Management</span>
             </div>
+            <div 
+              className={`flex items-center space-x-3 p-3 rounded-lg cursor-pointer transition-colors ${
+                activeTab === "reports" 
+                  ? "bg-blue-50 text-blue-600" 
+                  : "text-gray-600 hover:bg-gray-50"
+              }`}
+              onClick={() => setActiveTab("reports")}
+            >
+              <Flag className="h-5 w-5" />
+              <span>Báo cáo vi phạm</span>
+            </div>
             <div className="flex items-center space-x-3 p-3 text-gray-600 hover:bg-gray-50 rounded-lg cursor-pointer">
               <Users className="h-5 w-5" />
               <span>User Management</span>
@@ -1633,18 +1751,20 @@ export const AdminDashboard = () => {
                 {activeTab === "vehicles" && "Vehicle Management"}
                 {activeTab === "batteries" && "Battery Management"}
                 {activeTab === "transactions" && "Transaction Management"}
+                {activeTab === "reports" && "Báo cáo vi phạm"}
               </h1>
               <p className="text-gray-600">
                 {activeTab === "dashboard" && "EV Market system overview • Realtime update"}
                 {activeTab === "vehicles" && "Manage all vehicle listings and approvals"}
                 {activeTab === "batteries" && "Manage all battery listings and approvals"}
                 {activeTab === "transactions" && "Manage completed transactions and seller confirmations"}
+                {activeTab === "reports" && "Xem xét và xử lý các báo cáo vi phạm từ người dùng"}
               </p>
             </div>
             <div className="flex items-center space-x-2">
               {/* Notification Bell */}
               <div className="relative">
-                <button
+              <button
                   onClick={() => setShowNotifications(!showNotifications)}
                   className="relative p-2 text-gray-600 hover:text-blue-600 transition-colors"
                   title="Thông báo"
@@ -1722,7 +1842,7 @@ export const AdminDashboard = () => {
                         className="w-full text-center text-sm text-blue-600 hover:text-blue-800"
                       >
                         Xem tất cả thông báo
-                      </button>
+              </button>
                     </div>
                   </div>
                 )}
@@ -1926,7 +2046,7 @@ export const AdminDashboard = () => {
                   <p className="text-gray-500 text-sm font-medium">PENDING INSPECTIONS</p>
                   <p className="text-3xl font-bold text-gray-900 mt-2">
                     {allListings.filter(l => l.verificationStatus === "Requested").length}
-                  </p>
+                </p>
                   <p className="text-xs text-gray-600 mt-1">Awaiting Admin Action</p>
               </div>
                 <div className="bg-yellow-100 p-4 rounded-xl">
@@ -1951,17 +2071,18 @@ export const AdminDashboard = () => {
               </div>
                 <div className="bg-blue-100 p-4 rounded-xl">
                   <Bell className="h-8 w-8 text-blue-600" />
-                </div>
-              </div>
+            </div>
+          </div>
               <div className="mt-4 space-y-1">
                 <p className="text-xs text-gray-500">Total: {notifications.length}</p>
                 <p className="text-xs text-gray-500">Verification: {notifications.filter(n => n.notificationType === 'verification_payment_success').length}</p>
-            </div>
+        </div>
           </div>
         </div>
         )}
 
-            {/* Filters and Search */}
+            {/* Filters and Search - Hide on reports tab */}
+            {activeTab !== "reports" && (
             <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-gray-100">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0 lg:space-x-6">
             <div className="flex-1">
@@ -2013,9 +2134,10 @@ export const AdminDashboard = () => {
             </div>
           </div>
         </div>
+        )}
 
-        {/* Listings Table - Hide on inspections and transactions tabs */}
-        {activeTab !== "inspections" && activeTab !== "transactions" && (
+        {/* Listings Table - Hide on inspections, transactions and reports tabs */}
+        {activeTab !== "inspections" && activeTab !== "transactions" && activeTab !== "reports" && (
         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-xl font-semibold text-gray-900">
@@ -2123,7 +2245,7 @@ export const AdminDashboard = () => {
                       
                       {/* Inspection button for products with Requested or InProgress verification status */}
                       {(listing.verificationStatus === "Requested" || listing.verificationStatus === "InProgress") && (
-                        <button
+                      <button
                           onClick={() => handleStartInspection(listing.id)}
                           className={`px-3 py-1 rounded-lg text-xs flex items-center space-x-1 ${
                             listing.verificationStatus === "InProgress" 
@@ -2134,7 +2256,7 @@ export const AdminDashboard = () => {
                         >
                           <Camera className="h-3 w-3" />
                           <span>{listing.verificationStatus === "InProgress" ? "Tiếp tục" : "Kiểm định"}</span>
-                        </button>
+                      </button>
                       )}
                         
                         {(listing.status === "pending" || listing.status === "Đang chờ duyệt" || listing.status === "Re-submit" || listing.status === "Draft") && listing.status !== "reserved" && (
@@ -2196,29 +2318,29 @@ export const AdminDashboard = () => {
                       <div className="flex items-center space-x-3">
                         <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
                           <Package className="h-6 w-6 text-white" />
-              </div>
+                </div>
                         <div>
                           <h3 className="text-xl font-bold text-gray-900">{product.title}</h3>
                           <p className="text-sm text-gray-600">Chi tiết sản phẩm</p>
-                            </div>
-                          </div>
+              </div>
+            </div>
                         <button
                         onClick={() => setExpandedDetails(false)}
                         className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                 >
                         <XCircle className="h-6 w-6 text-gray-500" />
                         </button>
-      </div>
+              </div>
 
                     {/* Content */}
-            <div className="p-6">
+              <div className="p-6">
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         {/* Images */}
                 <div>
                           <h4 className="text-lg font-semibold text-gray-900 mb-4">Hình ảnh</h4>
                           {product.images && product.images.length > 0 ? (
                     <div className="space-y-4">
-                      <div className="relative">
+                        <div className="relative">
                         <img
                                   src={product.images[currentImageIndex]}
                                   alt={product.title}
@@ -2248,8 +2370,8 @@ export const AdminDashboard = () => {
                   ) : (
                             <div className="w-full h-64 bg-gray-200 rounded-lg flex items-center justify-center">
                               <Package className="h-16 w-16 text-gray-400" />
-                    </div>
-                  )}
+                            </div>
+                          )}
                 </div>
 
                         {/* Details */}
@@ -2264,8 +2386,8 @@ export const AdminDashboard = () => {
                       <div>
                                 <p className="text-sm text-gray-500">Trạng thái</p>
                                 <p className="font-medium">{getStatusBadge(product.status)}</p>
-                      </div>
-                  </div>
+                          </div>
+                        </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
@@ -2282,7 +2404,7 @@ export const AdminDashboard = () => {
                         <div>
                                 <p className="text-sm text-gray-500">Năm sản xuất</p>
                                 <p className="font-medium">{product.year}</p>
-                        </div>
+                            </div>
                       <div>
                                 <p className="text-sm text-gray-500">Giá</p>
                                 <p className="font-medium text-green-600">{formatPrice(product.price)}</p>
@@ -2335,8 +2457,8 @@ export const AdminDashboard = () => {
                                   <p className="text-sm text-gray-500">Email</p>
                                   <p className="font-medium">{product.sellerEmail}</p>
                               </div>
-                              )}
-                              </div>
+                            )}
+                          </div>
 
                             {product.rejectionReason && (
                             <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -2344,21 +2466,21 @@ export const AdminDashboard = () => {
                                 <p className="text-sm text-red-700 mt-1">{product.rejectionReason}</p>
                               </div>
                     )}
-                              </div>
-                              </div>
-              </div>
+                          </div>
+                        </div>
+                      </div>
 
                       {/* Actions */}
                       <div className="mt-6 flex items-center justify-end space-x-3">
-                      <button
+                        <button
                           onClick={() => setExpandedDetails(false)}
                           className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                      >
+                        >
                           Đóng
-                      </button>
+                        </button>
                         {(product.status === "pending" || product.status === "Re-submit" || product.status === "Draft") && (
                           <>
-                      <button
+                          <button
                               onClick={() => {
                                 setExpandedDetails(false);
                                 handleApprove(product.id);
@@ -2372,7 +2494,7 @@ export const AdminDashboard = () => {
                                 <CheckCircle className="h-4 w-4" />
                               )}
                               <span>Duyệt</span>
-                      </button>
+                          </button>
                             <button
                               onClick={() => {
                                 setExpandedDetails(false);
@@ -2386,14 +2508,14 @@ export const AdminDashboard = () => {
                             </button>
                           </>
                         )}
+                      </div>
                     </div>
-                  </div>
                   </>
                 );
               })()}
-                            </div>
-                          </div>
-                        )}
+                </div>
+              </div>
+            )}
 
 
         {/* Reject Modal */}
@@ -2411,22 +2533,22 @@ export const AdminDashboard = () => {
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">Chi tiết sản phẩm</h2>
-                      <button
+                <button
                   onClick={() => setShowModal(false)}
                   className="text-gray-400 hover:text-gray-600"
                 >
                   <XCircle className="h-6 w-6" />
-                      </button>
-                    </div>
+                </button>
+            </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Images */}
                 <div>
                   <div className="relative h-64 bg-gray-100 rounded-lg overflow-hidden">
                     {selectedListing.images && selectedListing.images.length > 0 ? (
-                      <img
-                        src={selectedListing.images[currentImageIndex]}
-                        alt={selectedListing.title}
+                        <img
+                          src={selectedListing.images[currentImageIndex]}
+                          alt={selectedListing.title}
                         className="w-full h-full object-cover"
                       />
                     ) : (
@@ -2499,19 +2621,19 @@ export const AdminDashboard = () => {
                     
                     {/* Show inspection button only for products with Requested verification status */}
                     {selectedListing.verificationStatus === "Requested" && (
-                      <button
+                            <button
                         onClick={() => handleStartInspection(selectedListing.id)}
                         className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                       >
                         <Camera className="h-5 w-5" />
                         <span>Bắt đầu kiểm định</span>
-                      </button>
+                            </button>
                     )}
-                    
+
                     {/* Show button for testing - temporarily show for all products */}
                     {selectedListing.verificationStatus !== "Requested" && selectedListing.verificationStatus !== "InProgress" && selectedListing.verificationStatus !== "Verified" && (
-                      <button
-                        onClick={() => {
+                            <button
+                              onClick={() => {
                           // Temporarily change verification status to Requested for testing
                           const updatedListing = {...selectedListing, verificationStatus: "Requested"};
                           setSelectedListing(updatedListing);
@@ -2532,7 +2654,7 @@ export const AdminDashboard = () => {
                       >
                         <CheckCircle className="h-5 w-5" />
                         <span>Hoàn thành kiểm định</span>
-                      </button>
+                            </button>
                     )}
                     
                     {/* Show status for verified products */}
@@ -2540,15 +2662,15 @@ export const AdminDashboard = () => {
                       <div className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-green-100 text-green-800 rounded-lg">
                         <CheckCircle className="h-5 w-5" />
                         <span>Đã kiểm định</span>
+                          </div>
+                        )}
                       </div>
-                    )}
-                </div>
-                </div>
+                    </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+                    </div>
+                  )}
 
       {/* Inspection Modal */}
       {showInspectionModal && currentInspectionProduct && (
@@ -2565,30 +2687,169 @@ export const AdminDashboard = () => {
                 >
                   <XCircle className="h-6 w-6" />
                 </button>
-              </div>
-
-              <div className="space-y-6">
-                {/* Product Info */}
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="text-lg font-semibold mb-2">Thông tin xe</h3>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="font-medium">Thương hiệu:</span> {currentInspectionProduct.brand}
-                    </div>
-                    <div>
-                      <span className="font-medium">Model:</span> {currentInspectionProduct.model}
-                    </div>
-                    <div>
-                      <span className="font-medium">Biển số:</span> {currentInspectionProduct.licensePlate || "N/A"}
-                    </div>
-                    <div>
-                      <span className="font-medium">Số km:</span> {currentInspectionProduct.mileage || "N/A"}
-                    </div>
-                  </div>
                 </div>
 
+                <div className="space-y-6">
+                {/* Editable Product Info Form */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold">Thông tin xe - Kiểm tra & Chỉnh sửa</h3>
+                  </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                    {/* Title */}
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Tiêu đề
+                      </label>
+                      <input
+                        type="text"
+                        value={currentInspectionProduct.title || ''}
+                        onChange={(e) => setCurrentInspectionProduct({...currentInspectionProduct, title: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+
+                    {/* Brand */}
+                      <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Thương hiệu
+                      </label>
+                      <input
+                        type="text"
+                        value={currentInspectionProduct.brand || ''}
+                        onChange={(e) => setCurrentInspectionProduct({...currentInspectionProduct, brand: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                      </div>
+
+                    {/* Model */}
+                      <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Model
+                      </label>
+                      <input
+                        type="text"
+                        value={currentInspectionProduct.model || ''}
+                        onChange={(e) => setCurrentInspectionProduct({...currentInspectionProduct, model: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                      </div>
+
+                    {/* License Plate */}
+                        <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Biển số xe
+                      </label>
+                      <input
+                        type="text"
+                        value={currentInspectionProduct.licensePlate || ''}
+                        onChange={(e) => setCurrentInspectionProduct({...currentInspectionProduct, licensePlate: e.target.value})}
+                        placeholder="VD: 30A-12345"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                        </div>
+
+                    {/* Mileage */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Số km đã đi
+                      </label>
+                      <input
+                        type="number"
+                        value={
+                          currentInspectionProduct.mileage && 
+                          currentInspectionProduct.mileage !== 'N/A' && 
+                          currentInspectionProduct.mileage !== 0
+                            ? currentInspectionProduct.mileage 
+                            : ''
+                        }
+                        onChange={(e) => setCurrentInspectionProduct({...currentInspectionProduct, mileage: e.target.value ? parseInt(e.target.value) : ''})}
+                        placeholder="VD: 50000"
+                        min="0"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+
+                    {/* Manufacture Year */}
+                              <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Năm sản xuất
+                      </label>
+                      <input
+                        type="number"
+                        value={
+                          currentInspectionProduct.manufactureYear && 
+                          currentInspectionProduct.manufactureYear !== 'N/A' && 
+                          currentInspectionProduct.manufactureYear !== 0
+                            ? currentInspectionProduct.manufactureYear 
+                            : currentInspectionProduct.year && 
+                              currentInspectionProduct.year !== 'N/A' && 
+                              currentInspectionProduct.year !== 0
+                              ? currentInspectionProduct.year 
+                              : ''
+                        }
+                        onChange={(e) => setCurrentInspectionProduct({...currentInspectionProduct, manufactureYear: e.target.value ? parseInt(e.target.value) : ''})}
+                        placeholder="VD: 2023"
+                        min="2000"
+                        max="2030"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                              </div>
+
+                    {/* Condition */}
+                              <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Tình trạng
+                      </label>
+                      <select
+                        value={currentInspectionProduct.condition || ''}
+                        onChange={(e) => setCurrentInspectionProduct({...currentInspectionProduct, condition: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        <option value="excellent">Xuất sắc</option>
+                        <option value="good">Tốt</option>
+                        <option value="fair">Khá</option>
+                        <option value="poor">Kém</option>
+                      </select>
+                              </div>
+
+                    {/* Price */}
+                              <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Giá (VNĐ)
+                      </label>
+                      <input
+                        type="number"
+                        value={currentInspectionProduct.price || ''}
+                        onChange={(e) => setCurrentInspectionProduct({...currentInspectionProduct, price: parseFloat(e.target.value) || 0})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                              </div>
+
+                    {/* Description */}
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Mô tả
+                      </label>
+                      <textarea
+                        value={currentInspectionProduct.description || ''}
+                        onChange={(e) => setCurrentInspectionProduct({...currentInspectionProduct, description: e.target.value})}
+                        rows={3}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                              </div>
+                              </div>
+
+                  <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <p className="text-sm text-blue-800">
+                      💡 <strong>Hướng dẫn:</strong> Kiểm tra và chỉnh sửa thông tin xe nếu cần. Thông tin sẽ được cập nhật khi bạn hoàn thành kiểm định.
+                                </p>
+                              </div>
+                              </div>
+
                 {/* Image Upload Section */}
-                <div>
+                              <div>
                   <h3 className="text-lg font-semibold mb-4">Upload hình ảnh kiểm định</h3>
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                     <Camera className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -2632,7 +2893,7 @@ export const AdminDashboard = () => {
                     >
                       Chọn hình ảnh
                     </label>
-                  </div>
+                              </div>
 
                   {/* Display uploaded images */}
                   {inspectionImages.length > 0 && (
@@ -2655,11 +2916,11 @@ export const AdminDashboard = () => {
                             >
                               ×
                             </button>
-                          </div>
+                              </div>
                         ))}
-                      </div>
-                    </div>
-                  )}
+                            </div>
+                          </div>
+                        )}
                 </div>
 
                 {/* Action Buttons */}
@@ -2704,9 +2965,9 @@ export const AdminDashboard = () => {
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+                            </div>
+                          </div>
+                        )}
 
       {/* Transaction Management Tab */}
       {activeTab === "transactions" && (
@@ -2724,35 +2985,35 @@ export const AdminDashboard = () => {
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                 <div className="flex items-center">
                   <Clock className="h-8 w-8 text-yellow-600 mr-3" />
-                  <div>
+                            <div>
                     <p className="text-sm font-medium text-yellow-900">Đang trong quá trình thanh toán</p>
                     <p className="text-2xl font-bold text-yellow-600">
                       {allListings.filter(product => product.status === 'reserved').length}
-                    </p>
-                  </div>
-                </div>
+                              </p>
+                            </div>
+                            </div>
               </div>
               <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                 <div className="flex items-center">
                   <CheckCircle className="h-8 w-8 text-orange-600 mr-3" />
-                  <div>
+                            <div>
                     <p className="text-sm font-medium text-orange-900">Chờ admin duyệt</p>
                     <p className="text-2xl font-bold text-orange-600">0</p>
-                  </div>
-                </div>
-              </div>
+                            </div>
+                          </div>
+                        </div>
               <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                 <div className="flex items-center">
                   <DollarSign className="h-8 w-8 text-green-600 mr-3" />
-                  <div>
+                            <div>
                     <p className="text-sm font-medium text-green-900">Đã hoàn tất</p>
                     <p className="text-2xl font-bold text-green-600">
                       {allListings.filter(product => product.status === 'sold').length}
-                    </p>
+                              </p>
+                            </div>
+                            </div>
+                      </div>
                   </div>
-                </div>
-              </div>
-            </div>
 
             {/* Reserved and Sold Products List */}
             <div className="space-y-4">
@@ -2780,12 +3041,12 @@ export const AdminDashboard = () => {
                             style={{ display: product.images && product.images.length > 0 ? 'none' : 'flex' }}
                           >
                             {product.status === 'reserved' ? <Clock className="h-6 w-6 text-yellow-600" /> : <DollarSign className="h-6 w-6 text-blue-600" />}
-                          </div>
-                        </div>
+                </div>
+              </div>
                         <div className="flex-1">
                           <h4 className="font-medium text-gray-900 line-clamp-2">
                             {product.title || product.name}
-                          </h4>
+                      </h4>
                           <p className="text-lg font-bold text-blue-600 mt-1">
                             {formatPrice(product.price)}
                           </p>
@@ -2794,7 +3055,7 @@ export const AdminDashboard = () => {
                             <span className={`text-sm ${product.status === 'reserved' ? 'text-yellow-600' : 'text-blue-600'}`}>
                               {product.status === 'reserved' ? 'Đang trong quá trình thanh toán' : 'Đã hoàn tất'}
                             </span>
-                          </div>
+                    </div>
                           <div className="mt-2 text-sm text-gray-600">
                             <p>Seller ID: {product.sellerId}</p>
                             <p>Ngày tạo: {formatDate(product.createdAt || product.createdDate)}</p>
@@ -2803,7 +3064,7 @@ export const AdminDashboard = () => {
                       </div>
                       <div className="mt-4 flex space-x-2">
                         {product.status === 'reserved' && (
-                          <button
+                      <button
                             onClick={() => handleAdminConfirm(product.id || product.productId)}
                             className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
                           >
@@ -2828,17 +3089,23 @@ export const AdminDashboard = () => {
                         )}
                       </div>
                     </div>
+                  </div>
                   ))}
-                </div>
+                    </div>
               ) : (
                 <div className="text-center py-8">
                   <Clock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                   <p className="text-gray-600">Chưa có sản phẩm nào đang trong quá trình thanh toán hoặc đã hoàn tất</p>
                 </div>
               )}
-            </div>
-          </div>
-        </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+      {/* Reports Management Tab */}
+      {activeTab === "reports" && (
+        <AdminReports />
       )}
 
       </div>

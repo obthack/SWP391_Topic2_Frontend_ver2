@@ -23,6 +23,7 @@ import {
   X,
   XCircle,
   Clock,
+  Flag,
 } from "lucide-react";
 import { apiRequest } from "../lib/api";
 import { createOrder } from "../lib/orderApi";
@@ -33,6 +34,7 @@ import { useToast } from "../contexts/ToastContext";
 import { toggleFavorite, isProductFavorited } from "../lib/favoriteApi";
 import { VerificationButton } from "../components/common/VerificationButton";
 import { ChatModal } from "../components/common/ChatModal";
+import { ReportModal } from "../components/common/ReportModal";
 
 // Helper function to fix Vietnamese character encoding
 const fixVietnameseEncoding = (str) => {
@@ -87,6 +89,7 @@ export const ProductDetail = () => {
   const [showChatModal, setShowChatModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
   const [paying, setPaying] = useState(false);
   const [currentOrderId, setCurrentOrderId] = useState(null);
 
@@ -723,14 +726,27 @@ export const ProductDetail = () => {
                     ? "bg-red-50 text-red-600"
                     : "hover:bg-gray-100 text-gray-600"
                 }`}
+                title="Yêu thích"
               >
                 <Heart
                   className={`h-5 w-5 ${isFavorite ? "fill-current" : ""}`}
                 />
               </button>
-              <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-600">
+              <button 
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-600"
+                title="Chia sẻ"
+              >
                 <Share2 className="h-5 w-5" />
               </button>
+              {user && (
+                <button 
+                  onClick={() => setShowReportModal(true)}
+                  className="p-2 hover:bg-red-50 rounded-lg transition-colors text-gray-600 hover:text-red-600"
+                  title="Báo cáo vi phạm"
+                >
+                  <Flag className="h-5 w-5" />
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -1345,6 +1361,13 @@ export const ProductDetail = () => {
         seller={seller}
         product={product}
         onSendMessage={handleSendMessage}
+      />
+
+      {/* Report Modal */}
+      <ReportModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        product={product}
       />
 
       {/* Payment Modal */}
