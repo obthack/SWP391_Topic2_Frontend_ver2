@@ -42,7 +42,6 @@ export const ChatHistory = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [connectionError, setConnectionError] = useState(null);
   
-  const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const currentChatIdRef = useRef(null);
 
@@ -161,15 +160,6 @@ export const ChatHistory = () => {
     
     handleChatSwitch();
   }, [isConnected, selectedChatId]);
-
-  // Auto scroll to bottom
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
 
   // ====================
   // SIGNALR SETUP
@@ -679,7 +669,6 @@ export const ChatHistory = () => {
                           </div>
                         );
                       })}
-                      <div ref={messagesEndRef} />
                     </>
                   )}
                 </div>
