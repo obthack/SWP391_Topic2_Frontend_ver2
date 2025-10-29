@@ -110,7 +110,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// Sử dụng CORS policy
+// ✅ CORS MUST be called BEFORE UseHttpsRedirection and UseAuthentication
 app.UseCors("AllowFrontend");
 
 app.UseHttpsRedirection();

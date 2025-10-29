@@ -16,6 +16,10 @@ export const HomePage = () => {
   const { user } = useAuth();
   const { show: showToast } = useToast();
   const location = useLocation();
+  const [showPaymentBanner, setShowPaymentBanner] = useState(false);
+  const [paymentBannerInfo, setPaymentBannerInfo] = useState({ amount: null, type: 'Deposit' });
+  const [showRefundBanner, setShowRefundBanner] = useState(false);
+  const [refundBannerInfo, setRefundBannerInfo] = useState({ amount: null, productTitle: null });
   const [searchQuery, setSearchQuery] = useState("");
   const [productType, setProductType] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all"); // all, vehicle, battery
@@ -123,16 +127,187 @@ export const HomePage = () => {
     
     // Check for payment success parameters
     checkPaymentSuccess();
-  }, [userId]); // Only reload when userId changes, not when user object reference changes
+    
+    // ✅ Check localStorage for payment success (backup method)
+    const checkLocalStoragePayment = () => {
+      try {
+        const paymentDataStr = localStorage.getItem('evtb_payment_success');
+        if (paymentDataStr) {
+          const paymentData = JSON.parse(paymentDataStr);
+          
+          // Check if it's recent (within last 10 seconds) and not processed
+          const isRecent = (Date.now() - paymentData.timestamp) < 10000;
+          if (isRecent && !paymentData.processed) {
+            console.log('[HomePage] Found payment success in localStorage:', paymentData);
+            
+            const formattedAmount = paymentData.amount ? (parseInt(paymentData.amount) / 100).toLocaleString('vi-VN') : 'N/A';
+            const isVerification = (paymentData.paymentType || '').toLowerCase() === 'verification';
+            
+            // Show toast
+            showToast({
+              type: 'success',
+              title: isVerification ? '✅ Thanh toán kiểm định thành công!' : '🎉 Thanh toán đặt cọc thành công!',
+              message: isVerification 
+                ? `Yêu cầu kiểm định đã được thanh toán (${formattedAmount} VND).`
+                : `Bạn đã đặt cọc thành công (${formattedAmount} VND).`,
+              duration: 8000
+            });
+            
+            // Show banner
+            setPaymentBannerInfo({ amount: formattedAmount, type: paymentData.paymentType || 'Deposit' });
+            setShowPaymentBanner(true);
+            
+            // Mark as processed
+            paymentData.processed = true;
+            localStorage.setItem('evtb_payment_success', JSON.stringify(paymentData));
+            
+            // Clean up after 30 seconds
+            setTimeout(() => {
+              localStorage.removeItem('evtb_payment_success');
+            }, 30000);
+          }
+        }
+      } catch (error) {
+        console.error('[HomePage] Error checking localStorage:', error);
+      }
+    };
+    
+    // Check immediately
+    checkLocalStoragePayment();
+    
+    // ✅ Check for refund success in localStorage
+    const checkRefundSuccess = () => {
+      try {
+        const refundDataStr = localStorage.getItem('evtb_refund_success');
+        if (refundDataStr) {
+          const refundData = JSON.parse(refundDataStr);
+          
+          // Check if it's recent (within last 10 seconds)
+          const isRecent = (Date.now() - refundData.timestamp) < 10000;
+          if (isRecent) {
+            console.log('[HomePage] Found refund success in localStorage:', refundData);
+            
+            showToast({
+              type: 'success',
+              title: '💰 Đã hoàn tiền thành công!',
+              message: `Số tiền ${refundData.amount} đã được hoàn lại vào tài khoản của bạn.`,
+              duration: 8000
+            });
+            
+            setRefundBannerInfo({ 
+              amount: refundData.amount, 
+              productTitle: refundData.productTitle 
+            });
+            setShowRefundBanner(true);
+            
+            // Clean up after 30 seconds
+            setTimeout(() => {
+              localStorage.removeItem('evtb_refund_success');
+            }, 30000);
+          }
+        }
+      } catch (error) {
+        console.error('[HomePage] Error checking refund localStorage:', error);
+      }
+    };
+    
+    checkRefundSuccess();
+    
+    // Listen for storage events from other tabs
+    const handleStorageChange = (e) => {
+      if (e.key === 'evtb_payment_success') {
+        checkLocalStoragePayment();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Listen for postMessage from PaymentSuccess page (opened via window.open)
+    const onMessage = (event) => {
+      try {
+        const data = event.data || {};
+        
+        // Filter out messages from browser extensions
+        if (data.posdMessageId || data.type === 'VIDEO_XHR_CANDIDATE' || data.from === 'detector') {
+          return; // Ignore extension messages
+        }
+        
+        console.log('[HomePage] Received message:', data);
+        
+        // Handle redirect message
+        if (data.type === 'EVTB_REDIRECT' && data.url) {
+          console.log('[HomePage] Redirecting to:', data.url);
+          window.location.replace(data.url);
+          return;
+        }
+        
+        if (data.type === 'EVTB_PAYMENT_SUCCESS' && data.payload) {
+          console.log('[HomePage] Payment success message received:', data.payload);
+          const { paymentId, amount, paymentType } = data.payload;
+          const formattedAmount = amount ? (parseInt(amount) / 100).toLocaleString('vi-VN') : 'N/A';
+          const isVerification = (paymentType || '').toLowerCase() === 'verification';
+          
+          console.log('[HomePage] Showing success toast...');
+          showToast({
+            type: 'success',
+            title: isVerification ? '✅ Thanh toán kiểm định thành công!' : '🎉 Thanh toán đặt cọc thành công!',
+            message: isVerification 
+              ? `Yêu cầu kiểm định đã được thanh toán (${formattedAmount} VND).`
+              : `Bạn đã đặt cọc thành công (${formattedAmount} VND).`,
+            duration: 8000
+          });
+          
+          // Also show persistent banner as a fallback UI
+          setPaymentBannerInfo({ amount: formattedAmount, type: paymentType || 'Deposit' });
+          setShowPaymentBanner(true);
+          
+          console.log('[HomePage] Toast shown');
+        }
+      } catch (error) {
+        console.error('[HomePage] Error handling message:', error);
+      }
+    };
+    
+    console.log('[HomePage] Setting up message listener');
+    window.addEventListener('message', onMessage);
+    
+    return () => {
+      console.log('[HomePage] Cleaning up listeners');
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('message', onMessage);
+    };
+  }, [userId, showToast]); // Include showToast in dependencies
 
   const checkPaymentSuccess = async () => {
     const urlParams = new URLSearchParams(location.search);
     const paymentSuccess = urlParams.get('payment_success');
     const paymentError = urlParams.get('payment_error');
     const paymentId = urlParams.get('payment_id');
-    const amount = urlParams.get('amount');
+    let amount = urlParams.get('amount');
     const transactionNo = urlParams.get('transaction_no');
     const paymentType = urlParams.get('payment_type'); // ✅ Get payment type from URL
+
+    // ✅ If amount not in URL, try to get from localStorage
+    if (!amount || amount === '0') {
+      try {
+        const storageData = localStorage.getItem('evtb_payment_success');
+        if (storageData) {
+          const parsed = JSON.parse(storageData);
+          amount = parsed.amount;
+          console.log('[HomePage] Got amount from localStorage:', amount);
+        }
+      } catch (e) {
+        console.error('[HomePage] Could not read amount from localStorage:', e);
+      }
+    }
+    
+    // ✅ Debug: Log all payment data
+    console.log('[HomePage] Payment success data:', {
+      paymentId,
+      amountFromUrl: urlParams.get('amount'),
+      amountFromStorage: amount,
+      transactionNo,
+      paymentType
+    });
 
     if (paymentSuccess === 'true' && paymentId) {
       const formattedAmount = amount ? (parseInt(amount) / 100).toLocaleString('vi-VN') : 'N/A';
@@ -177,6 +352,10 @@ export const HomePage = () => {
           duration: 10000
         });
       }
+
+      // ✅ Also show a persistent banner at top of HomePage
+      setPaymentBannerInfo({ amount: formattedAmount, type: finalPaymentType });
+      setShowPaymentBanner(true);
 
       // Clear URL parameters after showing notification
       const newUrl = window.location.pathname;
@@ -677,6 +856,88 @@ export const HomePage = () => {
 
   return (
     <div className="min-h-screen">
+      {showPaymentBanner && (
+        <div className="sticky top-0 z-50 shadow-2xl animate-slideDown">
+          <div className="bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 text-white">
+            <div className="max-w-7xl mx-auto px-6 py-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  {/* Success Icon */}
+                  <div className="flex items-center justify-center w-16 h-16 bg-white/20 rounded-full backdrop-blur-sm">
+                    <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  
+                  {/* Message */}
+                  <div>
+                    <h3 className="text-2xl font-bold mb-1">
+                      {paymentBannerInfo.type === 'Verification' ? 'Đã thanh toán kiểm định thành công!' : 'Đã thanh toán đặt cọc thành công!'}
+                    </h3>
+                    <p className="text-green-50 text-base">
+                      {paymentBannerInfo.type === 'Verification' 
+                        ? 'Yêu cầu kiểm định của bạn đã được thanh toán thành công. Admin sẽ xác nhận sớm nhất.' 
+                        : 'Giao dịch đặt cọc đã hoàn tất. Vui lòng liên hệ người bán để hoàn tất giao dịch.'}
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Close Button */}
+                <button
+                  onClick={() => setShowPaymentBanner(false)}
+                  className="bg-white/20 hover:bg-white/30 text-white rounded-full p-3 transition-all duration-200 hover:scale-110"
+                  aria-label="Đóng thông báo"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {showRefundBanner && (
+        <div className="sticky top-0 z-50 shadow-2xl animate-slideDown">
+          <div className="bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500 text-white">
+            <div className="max-w-7xl mx-auto px-6 py-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  {/* Refund Icon */}
+                  <div className="flex items-center justify-center w-16 h-16 bg-white/20 rounded-full backdrop-blur-sm">
+                    <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                  </div>
+                  
+                  {/* Message */}
+                  <div>
+                    <h3 className="text-2xl font-bold mb-1">
+                      💰 Đã hoàn tiền thành công!
+                    </h3>
+                    <p className="text-blue-50 text-base">
+                      Số tiền <strong>{refundBannerInfo.amount}</strong> đã được hoàn lại vào tài khoản của bạn vì giao dịch không thành công.
+                      {refundBannerInfo.productTitle && ` Sản phẩm "${refundBannerInfo.productTitle}" đã được trả về trang chủ.`}
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Close Button */}
+                <button
+                  onClick={() => setShowRefundBanner(false)}
+                  className="bg-white/20 hover:bg-white/30 text-white rounded-full p-3 transition-all duration-200 hover:scale-110"
+                  aria-label="Đóng thông báo"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <section className="text-white py-20 relative overflow-hidden hero-bg">
         {/* Electric charging effects */}
         <div className="absolute inset-0 overflow-hidden">

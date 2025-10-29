@@ -350,6 +350,108 @@ export const AdminDashboard = () => {
     }
   };
 
+  // Handle mark transaction as failed and refund
+  const handleMarkTransactionFailed = async (productId) => {
+    if (!window.confirm('Bạn có chắc muốn đánh dấu giao dịch này không thành công? Sản phẩm sẽ được trả về Homepage và hoàn tiền cho người mua.')) {
+      return;
+    }
+
+    try {
+      showToast({
+        title: 'Đang xử lý...',
+        description: 'Đang hoàn tiền và trả sản phẩm về trang chủ',
+        type: 'info',
+      });
+
+
+      // Find the product to get its details
+      const product = allListings.find(p => (p.id || p.productId) == productId);
+      console.log('📦 Product to return:', product);
+
+      // Update product status to 'Active' to release it back to Homepage
+      // Use PUT /api/Product/{id} to update the whole product
+      try {
+        // Get full product details first
+        const fullProduct = await apiRequest(`/api/Product/${productId}`);
+        console.log('📦 Full product data:', fullProduct);
+        
+        // Update product with Active status
+        const productUpdateResponse = await apiRequest(`/api/Product/${productId}`, {
+          method: 'PUT',
+          body: {
+            ...fullProduct,
+            status: 'Active'
+          }
+        });
+        console.log('✅ Product status updated to Active:', productUpdateResponse);
+      } catch (statusError) {
+        console.error('❌ Could not update product status:', statusError);
+        showToast({
+          title: 'Lỗi',
+          description: 'Không thể cập nhật trạng thái sản phẩm. Vui lòng thử lại.',
+          type: 'error',
+        });
+        return;
+      }
+
+      // Try to get payment details, but don't fail if this doesn't work
+      let refundAmount = 'N/A';
+      try {
+        const payments = await apiRequest(`/api/payment/product/${productId}`);
+        console.log('📝 Found payments for product:', payments);
+
+        if (payments && payments.length > 0) {
+          const latestPayment = payments[0];
+          refundAmount = latestPayment.amount 
+            ? (parseInt(latestPayment.amount) / 100).toLocaleString('vi-VN') 
+            : 'N/A';
+          
+          console.log('💰 Refund amount calculated:', refundAmount);
+        }
+      } catch (paymentError) {
+        console.warn('⚠️ Could not get payment details, using product price:', paymentError);
+        // Use product price as fallback (no need to divide by 100, price is already in correct unit)
+        refundAmount = product?.price ? parseInt(product.price).toLocaleString('vi-VN') : 'N/A';
+      }
+
+      // Save refund info to localStorage for banner display
+      const refundData = {
+        type: 'REFUND',
+        amount: refundAmount,
+        productTitle: product?.title || product?.name || 'Sản phẩm',
+        timestamp: Date.now()
+      };
+      localStorage.setItem('evtb_refund_success', JSON.stringify(refundData));
+      console.log('💾 Refund data saved to localStorage:', refundData);
+
+      showToast({
+        title: 'Thành công!',
+        description: 'Giao dịch đã được đánh dấu không thành công. Sản phẩm đã được trả về trang chủ.',
+        type: 'success',
+      });
+
+      // Reload data to update UI
+      await loadAdminData();
+
+      // Show info toast about refund banner
+      setTimeout(() => {
+        showToast({
+          title: 'Hoàn tiền',
+          description: 'Người mua sẽ thấy thông báo hoàn tiền khi vào Homepage',
+          type: 'success',
+        });
+      }, 1000);
+
+    } catch (error) {
+      console.error('❌ Error marking transaction as failed:', error);
+      showToast({
+        title: 'Lỗi',
+        description: `Không thể đánh dấu giao dịch thất bại: ${error.message || 'Vui lòng thử lại.'}`,
+        type: 'error',
+      });
+    }
+  };
+
   // Handle view product details
   const handleViewDetails = (product) => {
     // Open product detail page in new tab
@@ -2965,16 +3067,27 @@ export const AdminDashboard = () => {
                       <button
                             onClick={() => handleAdminConfirm(product.id || product.productId)}
                             className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-                      >
-                            Admin xác nhận
-                      </button>
+                          >
+                            Xác nhận giao dịch thành công
+                          </button>
                         )}
-                      <button
-                          onClick={() => handleViewDetails(product)}
-                          className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                      >
-                          Xem chi tiết
-                      </button>
+                        {product.status === 'reserved' && (
+                          <button
+                            onClick={() => handleMarkTransactionFailed(product.id || product.productId)}
+                            className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+                          >
+                            Giao dịch không thành công
+                          </button>
+                        )}
+                        {product.status === 'sold' && (
+                          <button
+                            onClick={() => handleViewDetails(product)}
+                            className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                          >
+                            Xem chi tiết
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                   ))}

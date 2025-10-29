@@ -22,12 +22,20 @@ export const RatingSystem = ({ productId, sellerId }) => {
       
       // API trả về array trực tiếp, không phải object với ratings property
       const ratingsArray = Array.isArray(response) ? response : (response.ratings || []);
-      setRatings(ratingsArray);
+      
+      // ✅ Sort reviews by date (newest first)
+      const sortedRatings = ratingsArray.sort((a, b) => {
+        const dateA = new Date(a.createdDate || a.createdAt || a.created_at || 0);
+        const dateB = new Date(b.createdDate || b.createdAt || b.created_at || 0);
+        return dateB - dateA; // Descending order (newest first)
+      });
+      
+      setRatings(sortedRatings);
       
       // Tính toán average rating và total ratings
-      const totalRatings = ratingsArray.length;
+      const totalRatings = sortedRatings.length;
       const averageRating = totalRatings > 0 
-        ? ratingsArray.reduce((sum, rating) => sum + (rating.rating || rating.ratingValue || 0), 0) / totalRatings
+        ? sortedRatings.reduce((sum, rating) => sum + (rating.rating || rating.ratingValue || 0), 0) / totalRatings
         : 0;
       
       setAverageRating(averageRating);

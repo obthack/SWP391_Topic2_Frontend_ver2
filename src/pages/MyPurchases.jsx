@@ -286,6 +286,11 @@ const MyPurchases = () => {
   };
 
   const handleReviewClick = (purchase) => {
+    console.log('🔍 handleReviewClick called with purchase:', purchase);
+    console.log('🔍 Purchase sellerId:', purchase.sellerId);
+    console.log('🔍 Purchase seller:', purchase.seller);
+    console.log('🔍 Purchase product:', purchase.product);
+    console.log('🔍 Purchase product.sellerId:', purchase.product?.sellerId);
     setSelectedProduct(purchase);
     setReviewData({
       rating: 5,
@@ -324,29 +329,36 @@ const MyPurchases = () => {
 
   const handleSubmitReview = async () => {
     try {
-      // Debug: Log selectedProduct để kiểm tra sellerId
-      console.log('🔍 Selected Product:', selectedProduct);
+      // Debug: Log ALL data about the selected product
+      console.log('🔍 ===== REVIEW SUBMISSION DEBUG =====');
+      console.log('🔍 Selected Product FULL:', JSON.stringify(selectedProduct, null, 2));
       console.log('🔍 SellerId:', selectedProduct.sellerId);
       console.log('🔍 Seller:', selectedProduct.seller);
       console.log('🔍 Seller?.id:', selectedProduct.seller?.id);
+      console.log('🔍 Product:', selectedProduct.product);
+      console.log('🔍 Product?.sellerId:', selectedProduct.product?.sellerId);
       console.log('🔍 Product title:', selectedProduct.product?.title);
       console.log('🔍 Product seller info:', selectedProduct.product?.seller);
       
-        const requestData = {
-          OrderId: selectedProduct.orderId,
-          RevieweeId: (() => {
-            if (isDuyToiChoiProduct(selectedProduct)) {
-              console.log('🔍 Detected Duy toi choi product, setting RevieweeId = 2');
-              return 2;
-            }
-            
-            const sellerId = selectedProduct.sellerId || selectedProduct.seller?.id || 1;
-            console.log('🔍 Using calculated sellerId:', sellerId);
-            return sellerId;
-          })(),
-          Rating: reviewData.rating,
-          Content: reviewData.comment || ""
-        };
+      // Get actual sellerId from order - try multiple fallback strategies
+      const sellerId = selectedProduct.sellerId || 
+                       selectedProduct.seller?.id || 
+                       selectedProduct.product?.sellerId ||
+                       selectedProduct.product?.seller?.id ||
+                       (selectedProduct.product?.seller ? 
+                         (selectedProduct.product.seller.id || selectedProduct.product.seller.userId) : 
+                         null) ||
+                       1;
+      
+      console.log('🔍 Using calculated sellerId:', sellerId);
+      console.log('🔍 Will redirect to: /seller/' + sellerId);
+      
+      const requestData = {
+        OrderId: selectedProduct.orderId,
+        RevieweeId: sellerId, // Backend will override this anyway
+        Rating: reviewData.rating,
+        Content: reviewData.comment || ""
+      };
       
       console.log('🔍 Request Data:', requestData);
       
@@ -364,25 +376,9 @@ const MyPurchases = () => {
       setShowReviewModal(false);
       await loadPurchases(); // Reload to update review status
       
-      // Redirect to seller profile after successful review
-      const sellerId = (() => {
-        if (isDuyToiChoiProduct(selectedProduct)) {
-          console.log('🔍 Detected Duy toi choi product, redirecting to seller/2');
-          return 2;
-        }
-        
-        const calculatedSellerId = selectedProduct.sellerId || selectedProduct.seller?.id || 1;
-        console.log('🔍 Using calculated sellerId for redirect:', calculatedSellerId);
-        return calculatedSellerId;
-      })();
-      
-      console.log('🔍 Redirecting to seller profile:', sellerId);
-      console.log('🔍 Selected product seller info:', {
-        sellerId: selectedProduct.sellerId,
-        seller: selectedProduct.seller,
-        sellerIdFromSeller: selectedProduct.seller?.id
-      });
-      window.location.href = `/seller/${sellerId}`;
+      // Don't redirect - let user stay on MyPurchases page
+      console.log('🔍 Review submitted successfully, staying on MyPurchases page');
+      console.log('🔍 ===== END REVIEW SUBMISSION DEBUG =====');
     } catch (error) {
       console.error('Error submitting review:', error);
       show({
@@ -619,10 +615,19 @@ const MyPurchases = () => {
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 Đánh giá sản phẩm
               </h3>
+              {(() => {
+                console.log('🔍 Modal rendering with selectedProduct:', selectedProduct);
+                console.log('🔍 SellerId in modal:', selectedProduct.sellerId);
+                console.log('🔍 Seller in modal:', selectedProduct.seller);
+                return null;
+              })()}
               
               <div className="mb-4">
                 <p className="text-sm text-gray-600 mb-2">
                   {selectedProduct.product?.title}
+                </p>
+                <p className="text-sm text-blue-600 mb-1">
+                  Seller ID: {selectedProduct.sellerId || 'N/A'}
                 </p>
                 <p className="text-lg font-bold text-green-600">
                   {formatPrice(selectedProduct.totalAmount)}
