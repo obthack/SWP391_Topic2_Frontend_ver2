@@ -77,6 +77,21 @@ const PaymentSuccess = () => {
             message: message,
             duration: 6000
           });
+
+          // Notify opener (homepage) if opened in a new tab/window
+          try {
+            if (window.opener && typeof window.opener.postMessage === 'function') {
+              window.opener.postMessage({
+                type: 'EVTB_PAYMENT_SUCCESS',
+                payload: {
+                  paymentId: vnpTxnRef,
+                  amount: vnpAmount,
+                  transactionNo: vnpTransactionNo,
+                  paymentType: type
+                }
+              }, '*');
+            }
+          } catch (_) {}
         }, 500);
       }
 
@@ -95,6 +110,11 @@ const PaymentSuccess = () => {
                 transaction_no: vnpTransactionNo || ''
               });
               navigate(`/?${redirectParams.toString()}`);
+
+              // Attempt to close the tab after redirecting opener
+              setTimeout(() => {
+                try { window.close(); } catch (_) {}
+              }, 100);
               return 0;
             }
             return prev - 1;

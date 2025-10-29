@@ -137,19 +137,18 @@ namespace EVTB_Backend.Controllers
             {
                 _logger.LogInformation($"VNPay callback received for payment {vnp_TxnRef}");
                 
-                // Parse payment ID from vnp_TxnRef
-                if (!int.TryParse(vnp_TxnRef, out int paymentId))
-                {
-                    _logger.LogError($"Invalid payment ID: {vnp_TxnRef}");
-                    return BadRequest(new { message = "Invalid payment ID" });
-                }
+                // ✅ FOR TESTING: Skip signature validation in development
+                var isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
+                
+                // Parse payment ID from vnp_TxnRef (PaymentId is string)
+                string paymentIdStr = vnp_TxnRef ?? string.Empty;
 
                 // Get payment from database
-                var payment = await _context.Payments.FirstOrDefaultAsync(p => p.PaymentId == paymentId);
+                var payment = await _context.Payments.FirstOrDefaultAsync(p => p.PaymentId == paymentIdStr);
                 
                 if (payment == null)
                 {
-                    _logger.LogError($"Payment {paymentId} not found");
+                    _logger.LogError($"Payment {paymentIdStr} not found");
                     return NotFound(new { message = "Payment not found" });
                 }
 
@@ -178,7 +177,7 @@ namespace EVTB_Backend.Controllers
                         }
                         
                         await _context.SaveChangesAsync();
-                        _logger.LogInformation($"Payment {paymentId} marked as Succeeded");
+                        _logger.LogInformation($"Payment {paymentIdStr} marked as Succeeded");
                     }
                 }
                 else
@@ -186,28 +185,275 @@ namespace EVTB_Backend.Controllers
                     payment.PaymentStatus = "Failed";
                     payment.UpdatedAt = DateTime.UtcNow;
                     await _context.SaveChangesAsync();
-                    _logger.LogWarning($"Payment {paymentId} failed with response code: {vnp_ResponseCode}");
+                    _logger.LogWarning($"Payment {paymentIdStr} failed with response code: {vnp_ResponseCode}");
                 }
 
-                // ✅ Redirect to frontend PaymentSuccess page
+                // ✅ Return HTML page with window.close() and postMessage to opener
                 var frontendUrl = _configuration["FrontendUrl"] ?? "http://localhost:5173";
-                var redirectUrl = $"{frontendUrl}/payment/success?" +
-                    $"vnp_ResponseCode={vnp_ResponseCode}" +
-                    $"&vnp_TxnRef={vnp_TxnRef}" +
-                    $"&vnp_Amount={vnp_Amount}" +
-                    $"&vnp_TransactionNo={vnp_TransactionNo}" +
-                    $"&vnp_ResponseMessage={Uri.EscapeDataString(isSuccess ? "Success" : "Failed")}";
+                // ✅ Get payment type from database (Verification or Deposit)
+                var paymentType = payment.PaymentType ?? "Deposit";
+                var successPageUrl = $"{frontendUrl}/?payment_success=true&payment_id={Uri.EscapeDataString(vnp_TxnRef)}&amount={Uri.EscapeDataString(vnp_Amount)}&transaction_no={Uri.EscapeDataString(vnp_TransactionNo)}&payment_type={Uri.EscapeDataString(paymentType)}";
+                
+                var html = $@"
+<!DOCTYPE html>
+<html lang=""vi"">
+<head>
+    <meta charset=""UTF-8"">
+    <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
+    <title>Thanh toán thành công!</title>
+    <style>
+        body {{
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }}
+        .container {{
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+            max-width: 500px;
+            animation: slideIn 0.5s ease-out;
+        }}
+        @keyframes slideIn {{
+            from {{ transform: translateY(-50px); opacity: 0; }}
+            to {{ transform: translateY(0); opacity: 1; }}
+        }}
+        .success-icon {{
+            width: 80px;
+            height: 80px;
+            background: #10b981;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            animation: checkmark 0.6s ease-in-out;
+        }}
+        @keyframes checkmark {{
+            0% {{ transform: scale(0); }}
+            50% {{ transform: scale(1.2); }}
+            100% {{ transform: scale(1); }}
+        }}
+        .success-icon svg {{
+            width: 50px;
+            height: 50px;
+            stroke: white;
+            stroke-width: 3;
+            fill: none;
+        }}
+        h1 {{
+            color: #1f2937;
+            margin: 20px 0;
+            font-size: 28px;
+        }}
+        p {{
+            color: #6b7280;
+            line-height: 1.6;
+            font-size: 16px;
+        }}
+        .info {{
+            background: #f3f4f6;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }}
+        .info-item {{
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+            color: #4b5563;
+        }}
+        .loading {{
+            display: inline-block;
+            margin-top: 20px;
+            font-size: 14px;
+            color: #6b7280;
+        }}
+    </style>
+</head>
+<body>
+    <div class=""container"">
+        <div class=""success-icon"">
+            <svg viewBox=""0 0 24 24"">
+                <path d=""M5 13l4 4L19 7"" stroke=""currentColor"" stroke-linecap=""round"" stroke-linejoin=""round"" fill=""none""/>
+            </svg>
+        </div>
+        <h1>Thanh toán thành công!</h1>
+        <div class=""info"">
+            <div class=""info-item"">
+                <span>Mã giao dịch:</span>
+                <strong>{vnp_TxnRef}</strong>
+            </div>
+            <div class=""info-item"">
+                <span>Mã VNPay:</span>
+                <strong>{vnp_TransactionNo}</strong>
+            </div>
+            <div class=""info-item"">
+                <span>Ngân hàng:</span>
+                <strong>{vnp_BankCode}</strong>
+            </div>
+        </div>
+        <p>Đang chuyển về trang chủ...</p>
+        <div class=""loading"">Vui lòng đợi trong giây lát ⏳</div>
+    </div>
+    <script>
+        console.log('Success page loaded');
+        console.log('Has opener?', !!window.opener);
+        
+        // ✅ Save payment success to localStorage as backup
+        try {{
+            const paymentData = {{
+                timestamp: Date.now(),
+                paymentId: '{vnp_TxnRef}',
+                amount: '{vnp_Amount}',
+                transactionNo: '{vnp_TransactionNo}',
+                paymentType: '{paymentType}',
+                processed: false
+            }};
+            localStorage.setItem('evtb_payment_success', JSON.stringify(paymentData));
+            console.log('Payment data saved to localStorage');
+        }} catch (e) {{
+            console.error('Could not save to localStorage:', e);
+        }}
+        
+        // Send postMessage to opener window
+        try {{
+            if (window.opener && !window.opener.closed) {{
+                console.log('Sending postMessage to opener...');
+                window.opener.postMessage({{
+                    type: 'EVTB_PAYMENT_SUCCESS',
+                    payload: {{
+                        paymentId: '{vnp_TxnRef}',
+                        amount: '{vnp_Amount}',
+                        transactionNo: '{vnp_TransactionNo}',
+                        paymentType: '{paymentType}'
+                    }}
+                }}, '*');
+                console.log('postMessage sent successfully');
+                
+                // Redirect opener to homepage with success query for UI toast
+                try {{
+                    console.log('Redirecting opener to:', '{successPageUrl}');
+                    if (window.opener && !window.opener.closed) {{
+                        window.opener.location.replace('{successPageUrl}');
+                        console.log('Redirect command sent via location.replace');
+                    }}
+                }} catch (redirectError) {{
+                    console.error('Could not redirect opener:', redirectError);
+                    // Fallback: try opener redirect
+                    try {{
+                        if (window.opener) window.opener.postMessage({{type: 'EVTB_REDIRECT', url: '{successPageUrl}'}}, '*');
+                    }} catch(e) {{}}
+                }}
+            }} else {{
+                console.log('No opener or opener closed');
+            }}
+        }} catch (e) {{
+            console.error('Could not send postMessage:', e);
+        }}
+        
+        // Attempt to close this window after a delay
+        setTimeout(function() {{
+            console.log('Attempting to close window...');
+            window.close();
+            console.log('Close command sent');
+        }}, 1500);
+    </script>
+</body>
+</html>";
 
-                _logger.LogInformation($"Redirecting to: {redirectUrl}");
-                return Redirect(redirectUrl);
+                _logger.LogInformation($"Returning success page for payment {vnp_TxnRef}");
+                return Content(html, "text/html");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error processing VNPay callback");
-                // Still redirect to frontend with error
-                var frontendUrl = _configuration["FrontendUrl"] ?? "http://localhost:5173";
-                var errorUrl = $"{frontendUrl}/?payment_error=true&payment_id={vnp_TxnRef}";
-                return Redirect(errorUrl);
+                
+                // Return error page HTML
+                var html = $@"
+<!DOCTYPE html>
+<html lang=""vi"">
+<head>
+    <meta charset=""UTF-8"">
+    <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
+    <title>Lỗi thanh toán</title>
+    <style>
+        body {{
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }}
+        .container {{
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+            max-width: 500px;
+            animation: slideIn 0.5s ease-out;
+        }}
+        @keyframes slideIn {{
+            from {{ transform: translateY(-50px); opacity: 0; }}
+            to {{ transform: translateY(0); opacity: 1; }}
+        }}
+        .error-icon {{
+            width: 80px;
+            height: 80px;
+            background: #ef4444;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+        }}
+        .error-icon svg {{
+            width: 50px;
+            height: 50px;
+            stroke: white;
+            stroke-width: 3;
+        }}
+        h1 {{
+            color: #1f2937;
+            margin: 20px 0;
+            font-size: 28px;
+        }}
+        p {{
+            color: #6b7280;
+            line-height: 1.6;
+            font-size: 16px;
+        }}
+    </style>
+</head>
+<body>
+    <div class=""container"">
+        <div class=""error-icon"">
+            <svg viewBox=""0 0 24 24"">
+                <path d=""M18 6L6 18M6 6l12 12"" stroke=""currentColor"" stroke-width=""3""/>
+            </svg>
+        </div>
+        <h1>Lỗi xử lý thanh toán</h1>
+        <p>Đã xảy ra lỗi khi xử lý giao dịch của bạn. Vui lòng thử lại.</p>
+        <p style=""margin-top: 20px; font-size: 14px; color: #9ca3af;"">Đang đóng cửa sổ...</p>
+    </div>
+    <script>
+        setTimeout(function() {{
+            window.close();
+        }}, 2000);
+    </script>
+</body>
+</html>";
+                
+                return Content(html, "text/html");
             }
         }
 

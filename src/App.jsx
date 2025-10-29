@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -130,6 +131,76 @@ const ProtectedRoute = ({ children, adminOnly = false, userOnly = false }) => {
 
 const AppContent = () => {
   const { loading } = useAuth();
+
+  // ✅ Global message listener for payment redirect - works from ANY page
+  useEffect(() => {
+    const handleGlobalMessage = (event) => {
+      try {
+        const data = event.data || {};
+        console.log('[App] Received global message:', data);
+        
+        // Filter out messages from browser extensions
+        if (data.posdMessageId || data.type === 'VIDEO_XHR_CANDIDATE' || data.from === 'detector') {
+          return;
+        }
+        
+        // Handle payment success message
+        // ✅ Check for different message formats from backend
+        if (data.status === 'success' && data.paymentId) {
+          console.log('[App] Payment success received, redirecting to homepage');
+          const { paymentId, amount, type } = data;
+          const frontendUrl = window.location.origin;
+          
+          // ✅ Get amount from localStorage if not in message
+          let amountValue = amount;
+          if (!amountValue) {
+            try {
+              const storageData = localStorage.getItem('evtb_payment_success');
+              if (storageData) {
+                const parsed = JSON.parse(storageData);
+                amountValue = parsed.amount;
+              }
+            } catch (e) {
+              console.error('Could not read from localStorage:', e);
+            }
+          }
+          
+          // Use default amount if still not provided
+          // ✅ Make sure amount is in VNPay format (cents, string)
+          amountValue = amountValue || '5000000'; // Default 50,000 VND in cents
+          
+          console.log('[App] Using amount:', amountValue);
+          const redirectUrl = `${frontendUrl}/?payment_success=true&payment_id=${paymentId}&amount=${amountValue}&transaction_no=&payment_type=${type || 'Deposit'}`;
+          
+          console.log('[App] Redirecting to:', redirectUrl);
+          // Redirect immediately
+          window.location.replace(redirectUrl);
+        }
+        
+        // ✅ Also check for EVTB_PAYMENT_SUCCESS format (for backward compatibility)
+        if (data.type === 'EVTB_PAYMENT_SUCCESS' && data.payload) {
+          console.log('[App] Payment success received (alternative format), redirecting to homepage');
+          const { paymentId, amount, transactionNo } = data.payload;
+          const frontendUrl = window.location.origin;
+          const redirectUrl = `${frontendUrl}/?payment_success=true&payment_id=${paymentId}&amount=${amount}&transaction_no=${transactionNo}`;
+          
+          // Redirect immediately
+          window.location.replace(redirectUrl);
+        }
+        
+        // Handle redirect message
+        if (data.type === 'EVTB_REDIRECT' && data.url) {
+          console.log('[App] Global redirect message received, redirecting to:', data.url);
+          window.location.replace(data.url);
+        }
+      } catch (error) {
+        console.error('[App] Error in global message handler:', error);
+      }
+    };
+    
+    window.addEventListener('message', handleGlobalMessage);
+    return () => window.removeEventListener('message', handleGlobalMessage);
+  }, []);
 
   // show loading spinner while checking auth
   if (loading) {

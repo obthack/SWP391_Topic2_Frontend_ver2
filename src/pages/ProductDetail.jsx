@@ -100,6 +100,71 @@ export const ProductDetail = () => {
     }
   }, [id]);
 
+  // ✅ Listen for payment success and redirect to homepage
+  useEffect(() => {
+    const handlePaymentSuccess = (event) => {
+      try {
+        const data = event.data || {};
+        
+        // Filter out extension messages
+        if (data.posdMessageId || data.type === 'VIDEO_XHR_CANDIDATE' || data.from === 'detector') {
+          return;
+        }
+        
+        if (data.type === 'EVTB_PAYMENT_SUCCESS' && data.payload) {
+          console.log('[ProductDetail] Payment success received, redirecting to homepage');
+          
+          const { paymentId, amount, paymentType } = data.payload;
+          const frontendUrl = window.location.origin;
+          const redirectUrl = `${frontendUrl}/?payment_success=true&payment_id=${paymentId}&amount=${amount}&transaction_no=${data.payload.transactionNo}`;
+          
+          // Redirect to homepage
+          window.location.replace(redirectUrl);
+        }
+        
+        // Also handle redirect message
+        if (data.type === 'EVTB_REDIRECT' && data.url) {
+          console.log('[ProductDetail] Redirect message received, going to:', data.url);
+          window.location.replace(data.url);
+        }
+      } catch (error) {
+        console.error('[ProductDetail] Error handling payment message:', error);
+      }
+    };
+    
+    // Also check localStorage periodically
+    const checkLocalStorage = () => {
+      try {
+        const paymentDataStr = localStorage.getItem('evtb_payment_success');
+        if (paymentDataStr) {
+          const paymentData = JSON.parse(paymentDataStr);
+          const isRecent = (Date.now() - paymentData.timestamp) < 10000;
+          
+          if (isRecent && !paymentData.processed) {
+            console.log('[ProductDetail] Found recent payment in localStorage, redirecting...');
+            const frontendUrl = window.location.origin;
+            const redirectUrl = `${frontendUrl}/?payment_success=true&payment_id=${paymentData.paymentId}&amount=${paymentData.amount}&transaction_no=${paymentData.transactionNo}`;
+            window.location.replace(redirectUrl);
+          }
+        }
+      } catch (error) {
+        console.error('[ProductDetail] Error checking localStorage:', error);
+      }
+    };
+    
+    window.addEventListener('message', handlePaymentSuccess);
+    
+    // Check localStorage every 500ms for first 10 seconds
+    const interval = setInterval(checkLocalStorage, 500);
+    const timeout = setTimeout(() => clearInterval(interval), 10000);
+    
+    return () => {
+      window.removeEventListener('message', handlePaymentSuccess);
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, [navigate]);
+
   const loadProduct = async () => {
     try {
       setLoading(true);
@@ -563,8 +628,16 @@ export const ProductDetail = () => {
         type: "success",
       });
 
-      // Redirect to VNPay
-      window.location.href = res.paymentUrl;
+      // Redirect to VNPay in a new tab so the return page can self-close
+      // ✅ REMOVE noopener to allow window.opener to work
+      const paymentWindow = window.open(
+        res.paymentUrl,
+        "_blank"
+      );
+      // Try focusing the new tab (may be blocked by browser policies)
+      if (paymentWindow && typeof paymentWindow.focus === "function") {
+        paymentWindow.focus();
+      }
     } catch (err) {
       console.error("[VNPay] createPayment error:", err);
 

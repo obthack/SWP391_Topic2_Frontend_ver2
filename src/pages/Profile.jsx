@@ -139,7 +139,16 @@ export const Profile = () => {
           const response = await apiRequest(`/api/Review/reviewee/${userId}`);
           console.log('🔍 Reviews response:', response);
           const reviewsArray = Array.isArray(response) ? response : (response.reviews || []);
-          setReviews(reviewsArray);
+          
+          // ✅ Sort reviews by date (newest first)
+          const sortedReviews = reviewsArray.sort((a, b) => {
+            const dateA = new Date(a.createdDate || a.createdAt || a.created_at || 0);
+            const dateB = new Date(b.createdDate || b.createdAt || b.created_at || 0);
+            return dateB - dateA; // Descending order (newest first)
+          });
+          
+          console.log('🔍 Sorted reviews (newest first):', sortedReviews);
+          setReviews(sortedReviews);
         } catch (revieweeError) {
           console.log('🔍 Reviewee endpoint failed, trying all reviews:', revieweeError);
           // Fallback: lấy tất cả review và filter
@@ -148,7 +157,15 @@ export const Profile = () => {
           const userReviews = Array.isArray(allReviews) 
             ? allReviews.filter(review => review.revieweeId === userId)
             : [];
-          setReviews(userReviews);
+          
+          // ✅ Sort reviews by date (newest first)
+          const sortedReviews = userReviews.sort((a, b) => {
+            const dateA = new Date(a.createdDate || a.createdAt || a.created_at || 0);
+            const dateB = new Date(b.createdDate || b.createdAt || b.created_at || 0);
+            return dateB - dateA; // Descending order (newest first)
+          });
+          
+          setReviews(sortedReviews);
         }
       }
     } catch (error) {
