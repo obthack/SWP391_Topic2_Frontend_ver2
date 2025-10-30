@@ -37,12 +37,14 @@ export const Header = () => {
           </Link>
 
           <nav className="hidden md:flex items-center space-x-8">
-            <Link
-              to="/"
-              className="text-gray-700 hover:text-blue-600 transition-colors"
-            >
-              Trang chủ
-            </Link>
+            {!isAdmin && (
+              <Link
+                to="/"
+                className="text-gray-700 hover:text-blue-600 transition-colors"
+              >
+                Trang chủ
+              </Link>
+            )}
             {isAdmin ? (
               <Link
                 to="/admin"
@@ -109,7 +111,7 @@ export const Header = () => {
                         className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       >
                         <LayoutDashboard className="h-4 w-4 mr-2" />
-                        Admin Dashboard
+                        Bảng điều khiển quản trị
                       </Link>
                     )}
                     {!isAdmin && (

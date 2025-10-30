@@ -1635,7 +1635,7 @@ export const AdminDashboard = () => {
             </div>
             <div>
               <h1 className="text-xl font-bold text-gray-900">EV Market</h1>
-              <p className="text-sm text-gray-500">Admin Portal</p>
+              <p className="text-sm text-gray-500">Cổng quản trị</p>
             </div>
           </div>
         </div>
@@ -1647,15 +1647,15 @@ export const AdminDashboard = () => {
               <span className="text-white font-semibold text-lg">A</span>
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900">Admin User</h3>
-              <p className="text-sm text-gray-500">Super Administrator</p>
+              <h3 className="font-semibold text-gray-900">Quản trị viên</h3>
+              <p className="text-sm text-gray-500">Quản trị cấp cao</p>
             </div>
           </div>
           <div className="mt-3 flex items-center justify-between">
             <div className="flex-1 bg-gray-200 rounded-full h-2">
               <div className="bg-green-500 h-2 rounded-full" style={{ width: '95%' }}></div>
             </div>
-            <span className="text-xs text-gray-500 ml-2">95% uptime</span>
+            <span className="text-xs text-gray-500 ml-2">95% thời gian hoạt động</span>
           </div>
         </div>
 
@@ -1671,7 +1671,7 @@ export const AdminDashboard = () => {
               onClick={() => setActiveTab("dashboard")}
             >
               <BarChart3 className="h-5 w-5" />
-              <span className="font-medium">Dashboard</span>
+              <span className="font-medium">Bảng điều khiển</span>
             </div>
             <div 
               className={`flex items-center space-x-3 p-3 rounded-lg cursor-pointer transition-colors ${
@@ -1682,7 +1682,7 @@ export const AdminDashboard = () => {
               onClick={() => setActiveTab("vehicles")}
             >
               <Car className="h-5 w-5" />
-              <span>Vehicle Management</span>
+              <span>Quản lý phương tiện</span>
             </div>
             <div 
               className={`flex items-center space-x-3 p-3 rounded-lg cursor-pointer transition-colors ${
@@ -1693,7 +1693,7 @@ export const AdminDashboard = () => {
               onClick={() => setActiveTab("batteries")}
             >
               <Shield className="h-5 w-5" />
-              <span>Battery Management</span>
+              <span>Quản lý pin</span>
             </div>
             <div 
               className={`flex items-center space-x-3 p-3 rounded-lg cursor-pointer transition-colors ${
@@ -1704,7 +1704,7 @@ export const AdminDashboard = () => {
               onClick={() => setActiveTab("transactions")}
             >
               <DollarSign className="h-5 w-5" />
-              <span>Transaction Management</span>
+              <span>Quản lý giao dịch</span>
             </div>
             <div 
               className={`flex items-center space-x-3 p-3 rounded-lg cursor-pointer transition-colors ${
@@ -1719,7 +1719,7 @@ export const AdminDashboard = () => {
             </div>
             <div className="flex items-center space-x-3 p-3 text-gray-600 hover:bg-gray-50 rounded-lg cursor-pointer">
               <Users className="h-5 w-5" />
-              <span>User Management</span>
+              <span>Quản lý người dùng</span>
             </div>
           </div>
         </nav>
@@ -1732,8 +1732,8 @@ export const AdminDashboard = () => {
                 <span className="text-yellow-600 text-sm">💡</span>
               </div>
               <div>
-                <p className="text-sm text-yellow-800 font-medium">Tips</p>
-                <p className="text-xs text-yellow-700">Quick responses can help improve customer satisfaction.</p>
+                <p className="text-sm text-yellow-800 font-medium">Mẹo</p>
+                <p className="text-xs text-yellow-700">Phản hồi nhanh giúp tăng mức độ hài lòng của khách hàng.</p>
               </div>
             </div>
           </div>
@@ -1747,17 +1747,17 @@ export const AdminDashboard = () => {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                {activeTab === "dashboard" && "Administration Dashboard"}
-                {activeTab === "vehicles" && "Vehicle Management"}
-                {activeTab === "batteries" && "Battery Management"}
-                {activeTab === "transactions" && "Transaction Management"}
+                {activeTab === "dashboard" && "Bảng điều khiển quản trị"}
+                {activeTab === "vehicles" && "Quản lý phương tiện"}
+                {activeTab === "batteries" && "Quản lý pin"}
+                {activeTab === "transactions" && "Quản lý giao dịch"}
                 {activeTab === "reports" && "Báo cáo vi phạm"}
               </h1>
               <p className="text-gray-600">
-                {activeTab === "dashboard" && "EV Market system overview • Realtime update"}
-                {activeTab === "vehicles" && "Manage all vehicle listings and approvals"}
-                {activeTab === "batteries" && "Manage all battery listings and approvals"}
-                {activeTab === "transactions" && "Manage completed transactions and seller confirmations"}
+                {activeTab === "dashboard" && "Tổng quan hệ thống EV Market • Cập nhật theo thời gian thực"}
+                {activeTab === "vehicles" && "Quản lý bài đăng xe và phê duyệt"}
+                {activeTab === "batteries" && "Quản lý bài đăng pin và phê duyệt"}
+                {activeTab === "transactions" && "Quản lý giao dịch hoàn tất và xác nhận từ người bán"}
                 {activeTab === "reports" && "Xem xét và xử lý các báo cáo vi phạm từ người dùng"}
               </p>
             </div>
@@ -1893,19 +1893,16 @@ export const AdminDashboard = () => {
           <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-all duration-300">
             <div className="flex items-center justify-between">
               <div>
-                  <p className="text-gray-500 text-sm font-medium">TOTAL VALUE</p>
+                  <p className="text-gray-500 text-sm font-medium">TỔNG GIÁ TRỊ</p>
                 <p className="text-3xl font-bold text-gray-900 mt-2">
                     {formatPrice(stats.totalRevenue)}
                 </p>
-                  <p className="text-xs text-gray-600 mt-1">Approved Products</p>
-              </div>
-                <div className="bg-gray-100 p-4 rounded-xl">
-                  <DollarSign className="h-8 w-8 text-gray-600" />
+                  <p className="text-xs text-gray-600 mt-1">Sản phẩm đã duyệt</p>
               </div>
             </div>
               <div className="mt-4 space-y-1">
-                <p className="text-xs text-gray-500">This Year: {formatPrice(stats.thisYearRevenue)}</p>
-                <p className="text-xs text-gray-500">This Month: {formatPrice(stats.thisMonthRevenue)}</p>
+                <p className="text-xs text-gray-500">Năm nay: {formatPrice(stats.thisYearRevenue)}</p>
+                <p className="text-xs text-gray-500">Tháng này: {formatPrice(stats.thisMonthRevenue)}</p>
             </div>
           </div>
 
@@ -1913,19 +1910,19 @@ export const AdminDashboard = () => {
           <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-all duration-300">
             <div className="flex items-center justify-between">
               <div>
-                  <p className="text-gray-500 text-sm font-medium">TODAY'S VALUE</p>
+                  <p className="text-gray-500 text-sm font-medium">GIÁ TRỊ HÔM NAY</p>
                   <p className="text-3xl font-bold text-gray-900 mt-2">
                     {formatPrice(stats.todaysRevenue)}
                   </p>
-                  <p className="text-xs text-gray-600 mt-1">Approved Today</p>
+                  <p className="text-xs text-gray-600 mt-1">Đã duyệt hôm nay</p>
               </div>
                 <div className="bg-green-100 p-4 rounded-xl">
                   <TrendingUp className="h-8 w-8 text-green-600" />
               </div>
             </div>
               <div className="mt-4 space-y-1">
-                <p className="text-xs text-gray-500">Average/Month: {formatPrice(stats.thisYearRevenue / 12)}</p>
-                <p className="text-xs text-gray-500">Products Approved: {stats.approvedListings}</p>
+                <p className="text-xs text-gray-500">Trung bình/Tháng: {formatPrice(stats.thisYearRevenue / 12)}</p>
+                <p className="text-xs text-gray-500">Sản phẩm đã duyệt: {stats.approvedListings}</p>
             </div>
           </div>
 
@@ -1933,19 +1930,19 @@ export const AdminDashboard = () => {
           <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-all duration-300">
             <div className="flex items-center justify-between">
               <div>
-                  <p className="text-gray-500 text-sm font-medium">TOTAL ORDERS</p>
+                  <p className="text-gray-500 text-sm font-medium">TỔNG ĐƠN HÀNG</p>
                   <p className="text-3xl font-bold text-gray-900 mt-2">
                     {stats.totalOrders}
                   </p>
-                  <p className="text-xs text-gray-600 mt-1">All Time</p>
+                  <p className="text-xs text-gray-600 mt-1">Tổng cộng</p>
               </div>
                 <div className="bg-blue-100 p-4 rounded-xl">
                   <Package className="h-8 w-8 text-blue-600" />
               </div>
             </div>
               <div className="mt-4 space-y-1">
-                <p className="text-xs text-gray-500">Completed: {stats.completedOrders}</p>
-                <p className="text-xs text-gray-500">Active: {stats.activeOrders}</p>
+                <p className="text-xs text-gray-500">Hoàn tất: {stats.completedOrders}</p>
+                <p className="text-xs text-gray-500">Đang hoạt động: {stats.activeOrders}</p>
             </div>
           </div>
 
@@ -1953,19 +1950,19 @@ export const AdminDashboard = () => {
           <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-all duration-300">
             <div className="flex items-center justify-between">
               <div>
-                  <p className="text-gray-500 text-sm font-medium">AVERAGE VALUE/PRODUCT</p>
+                  <p className="text-gray-500 text-sm font-medium">GIÁ TRỊ TB/MỖI SẢN PHẨM</p>
                 <p className="text-3xl font-bold text-gray-900 mt-2">
                     {formatPrice(stats.averageOrderValue)}
                 </p>
-                  <p className="text-xs text-gray-600 mt-1">Per Product</p>
+                  <p className="text-xs text-gray-600 mt-1">Mỗi sản phẩm</p>
               </div>
                 <div className="bg-blue-100 p-4 rounded-xl">
                   <Activity className="h-8 w-8 text-blue-600" />
               </div>
             </div>
               <div className="mt-4 space-y-1">
-                <p className="text-xs text-gray-500">Highest: {formatPrice(stats.averageOrderValue * 1.5)}</p>
-                <p className="text-xs text-gray-500">Lowest: {formatPrice(stats.averageOrderValue * 0.5)}</p>
+                <p className="text-xs text-gray-500">Cao nhất: {formatPrice(stats.averageOrderValue * 1.5)}</p>
+                <p className="text-xs text-gray-500">Thấp nhất: {formatPrice(stats.averageOrderValue * 0.5)}</p>
           </div>
         </div>
           </div>
@@ -1978,19 +1975,19 @@ export const AdminDashboard = () => {
             <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-all duration-300">
             <div className="flex items-center justify-between">
               <div>
-                  <p className="text-gray-500 text-sm font-medium">COMPLETED ORDERS</p>
+                  <p className="text-gray-500 text-sm font-medium">ĐƠN HÀNG HOÀN TẤT</p>
                   <p className="text-3xl font-bold text-gray-900 mt-2">
                     {stats.completedOrders}
                   </p>
-                  <p className="text-xs text-gray-600 mt-1">{stats.completionRate.toFixed(1)}% Completion Rate</p>
+                  <p className="text-xs text-gray-600 mt-1">Tỉ lệ hoàn tất {stats.completionRate.toFixed(1)}%</p>
               </div>
                 <div className="bg-green-100 p-4 rounded-xl">
                   <CheckCircle className="h-8 w-8 text-green-600" />
                 </div>
               </div>
               <div className="mt-4 space-y-1">
-                <p className="text-xs text-gray-500">Active Orders: {stats.activeOrders}</p>
-                <p className="text-xs text-gray-500">Total Value: {formatPrice(stats.totalRevenue)}</p>
+                <p className="text-xs text-gray-500">Đơn đang hoạt động: {stats.activeOrders}</p>
+                <p className="text-xs text-gray-500">Tổng giá trị: {formatPrice(stats.totalRevenue)}</p>
             </div>
           </div>
 
@@ -1998,19 +1995,19 @@ export const AdminDashboard = () => {
             <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-all duration-300">
             <div className="flex items-center justify-between">
               <div>
-                  <p className="text-gray-500 text-sm font-medium">THIS MONTH</p>
+                  <p className="text-gray-500 text-sm font-medium">THÁNG NÀY</p>
                   <p className="text-3xl font-bold text-gray-900 mt-2">
                     {formatPrice(stats.thisMonthRevenue)}
                 </p>
-                  <p className="text-xs text-gray-600 mt-1">Month {new Date().getMonth() + 1}/{new Date().getFullYear()}</p>
+                  <p className="text-xs text-gray-600 mt-1">Tháng {new Date().getMonth() + 1}/{new Date().getFullYear()}</p>
               </div>
                 <div className="bg-purple-100 p-4 rounded-xl">
                   <Calendar className="h-8 w-8 text-purple-600" />
                 </div>
               </div>
               <div className="mt-4 space-y-1">
-                <p className="text-xs text-gray-500">Average/Day: {formatPrice(stats.thisMonthRevenue / new Date().getDate())}</p>
-                <p className="text-xs text-gray-500">Total Orders: {stats.totalOrders}</p>
+                <p className="text-xs text-gray-500">Trung bình/Ngày: {formatPrice(stats.thisMonthRevenue / new Date().getDate())}</p>
+                <p className="text-xs text-gray-500">Tổng đơn hàng: {stats.totalOrders}</p>
             </div>
           </div>
 
@@ -2018,19 +2015,19 @@ export const AdminDashboard = () => {
             <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-all duration-300">
             <div className="flex items-center justify-between">
               <div>
-                  <p className="text-gray-500 text-sm font-medium">VEHICLES & BATTERIES</p>
+                  <p className="text-gray-500 text-sm font-medium">XE & PIN</p>
                   <p className="text-2xl font-bold text-gray-900 mt-2">
                     {stats.totalVehicles + stats.totalBatteries}
                   </p>
-                  <p className="text-xs text-gray-600 mt-1">Total Products</p>
+                  <p className="text-xs text-gray-600 mt-1">Tổng sản phẩm</p>
               </div>
                 <div className="bg-orange-100 p-4 rounded-xl">
                   <Car className="h-8 w-8 text-orange-600" />
             </div>
           </div>
               <div className="mt-4 space-y-1">
-                <p className="text-xs text-gray-500">Vehicles: {stats.totalVehicles}</p>
-                <p className="text-xs text-gray-500">Batteries: {stats.totalBatteries}</p>
+                <p className="text-xs text-gray-500">Xe: {stats.totalVehicles}</p>
+                <p className="text-xs text-gray-500">Pin: {stats.totalBatteries}</p>
         </div>
             </div>
           </div>
@@ -2043,19 +2040,19 @@ export const AdminDashboard = () => {
             <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-all duration-300">
             <div className="flex items-center justify-between">
               <div>
-                  <p className="text-gray-500 text-sm font-medium">PENDING INSPECTIONS</p>
+                  <p className="text-gray-500 text-sm font-medium">KIỂM ĐỊNH ĐANG CHỜ</p>
                   <p className="text-3xl font-bold text-gray-900 mt-2">
                     {allListings.filter(l => l.verificationStatus === "Requested").length}
                 </p>
-                  <p className="text-xs text-gray-600 mt-1">Awaiting Admin Action</p>
+                  <p className="text-xs text-gray-600 mt-1">Chờ quản trị viên xử lý</p>
               </div>
                 <div className="bg-yellow-100 p-4 rounded-xl">
                   <Camera className="h-8 w-8 text-yellow-600" />
                 </div>
               </div>
               <div className="mt-4 space-y-1">
-                <p className="text-xs text-gray-500">In Progress: {allListings.filter(l => l.verificationStatus === "InProgress").length}</p>
-                <p className="text-xs text-gray-500">Completed: {allListings.filter(l => l.verificationStatus === "Verified").length}</p>
+                <p className="text-xs text-gray-500">Đang thực hiện: {allListings.filter(l => l.verificationStatus === "InProgress").length}</p>
+                <p className="text-xs text-gray-500">Đã hoàn thành: {allListings.filter(l => l.verificationStatus === "Verified").length}</p>
             </div>
           </div>
 
@@ -2063,19 +2060,19 @@ export const AdminDashboard = () => {
             <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-all duration-300">
             <div className="flex items-center justify-between">
               <div>
-                  <p className="text-gray-500 text-sm font-medium">RECENT NOTIFICATIONS</p>
+                  <p className="text-gray-500 text-sm font-medium">THÔNG BÁO GẦN ĐÂY</p>
                   <p className="text-3xl font-bold text-gray-900 mt-2">
                     {unreadNotificationCount}
                   </p>
-                  <p className="text-xs text-gray-600 mt-1">Unread Messages</p>
+                  <p className="text-xs text-gray-600 mt-1">Tin chưa đọc</p>
               </div>
                 <div className="bg-blue-100 p-4 rounded-xl">
                   <Bell className="h-8 w-8 text-blue-600" />
             </div>
           </div>
               <div className="mt-4 space-y-1">
-                <p className="text-xs text-gray-500">Total: {notifications.length}</p>
-                <p className="text-xs text-gray-500">Verification: {notifications.filter(n => n.notificationType === 'verification_payment_success').length}</p>
+                <p className="text-xs text-gray-500">Tổng: {notifications.length}</p>
+                <p className="text-xs text-gray-500">Kiểm định: {notifications.filter(n => n.notificationType === 'verification_payment_success').length}</p>
         </div>
           </div>
         </div>
