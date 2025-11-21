@@ -1749,10 +1749,17 @@ export const AdminDashboard = () => {
       let allVerificationPayments = [];
       try {
         const payments = await apiRequest('/api/Payment');
+        console.log('🔍 All payments from API:', payments);
+        console.log('🔍 Sample payment structure:', payments[0]);
+        
         allVerificationPayments = payments.filter(p => 
           (p.paymentType || p.PaymentType || '').toLowerCase() === 'verification' &&
           (p.status || p.Status || '').toLowerCase() === 'completed'
         );
+        
+        console.log('✅ Filtered verification payments:', allVerificationPayments);
+        console.log('✅ Verification payments count:', allVerificationPayments.length);
+        console.log('✅ Total verification revenue:', allVerificationPayments.reduce((sum, p) => sum + parseFloat(p.amount || p.Amount || 0), 0));
       } catch (error) {
         console.error('Failed to fetch verification payments:', error);
       }
@@ -1769,6 +1776,14 @@ export const AdminDashboard = () => {
 
       // ✅ Total revenue = deposit + verification
       const totalRevenue = depositRevenue + verificationRevenue;
+      
+      console.log('💰 Revenue breakdown:', {
+        depositRevenue,
+        verificationRevenue,
+        totalRevenue,
+        completedOrdersCount: completedOrdersList.length,
+        verificationPaymentsCount: allVerificationPayments.length
+      });
 
       // ✅ FIX: Calculate revenue by date from completed orders
       const today = new Date();
